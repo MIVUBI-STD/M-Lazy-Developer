@@ -927,6 +927,18 @@ export function formatSelectedMapAuditBrief(input: {
           .slice(0, 3).map(concise).join("; ")
         : "  Source locator: unresolved",
       "  Still unknown: " + reading.missingUnderstanding.join(", "),
+      ...(reading.sourceJoinGap === undefined ? [] : [
+        "  Unverified source join via " +
+          concise(reading.sourceJoinGap.viaSubjectId) + ": " +
+          concise(reading.sourceJoinGap.previousRelationId) + " → " +
+          concise(reading.sourceJoinGap.nextRelationId) + ".",
+        "  Source groups: " +
+          reading.sourceJoinGap.previousSourceLocators.slice(0, 2)
+            .map(concise).join("; ") + " / " +
+          reading.sourceJoinGap.nextSourceLocators.slice(0, 2)
+            .map(concise).join("; ") +
+          ". Missing shared exact IR flow or same-source witness.",
+      ]),
     );
   }
   if (journeys.length > 5) {

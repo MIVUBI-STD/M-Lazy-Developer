@@ -220,6 +220,18 @@ export interface GameplayJourneyInterpretation {
       | "RESET_OR_RECOVERY_CANDIDATE";
     readonly sourceEvidenceIds: readonly string[];
   }[];
+  /**
+   * One abandoned cross-source join at the segment end. Source adjacency
+   * without a shared exact IR flow is not a player transition/dataflow.
+   */
+  readonly sourceJoinGap?: {
+    readonly viaSubjectId: string;
+    readonly previousRelationId: string;
+    readonly nextRelationId: string;
+    readonly previousSourceLocators: readonly string[];
+    readonly nextSourceLocators: readonly string[];
+    readonly missingProof: "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS";
+  };
   readonly sourceOutcome:
     | "WIN_RELATION_CANDIDATE"
     | "LOSE_RELATION_CANDIDATE"
@@ -230,6 +242,7 @@ export interface GameplayJourneyInterpretation {
     | "PLAYER_GOAL_NOT_INDEPENDENTLY_GROUNDED"
     | "OUTCOME_RULE_UNRESOLVED"
     | "EXACT_SOURCE_EFFECT_PATH_MISSING"
+    | "CROSS_SOURCE_JOIN_UNPROVEN"
     | "SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER"
     | "MODE_ARENA_ROLE_SCOPE_UNRESOLVED"
     | "RUNTIME_NOT_OBSERVED"
@@ -248,7 +261,8 @@ export interface GameplayJourneyCandidate {
   readonly meaningStatus: "SOURCE_AUTHORED" | "SOURCE_INFERRED";
   /** Optional for older readers/fixtures; canonical production emits it. */
   readonly interpretation?: GameplayJourneyInterpretation;
-  readonly boundary: "OUTCOME_SUBJECT" | "SOURCE_SINK" | "CYCLE" | "DEPTH_LIMIT";
+  readonly boundary: "OUTCOME_SUBJECT" | "SOURCE_SINK" | "CYCLE" |
+    "DEPTH_LIMIT" | "SOURCE_JOIN_UNPROVEN";
   readonly runtimeStatus: "NOT_OBSERVED";
 }
 

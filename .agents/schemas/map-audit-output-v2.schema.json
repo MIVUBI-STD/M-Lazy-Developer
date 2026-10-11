@@ -4570,7 +4570,8 @@
                   "OUTCOME_SUBJECT",
                   "SOURCE_SINK",
                   "CYCLE",
-                  "DEPTH_LIMIT"
+                  "DEPTH_LIMIT",
+                  "SOURCE_JOIN_UNPROVEN"
                 ]
               },
               "runtimeStatus": {
@@ -4741,8 +4742,48 @@
                         "EXACT_SOURCE_EFFECT_PATH_MISSING",
                         "SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER",
                         "MODE_ARENA_ROLE_SCOPE_UNRESOLVED",
-                        "RUNTIME_NOT_OBSERVED"
+                        "RUNTIME_NOT_OBSERVED",
+                        "CROSS_SOURCE_JOIN_UNPROVEN"
                       ]
+                    }
+                  },
+                  "sourceJoinGap": {
+                    "type": "object",
+                    "description": "A blocked source-only join: independently evidenced relations at one subject have no verified same-source or shared exact IR flow bridge. No gameplay or dataflow proof.",
+                    "additionalProperties": false,
+                    "required": [
+                      "viaSubjectId",
+                      "previousRelationId",
+                      "nextRelationId",
+                      "previousSourceLocators",
+                      "nextSourceLocators",
+                      "missingProof"
+                    ],
+                    "properties": {
+                      "viaSubjectId": {
+                        "type": "string"
+                      },
+                      "previousRelationId": {
+                        "type": "string"
+                      },
+                      "nextRelationId": {
+                        "type": "string"
+                      },
+                      "previousSourceLocators": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "nextSourceLocators": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "missingProof": {
+                        "const": "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS"
+                      }
                     }
                   }
                 }

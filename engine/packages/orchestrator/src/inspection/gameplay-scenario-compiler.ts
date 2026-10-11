@@ -2331,6 +2331,7 @@ export function reconstructAuthoredJourneyCandidates(
   reconstructions: readonly GameplayMechanicReconstruction[],
   maxPaths = 128,
   maxDepth = 12,
+  sourceFlows: readonly GameplaySourceFlowCandidate[] = [],
 ): { candidates: readonly GameplayJourneyCandidate[]; truncated: boolean } {
   const source = new Map(intent.evidence
     .filter(evidence => evidence.scope === "selected-artifact")
@@ -2360,6 +2361,52 @@ export function reconstructAuthoredJourneyCandidates(
     nodes.has(edge.from) && nodes.has(edge.to) &&
     isCurrent(edge.evidenceIds))
     .sort((a, b) => a.id.localeCompare(b.id));
+
+  // Two individually source-backed relations can touch the SAME technical
+  // resource/state node without proving a data handoff between their source
+  // modules. Never infer that cross-module join from the label or graph
+  // adjacency. A bounded EXACT IR source flow can preserve a candidate join,
+  // but it still does NOT prove runtime dataflow, causality or player order.
+  const sorted = (ids: readonly string[]) => [...new Set(ids)].sort();
+  const sourceLocators = (edge: typeof links[number]) => sorted(
+    edge.evidenceIds.flatMap(id => {
+      const path = source.get(id)?.locator.trim();
+      return path && path !== "unknown" && path !== "unresolved"
+        ? [path] : [];
+    }),
+  );
+  const usableSourceFlows = sourceFlows
+    .filter(flow => flow.sourceSteps.length > 0 &&
+      flow.executionEdgeIds.some(id =>
+        !flow.unresolvedExecutionEdgeIds.includes(id)) &&
+      (intent.artifactId === undefined ||
+        flow.sourceSteps.every(step =>
+          step.source.artifactId === intent.artifactId)))
+    .map(flow => ({
+      evidenceIds: new Set([
+        ...flow.executionEdgeIds.filter(id =>
+          !flow.unresolvedExecutionEdgeIds.includes(id)),
+        ...flow.sourceSteps.map(step => step.id),
+        ...flow.authoredBehaviorRelationIds,
+      ]),
+    }));
+  const canFollowAcrossSources = (
+    previous: typeof links[number], next: typeof links[number],
+  ): boolean => {
+    const nextIds = new Set(next.evidenceIds.filter(id => source.has(id)));
+    if (previous.evidenceIds.some(id => source.has(id) && nextIds.has(id)))
+      return true;
+    const nextLocators = new Set(sourceLocators(next));
+    if (sourceLocators(previous).some(path => nextLocators.has(path)))
+      return true;
+    // Same IR flow must carry an EXACT witness belonging to EACH edge;
+    // mere feature co-placement in a source flow is not a handoff.
+    return usableSourceFlows.some(flow =>
+      previous.evidenceIds.some(id => source.has(id) &&
+        flow.evidenceIds.has(id)) &&
+      next.evidenceIds.some(id => source.has(id) &&
+        flow.evidenceIds.has(id)));
+  };
   const outgoing = new Map<string, typeof links>();
   const incoming = new Set<string>();
   for (const edge of links) {
@@ -2388,11 +2435,12 @@ export function reconstructAuthoredJourneyCandidates(
     mark(id);
   }
 
-  const sorted = (ids: readonly string[]) => [...new Set(ids)].sort();
   type Boundary = GameplayJourneyCandidate["boundary"];
+  type SourceJoinGap =
+    NonNullable<GameplayJourneyInterpretation["sourceJoinGap"]>;
   type Walk = { ids: string[]; edges: typeof links };
   const describe = (
-    walk: Walk, boundary: Boundary,
+    walk: Walk, boundary: Boundary, joinGap?: SourceJoinGap,
   ): GameplayJourneyCandidate | undefined => {
     // A technical-only dependency chain is NOT a reconstructed game loop.
     if (walk.edges.length === 0 ||
@@ -2453,6 +2501,7 @@ export function reconstructAuthoredJourneyCandidates(
     }
     if (!(win || lose)) missing.push("OUTCOME_RULE_UNRESOLVED");
     if (flowIds.length === 0) missing.push("EXACT_SOURCE_EFFECT_PATH_MISSING");
+    if (joinGap !== undefined) missing.push("CROSS_SOURCE_JOIN_UNPROVEN");
     // A directed data/effect relationship never certifies play chronology.
     missing.push("SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER");
     missing.push("MODE_ARENA_ROLE_SCOPE_UNRESOLVED");
@@ -2460,7 +2509,9 @@ export function reconstructAuthoredJourneyCandidates(
 
     return {
       id: "authored-journey:" + walk.edges.map(edge =>
-        encodeURIComponent(edge.id)).join(":"),
+        encodeURIComponent(edge.id)).join(":") +
+        (joinGap === undefined ? ""
+          : ":unproven-join:" + encodeURIComponent(joinGap.nextRelationId)),
       subjectIds: [...walk.ids],
       relationIds: walk.edges.map(edge => edge.id),
       evidenceIds: relationEvidence,
@@ -2474,6 +2525,7 @@ export function reconstructAuthoredJourneyCandidates(
         scope: "MODE_ARENA_AND_ROLE_UNRESOLVED",
         steps,
         relationships,
+        ...(joinGap === undefined ? {} : { sourceJoinGap: joinGap }),
         sourceOutcome: win
           ? "WIN_RELATION_CANDIDATE" : lose
             ? "LOSE_RELATION_CANDIDATE" : terminal
@@ -2482,8 +2534,26 @@ export function reconstructAuthoredJourneyCandidates(
       },
     };
   };
-  const pending: Walk[] = roots.map(id => ({ ids: [id], edges: [] }));
+  const pending: Walk[] = [];
+  const queued = new Set<string>();
+  const enqueue = (walk: Walk): void => {
+    const key = walk.edges.length === 0
+      ? "root:" + walk.ids[0]
+      : walk.edges.map(edge => edge.id).join("\u0000");
+    if (queued.has(key)) return;
+    queued.add(key);
+    pending.push(walk);
+  };
+  for (const id of roots) enqueue({ ids: [id], edges: [] });
   const candidates: GameplayJourneyCandidate[] = [];
+  const acceptedIds = new Set<string>();
+  const append = (walk: Walk, boundary: Boundary,
+    joinGap?: SourceJoinGap): void => {
+    const candidate = describe(walk, boundary, joinGap);
+    if (!candidate || acceptedIds.has(candidate.id)) return;
+    acceptedIds.add(candidate.id);
+    candidates.push(candidate);
+  };
   let cursor = 0;
   let capacityReached = false;
   while (cursor < pending.length && candidates.length < maxPaths) {
@@ -2492,22 +2562,36 @@ export function reconstructAuthoredJourneyCandidates(
     const terminal = nodes.get(last)?.kind === "outcome";
     const next = outgoing.get(last) ?? [];
     if (terminal || next.length === 0 || walk.ids.length >= maxDepth) {
-      const candidate = describe(walk, terminal
+      append(walk, terminal
         ? "OUTCOME_SUBJECT" : next.length === 0
           ? "SOURCE_SINK" : "DEPTH_LIMIT");
-      if (candidate !== undefined) candidates.push(candidate);
       continue;
     }
     for (const edge of next) {
-      const nextWalk: Walk = {
-        ids: [...walk.ids, edge.to],
-        edges: [...walk.edges, edge],
-      };
-      if (walk.ids.includes(edge.to)) {
-        const candidate = describe(nextWalk, "CYCLE");
-        if (candidate !== undefined) candidates.push(candidate);
+      const previous = walk.edges[walk.edges.length - 1];
+      if (previous !== undefined &&
+          !canFollowAcrossSources(previous, edge)) {
+        append(walk, "SOURCE_JOIN_UNPROVEN", {
+          viaSubjectId: last,
+          previousRelationId: previous.id,
+          nextRelationId: edge.id,
+          previousSourceLocators: sourceLocators(previous),
+          nextSourceLocators: sourceLocators(edge),
+          missingProof: "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS",
+        });
+        // Preserve the independently source-backed downstream segment;
+        // it starts at the shared node but never inherits upstream proof.
+        enqueue({ ids: [last, edge.to], edges: [edge] });
       } else {
-        pending.push(nextWalk);
+        const nextWalk: Walk = {
+          ids: [...walk.ids, edge.to],
+          edges: [...walk.edges, edge],
+        };
+        if (walk.ids.includes(edge.to)) {
+          append(nextWalk, "CYCLE");
+        } else {
+          enqueue(nextWalk);
+        }
       }
       if (pending.length > 2048 || candidates.length >= maxPaths) {
         capacityReached = true;
@@ -2545,7 +2629,7 @@ export function compileGameplayScenarioGraph(
   const mechanicReconstructions = reconstructClassifiedMechanics(
     input.intent, observedSourceFlows, guardedSourceTransitions);
   const journey = reconstructAuthoredJourneyCandidates(
-    input.intent, mechanicReconstructions);
+    input.intent, mechanicReconstructions, 128, 12, observedSourceFlows);
   const sourceEvidenceIds = new Set(input.intent.evidence
     .filter(record => record.scope === "selected-artifact")
     .map(record => record.id));

@@ -2,6 +2,7 @@ import { reconstructAuthoredJourneyCandidates } from
   "../src/inspection/gameplay-scenario-compiler.js";
 import type {
   GameplayMechanicReconstruction,
+  GameplaySourceFlowCandidate,
 } from "../src/inspection/gameplay-scenario-model.js";
 import type { GameplayIntentModel } from
   "../../gameplay-intent/src/index.js";
@@ -623,4 +624,146 @@ describe("source-linked Game Design path bridges (bounded source-only)", () => {
     expect(rejected.candidates.some(item =>
       item.subjectIds.join(",") === "mechanic:start,resource:score")).toBe(true);
   });
+
+  it("splits independently sourced resource-bridge relations rather than fabricating a cross-module player loop", () => {
+    const a = "behavior_packs/example/scripts/alpha.js";
+    const b = "behavior_packs/example/scripts/beta.js";
+    const locators: Record<string, string> = {
+      "e:enter": a, "e:score": a, "e:goal": b,
+      "e:done": b, "e:write": a, "e:read": b, "e:win": b,
+      "ir:call": a, "ir:effect": b,
+    };
+    const evidence: GameplayIntentModel["evidence"] =
+      Object.entries(locators).map(([id, locator]) => ({
+        id, locator, summary: id,
+        origin: "source-code" as const,
+        scope: "selected-artifact" as const,
+      }));
+    const nodes: GameplayIntentModel["nodes"] = [
+      { id: "mechanic:enter", kind: "mechanic",
+        label: "Enter", status: "inferred", evidenceIds: ["e:enter"] },
+      { id: "resource:shared", kind: "resource",
+        label: "Shared counter", status: "authored", evidenceIds: ["e:score"] },
+      { id: "objective:goal", kind: "objective",
+        label: "Goal", status: "inferred", evidenceIds: ["e:goal"] },
+      { id: "outcome:done", kind: "outcome",
+        label: "Done", status: "inferred", evidenceIds: ["e:done"] },
+    ];
+    const intent: GameplayIntentModel = {
+      schemaVersion: 1, id: "intent:two-source-joins",
+      artifactId: "art:two-source-joins",
+      evidence, nodes, invariants: [], unknowns: [],
+      edges: [
+        { id: "rel:write", from: "mechanic:enter", to: "resource:shared",
+          kind: "produces", status: "inferred", evidenceIds: ["e:write"] },
+        { id: "rel:read", from: "resource:shared", to: "objective:goal",
+          kind: "transitions-to", status: "inferred", evidenceIds: ["e:read"] },
+        { id: "rel:win", from: "objective:goal", to: "outcome:done",
+          kind: "wins-by", status: "inferred", evidenceIds: ["e:win"] },
+      ],
+    };
+    const reconstructions: GameplayMechanicReconstruction[] =
+      nodes.filter(node => node.kind !== "resource").map(node => ({
+        featureId: node.id,
+        kind: node.kind as GameplayMechanicReconstruction["kind"],
+        name: node.label, meaningStatus: "INFERRED",
+        declaredEvidenceIds: [...node.evidenceIds],
+        exactSourceFlowIds: [], exactSourceStepIds: [],
+        authoredBehaviorRelationIds: [],
+        sourceGuardedTransitionCandidateIds: [],
+        sourceActivationCandidates: [],
+        relations: [], unresolvedDimensions: [],
+        runtimeStatus: "NOT_OBSERVED",
+      }));
+    const unlinked = reconstructAuthoredJourneyCandidates(intent, reconstructions);
+    expect(unlinked.truncated).toBe(false);
+    expect(unlinked.candidates.some(path =>
+      path.subjectIds.join(",") ===
+        "mechanic:enter,resource:shared,objective:goal,outcome:done"))
+      .toBe(false);
+    const upstream = unlinked.candidates.find(path =>
+      path.subjectIds.join(",") === "mechanic:enter,resource:shared");
+    expect(upstream?.boundary).toBe("SOURCE_JOIN_UNPROVEN");
+    expect(upstream?.interpretation?.sourceJoinGap).toMatchObject({
+      viaSubjectId: "resource:shared",
+      previousRelationId: "rel:write",
+      nextRelationId: "rel:read",
+      previousSourceLocators: [a],
+      nextSourceLocators: [b],
+      missingProof: "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS",
+    });
+    expect(upstream?.interpretation?.missingUnderstanding)
+      .toContain("CROSS_SOURCE_JOIN_UNPROVEN");
+    const downstream = unlinked.candidates.find(path =>
+      path.subjectIds.join(",") === "resource:shared,objective:goal,outcome:done");
+    expect(downstream?.boundary).toBe("OUTCOME_SUBJECT");
+    expect(downstream?.runtimeStatus).toBe("NOT_OBSERVED");
+
+    // Two source facts observed on ONE exact IR flow retain a candidate
+    // link, but the output still refuses player sequence and runtime proof.
+    const sourceBacked: GameplayIntentModel = {
+      ...intent, edges: intent.edges.map(edge =>
+        edge.id === "rel:write"
+          ? { ...edge, evidenceIds: [...edge.evidenceIds, "ir:call"] }
+          : edge.id === "rel:read"
+            ? { ...edge, evidenceIds: [...edge.evidenceIds, "ir:effect"] }
+            : edge),
+    };
+    const sharedFlow: GameplaySourceFlowCandidate = {
+      id: "source-flow:resolved-entry",
+      entryRegionId: "event:entry",
+      entryKind: "event-source",
+      regionIds: ["event:entry", "function:target"],
+      executionEdgeIds: ["ir:call"],
+      unresolvedExecutionEdgeIds: [], temporalRelationIds: [],
+      branchPoints: [],
+      sourceSteps: [{
+        id: "ir:effect", kind: "state",
+        executionRegionId: "function:target",
+        source: { artifactId: "art:two-source-joins", relativePath: b },
+        operation: "write",
+      }],
+      authoredBehaviorRelationIds: [],
+      sourceOrderScope: "PER_EXECUTION_REGION_ONLY",
+      runtimeStatus: "NOT_OBSERVED",
+    };
+    const withFlow = reconstructAuthoredJourneyCandidates(
+      sourceBacked, reconstructions, 128, 12, [sharedFlow]);
+    expect(withFlow.candidates.some(path =>
+      path.subjectIds.join(",") ===
+        "mechanic:enter,resource:shared,objective:goal,outcome:done")).toBe(true);
+    expect(withFlow.candidates.every(path =>
+      path.runtimeStatus === "NOT_OBSERVED" &&
+      path.interpretation?.missingUnderstanding.includes(
+        "SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER"))).toBe(true);
+
+    // Unresolved edges and foreign-artifact flows never bridge the source.
+    for (const rejectedFlow of [
+      { ...sharedFlow, unresolvedExecutionEdgeIds: ["ir:call"] },
+      { ...sharedFlow, sourceSteps: sharedFlow.sourceSteps.map(step => ({
+        ...step, source: { ...step.source, artifactId: "other-artifact" },
+      })) },
+    ]) {
+      const blocked = reconstructAuthoredJourneyCandidates(
+        sourceBacked, reconstructions, 128, 12, [rejectedFlow]);
+      expect(blocked.candidates.some(path =>
+        path.subjectIds.includes("mechanic:enter") &&
+        path.subjectIds.includes("objective:goal"))).toBe(false);
+    }
+
+    // A cycle with only ungrounded cross-source joins must terminate at
+    // the bounded source segments; do not enqueue the same join forever.
+    const cyclic = { ...intent, edges: [
+      intent.edges[0]!,
+      { id: "rel:back", from: "resource:shared", to: "mechanic:enter",
+        kind: "recovers-to" as const,
+        status: "inferred" as const, evidenceIds: ["e:read"] },
+    ] };
+    const bounded = reconstructAuthoredJourneyCandidates(cyclic, reconstructions);
+    expect(bounded.truncated).toBe(false);
+    expect(bounded.candidates).toHaveLength(2);
+    expect(bounded.candidates.every(path =>
+      path.boundary === "SOURCE_JOIN_UNPROVEN")).toBe(true);
+  });
+
 });
