@@ -10,7 +10,8 @@ export type ExecutionRegionKind =
   | "script-module"
   | "script-function"
   | "script-callback"
-  | "mcfunction";
+  | "mcfunction"
+  | "behavior-animation";
 
 export interface ExecutionRegion {
   id: string;
@@ -94,11 +95,14 @@ export interface AuthoredWorldEffect {
   readonly kind: "entity-spawn" | "teleport" | "block-mutation" |
     "structure-load" | "dialogue" | "entity-event";
   readonly mechanism: "mcfunction-command" | "script-command" |
-    "script-api" | "script-spatial";
+    "script-api" | "script-spatial" |
+    "behavior-animation-command" | "behavior-controller-command";
   readonly targetLabel: string;
   readonly precision: "parsed-command" | "typed-method" |
     "bounded-method" | "resolved-spatial" | "unresolved-spatial";
   readonly source: SourceRef;
+  /** Authored timeline seconds only; never observed wall-clock duration. */
+  readonly authoredTimingSeconds?: number;
   readonly lexicalGuards?: readonly AuthoredBranchGuard[];
   readonly precedenceGuards?: readonly AuthoredBranchGuard[];
 }
@@ -196,7 +200,9 @@ export interface AuthoredBehaviorRelation {
   readonly kind:
     | "entity-event-trigger" | "external-event-trigger"
     | "entity-controller-activation" | "controller-state-transition"
-    | "controller-animation-reference" | "controller-state-command";
+    | "controller-animation-reference" | "controller-state-command"
+    | "entity-animation-activation" | "controller-animation-timeline"
+    | "animation-timeline-command" | "animation-timeline-uncertainty";
   readonly ownerId: string;
   readonly from: string;
   readonly to: string;
@@ -204,6 +210,10 @@ export interface AuthoredBehaviorRelation {
   readonly source: SourceRef;
   readonly targetSource?: SourceRef;
   readonly condition?: string;
+  /** Authored seconds for timeline commands, never a runtime observation. */
+  readonly timingSeconds?: number;
+  /** Semantic IR world effects grounded in this exact command source site. */
+  readonly worldEffectIds?: readonly string[];
   readonly reason: string;
 }
 

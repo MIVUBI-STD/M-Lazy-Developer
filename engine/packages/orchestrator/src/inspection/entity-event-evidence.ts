@@ -5,6 +5,7 @@ import type { ParsedScriptFile } from "../../../../analyzers/scripts/src/index.j
 import type { SourceRef } from "../../../project-model/src/index.js";
 import {
   parseBehaviorAnimationControllers,
+  parseBehaviorAnimations,
   type ParsedEntityDefinition,
 } from "../../../../analyzers/entities/src/index.js";
 import type { AuthoredBehaviorRelation } from "../../../semantic-ir/src/index.js";
@@ -127,6 +128,7 @@ export function externalEventRootsForEntity(
 export function deriveAuthoredEntityBehaviorRelations(input: {
   readonly entities: readonly ParsedEntityDefinition[];
   readonly controllerSources: readonly { raw: unknown; source: SourceRef }[];
+  readonly animationSources?: readonly { raw: unknown; source: SourceRef }[];
   readonly scripts: readonly ParsedScriptFile[];
   readonly functions: readonly ParsedFunction[];
 }): readonly AuthoredBehaviorRelation[] {
@@ -154,6 +156,41 @@ export function deriveAuthoredEntityBehaviorRelations(input: {
   };
   const controllers = input.controllerSources.flatMap(item =>
     parseBehaviorAnimationControllers(item.raw, item.source));
+  const animations = (input.animationSources ?? []).flatMap(item =>
+    parseBehaviorAnimations(item.raw, item.source));
+  const animationsByScope = new Map<string, typeof animations>();
+  for (const animation of animations) {
+    const key = scope(animation.source.relativePath) + ":" + animation.identifier;
+    const list = animationsByScope.get(key) ?? [];
+    list.push(animation);
+    animationsByScope.set(key, list);
+  }
+  // Timeline commands are independently authored, even when no entity
+  // activation can be established. Their existence is not proof of playback.
+  for (const animation of animations) {
+    const animationId = idFor(animation.source.relativePath, animation.identifier);
+    for (const command of animation.timelineCommands) {
+      add({
+        kind: "animation-timeline-command",
+        ownerId: animationId, from: animationId,
+        to: command.command, source: command.source,
+        timingSeconds: command.seconds,
+        resolution: "POSSIBLE_TARGET",
+        reason: "Behavior-pack animation timeline authored at " +
+          command.seconds + " seconds. Activation, loop timing, " +
+          "command permissions and runtime effect are unproven.",
+      });
+    }
+    for (const limitation of animation.limitations) {
+      add({
+        kind: "animation-timeline-uncertainty",
+        ownerId: animationId, from: animationId,
+        to: limitation, source: animation.source,
+        resolution: "UNRESOLVED",
+        reason: limitation,
+      });
+    }
+  }
   const byScope = new Map<string, typeof controllers>();
   for (const controller of controllers) {
     const key = scope(controller.source.relativePath) + ":" + controller.identifier;
@@ -196,16 +233,24 @@ export function deriveAuthoredEntityBehaviorRelations(input: {
         ? byScope.get(scope(entity.source.relativePath) + ":" + target) ?? []
         : [];
       const resolved = found.length === 1;
+      const animationMatches = target && !direct
+        ? animationsByScope.get(scope(entity.source.relativePath) + ":" + target) ?? []
+        : [];
+      const animationResolved = animationMatches.length === 1;
       add({
-        kind: "entity-controller-activation", ownerId: entityOwner,
+        kind: direct ? "entity-controller-activation" : "entity-animation-activation",
+        ownerId: entityOwner,
         from, to: target ?? activation.alias,
-        resolution: resolved ? "EXACT_REFERENCE" : "UNRESOLVED",
+        resolution: resolved || animationResolved ? "EXACT_REFERENCE" : "UNRESOLVED",
         source: activation.source,
         ...(resolved ? { targetSource: found[0]!.source } : {}),
+        ...(animationResolved ? { targetSource: animationMatches[0]!.source } : {}),
         ...(activation.condition ? { condition: activation.condition } : {}),
         reason: resolved
-          ? "Entity scripts.animate references a unique controller through its authored alias. Condition is unevaluated."
-          : "Activation alias has no unique same-pack behavior controller target; an animation or dynamic reference may be involved.",
+          ? "Entity scripts.animate references one same-pack controller through an explicit alias; condition is unevaluated."
+          : animationResolved
+            ? "Entity scripts.animate references one same-pack behavior animation; timeline execution remains unverified."
+            : "Animation alias has no unique same-pack behavior animation/controller target.",
       });
       if (!resolved) continue;
       const controller = found[0]!;
@@ -247,6 +292,22 @@ export function deriveAuthoredEntityBehaviorRelations(input: {
               ? "Controller references an entity animation alias; underlying animation timeline and playback remain unverified."
               : "Controller animation alias is not declared by the entity.",
           });
+          const timeline = aliasValue
+            ? animationsByScope.get(scope(entity.source.relativePath) + ":" + aliasValue) ?? []
+            : [];
+          if (timeline.length === 1) {
+            add({
+              kind: "controller-animation-timeline",
+              ownerId: entityOwner,
+              from: stateId, to: idFor(timeline[0]!.source.relativePath,
+                timeline[0]!.identifier),
+              resolution: "EXACT_REFERENCE",
+              source: animation.source,
+              targetSource: timeline[0]!.source,
+              ...(animation.condition ? { condition: animation.condition } : {}),
+              reason: "Controller state animation alias resolves to a unique same-pack behavior animation; playback and its effects remain conditional.",
+            });
+          }
         }
         for (const [phase, commands] of [
           ["on_entry", state.onEntryCommands],

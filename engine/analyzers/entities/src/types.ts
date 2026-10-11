@@ -59,6 +59,19 @@ export interface ParsedBehaviorAnimationController {
   readonly limitations: readonly string[];
 }
 
+/** Authored behavior-pack animation timepoints; execution is never assumed. */
+export interface ParsedBehaviorAnimation {
+  readonly identifier: string;
+  readonly source: SourceRef;
+  readonly loop?: string | boolean;
+  readonly timelineCommands: readonly {
+    readonly seconds: number;
+    readonly command: string;
+    readonly source: SourceRef;
+  }[];
+  readonly limitations: readonly string[];
+}
+
 export interface EntityStateCandidate {
   id: string;
   activeComponents: string[];

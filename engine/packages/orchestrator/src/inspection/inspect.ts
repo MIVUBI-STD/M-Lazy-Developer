@@ -146,6 +146,9 @@ export async function inspectDirectory(
     controllerSources: nodes.filter(node =>
       node.kind === "animation_controller" && node.source !== undefined)
       .map(node => ({ raw: node.data, source: node.source! })),
+    animationSources: nodes.filter(node =>
+      node.kind === "animation" && node.source !== undefined)
+      .map(node => ({ raw: node.data, source: node.source! })),
     functions: parsedFunctions.map(item => item.parsed),
     scripts: parsedScripts.map(item => item.parsed),
   });

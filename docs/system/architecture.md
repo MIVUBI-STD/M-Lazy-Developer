@@ -97,6 +97,30 @@ For each authored effect/return the owner traverses *only uniquely identified re
 
 The existing `deriveGameplayArchitectureNavigation()` consumes these behavior-model slices once, connects effects to graph components only by exact evidence ID and separately labels feature associations encountered on a source-call path. It publishes them through the already-established `MapAuditOutputV2.gameplayStructure` view. Static path association is not player-facing gameplay meaning or PROVEN causality; unowned effect IDs remain explicit. Testing/CI are deferred until the integrated BUILD acceptance boundary.
 
+### Behavior animation timelines and normalized source effects
+
+The canonical entity analyzer also parses behavior-pack animations by exact
+animation identifier, numeric nonnegative authored timepoint and literal
+command source JSON pointer. Unsupported command entries and large/invalid
+timelines remain explicit IR uncertainty evidence; repeated commands are
+not deduplicated by command text. The existing cross-source resolver now binds
+scripts.animate aliases and controller animation aliases to a UNIQUE same-pack
+behavior animation, never to a matching filename or a resource-pack animation.
+
+Both animation timeline commands and already-extracted controller on_entry/
+on_exit commands are passed to the SAME canonical command analyzer used by
+mcfunctions and scripts. The existing Semantic IR stores source-observed world
+effect attempts in isolated behavior-animation regions, retaining authored
+timeline seconds and source location. Corresponding authored behavior relations
+carry exact world-effect IDs so Gameplay Intent and the existing derived Game
+Architecture projection can navigate command-to-effect evidence without
+inventing a confirmed execution path.
+
+An authored command can be present even when activation, Molang predicates,
+scheduler/tick timing, entity binding, permissions, world effects, or the
+player-facing mechanic remain unknown. No second parser/graph, flow controller,
+runtime evaluator, or deployment dependency is introduced.
+
 ### Authored cross-source entity/controller behavior references
 
 Entity descriptions now preserve exact animation alias targets and explicitly

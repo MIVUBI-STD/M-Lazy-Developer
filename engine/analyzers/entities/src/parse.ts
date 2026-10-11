@@ -278,3 +278,81 @@ export function parseBehaviorAnimationControllers(
   }
   return output;
 }
+
+
+/**
+ * Extract exact time/command provenance from behavior-pack animation JSON.
+ * Only literal command strings are executable-source candidates. Unrecognized
+ * key shapes remain limitations; no Molang, loop or activation is evaluated.
+ */
+export function parseBehaviorAnimations(
+  raw: unknown,
+  source: SourceRef,
+): readonly import("./types.js").ParsedBehaviorAnimation[] {
+  const root = asRecord(raw) ?? {};
+  const definitions = asRecord(root.animations) ?? {};
+  const output: import("./types.js").ParsedBehaviorAnimation[] = [];
+  const MAX_TIMELINE_ENTRIES = 512;
+  for (const [identifier, entry] of Object.entries(definitions)) {
+    const record = asRecord(entry);
+    const path = "/animations/" + pointerToken(identifier);
+    const limitations: string[] = [];
+    const timelineCommands: {
+      seconds: number; command: string; source: SourceRef;
+    }[] = [];
+    if (!record) {
+      limitations.push(path + ": animation entry is not an object");
+    }
+    const rawTimeline = record?.timeline;
+    const timeline = asRecord(rawTimeline);
+    if (rawTimeline !== undefined && !timeline) {
+      limitations.push(path + "/timeline: unsupported timeline shape");
+    }
+    if (timeline && Object.keys(timeline).length > MAX_TIMELINE_ENTRIES) {
+      limitations.push(path + "/timeline: exceeded bounded authored timepoints");
+    } else {
+      for (const [time, event] of Object.entries(timeline ?? {})) {
+        const seconds = Number(time);
+        const point = path + "/timeline/" + pointerToken(time);
+        if (!time.trim() || !Number.isFinite(seconds) || seconds < 0) {
+          limitations.push(point + ": invalid timepoint");
+          continue;
+        }
+        const entries = typeof event === "string" ? [event] : event;
+        if (!Array.isArray(entries) ||
+            entries.some(value => typeof value !== "string")) {
+          limitations.push(point + ": dynamic or non-command timeline entry");
+          continue;
+        }
+        entries.forEach((command: string, index: number) => {
+          if (!command.trim()) {
+            limitations.push(point + "/" + index + ": empty command");
+            return;
+          }
+          timelineCommands.push({
+            seconds,
+            command,
+            source: {
+              ...source,
+              jsonPointer: typeof event === "string" ? point
+                : point + "/" + index,
+            },
+          });
+        });
+      }
+    }
+    timelineCommands.sort((a, b) =>
+      a.seconds - b.seconds ||
+      (a.source.jsonPointer ?? "").localeCompare(b.source.jsonPointer ?? ""));
+    const loop = record?.loop;
+    output.push({
+      identifier,
+      source: { ...source, jsonPointer: path },
+      ...(typeof loop === "boolean" || typeof loop === "string"
+        ? { loop } : {}),
+      timelineCommands,
+      limitations: limitations.sort(),
+    });
+  }
+  return output.sort((a, b) => a.identifier.localeCompare(b.identifier));
+}

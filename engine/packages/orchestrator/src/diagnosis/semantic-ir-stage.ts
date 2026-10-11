@@ -64,6 +64,7 @@ function sourceToken(source: SourceRef): string {
     range?.columnStart ?? 0,
     range?.lineEnd ?? 0,
     range?.columnEnd ?? 0,
+    ...(source.jsonPointer === undefined ? [] : [token(source.jsonPointer)]),
   ].join(":");
 }
 
@@ -150,9 +151,10 @@ export function buildInspectionSemanticIr(
   const addCommandWorldEffects = (
     commandEffects: ReturnType<typeof flattenCommandEffects>,
     executionRegionId: string,
-    mechanism: "mcfunction-command" | "script-command",
+    mechanism: AuthoredWorldEffect["mechanism"],
     lexicalGuards?: readonly AuthoredBranchGuard[],
     precedenceGuards?: readonly AuthoredBranchGuard[],
+    authoredTimingSeconds?: number,
   ): void => {
     for (const effect of commandEffects) {
       let kind: AuthoredWorldEffect["kind"] | undefined;
@@ -179,6 +181,7 @@ export function buildInspectionSemanticIr(
       addWorldEffect({
         kind, targetLabel, executionRegionId, mechanism,
         precision: "parsed-command", source: effect.source,
+        ...(authoredTimingSeconds === undefined ? {} : { authoredTimingSeconds }),
         ...(lexicalGuards?.length ? { lexicalGuards } : {}),
         ...(precedenceGuards?.length ? { precedenceGuards } : {}),
       });
@@ -878,6 +881,51 @@ export function buildInspectionSemanticIr(
         : { guardIdentifiers: edge.guardIdentifiers }),
     }));
 
+  // Static behavior-pack commands share the canonical command analyzer with
+  // scripts/mcfunctions. These isolated authored regions are NOT execution
+  // edges, and therefore cannot prove controller/animation activation.
+  const seenBehaviorCommandSites = new Set<string>();
+  for (const relation of input.authoredBehaviorRelations ?? []) {
+    if (relation.kind !== "animation-timeline-command" &&
+        relation.kind !== "controller-state-command") continue;
+    const identity = JSON.stringify([
+      relation.kind, relation.from, relation.source.artifactId,
+      relation.source.relativePath, relation.source.jsonPointer,
+      relation.to, relation.timingSeconds ?? null,
+    ]);
+    if (seenBehaviorCommandSites.has(identity)) continue;
+    seenBehaviorCommandSites.add(identity);
+    const regionId = "exec:behavior-animation:" + token(relation.from);
+    ensureRegion({
+      id: regionId, kind: "behavior-animation",
+      ownerId: relation.ownerId, label: relation.from,
+      source: relation.source,
+    });
+    const effects = flattenCommandEffects(analyzeCommand(
+      relation.to, relation.source));
+    addCommandWorldEffects(
+      effects, regionId,
+      relation.kind === "animation-timeline-command"
+        ? "behavior-animation-command" : "behavior-controller-command",
+      undefined, undefined, relation.timingSeconds,
+    );
+  }
+  const behaviorRelationships = (input.authoredBehaviorRelations ?? [])
+    .map(relation => {
+      if (relation.kind !== "animation-timeline-command" &&
+          relation.kind !== "controller-state-command") return relation;
+      const regionId = "exec:behavior-animation:" + token(relation.from);
+      const worldEffectIds = [...worldEffects.values()]
+        .filter(effect => effect.executionRegionId === regionId &&
+          effect.source.artifactId === relation.source.artifactId &&
+          effect.source.relativePath === relation.source.relativePath &&
+          effect.source.jsonPointer === relation.source.jsonPointer &&
+          (relation.timingSeconds === undefined ||
+            effect.authoredTimingSeconds === relation.timingSeconds))
+        .map(effect => effect.id).sort();
+      return worldEffectIds.length
+        ? { ...relation, worldEffectIds } : relation;
+    });
   const ir: SemanticIr = {
     schemaVersion: 1,
     execution: {
@@ -891,7 +939,7 @@ export function buildInspectionSemanticIr(
         !ambiguousControlRegions.has(item.executionRegionId) &&
         regions.has(item.executionRegionId)).sort((a, b) =>
         a.executionRegionId.localeCompare(b.executionRegionId)),
-      authoredBehaviorRelations: [...(input.authoredBehaviorRelations ?? [])]
+      authoredBehaviorRelations: behaviorRelationships
         .sort((a, b) => a.id.localeCompare(b.id)),
     },
     state: {
