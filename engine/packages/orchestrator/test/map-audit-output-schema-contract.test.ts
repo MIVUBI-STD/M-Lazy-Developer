@@ -22,6 +22,14 @@ describe("Map Audit Output V2 naming contract", () => {
       .toBe("NOT_OBSERVED");
     expect(view.properties.gameplayJourneyCandidates.items.properties.runtimeStatus.const)
       .toBe("NOT_OBSERVED");
+    const activation =
+      view.properties.mechanicReconstructions.items.properties.sourceActivationCandidates;
+    expect(view.properties.mechanicReconstructions.items.required)
+      .toContain("sourceActivationCandidates");
+    expect(activation.items.properties.evidenceBasis.enum)
+      .toEqual(["EXACT_SOURCE_ENTRY_REFERENCE", "TRACE_CONTEXT_ONLY"]);
+    expect(activation.items.properties.runtimeStatus.const)
+      .toBe("NOT_OBSERVED");
     const interpretation =
       view.properties.gameplayJourneyCandidates.items.properties.interpretation;
     expect(interpretation.properties.basis.const)

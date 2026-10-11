@@ -802,6 +802,28 @@ export function formatSelectedMapAuditBrief(input: {
         feature.effectRelationIds.length + ", transitions " +
         feature.transitionRelationIds.length + ", outcomes " +
         feature.outcomeRelationIds.length + ".",
+      ...((reconstructionByFeature.get(feature.id)?.sourceActivationCandidates ?? [])
+        .slice(0, 2).map(candidate =>
+          "  Source entry (" + candidate.evidenceBasis + "; NOT EXECUTED): " +
+          concise(candidate.entryKind + " " + candidate.entryRegionId) +
+          "; linked source IDs " + candidate.supportingEvidenceIds.length +
+          "; material steps " + candidate.materialSourceStepIds.length +
+          "; branch points " + candidate.branchPointCount +
+          "; unresolved call edges " + candidate.unresolvedExecutionEdgeIds.length +
+          ". No player reachability or game-design activation proven.")),
+      ...((reconstructionByFeature.get(feature.id)?.sourceActivationCandidates.length ?? 0) > 2
+        ? ["  Additional entry candidates omitted: " +
+          (reconstructionByFeature.get(feature.id)!.sourceActivationCandidates.length - 2)]
+        : []),
+      ...feature.sourceBehaviorPaths.slice(0, 2).map(path =>
+        "  Candidate effect (" + path.association + "; " + path.evidenceStatus +
+        "): " + concise(path.effectKind +
+          (path.effectTarget === null ? "" : " " + path.effectTarget)) +
+        (path.preconditions.length === 0 ? "; guards unresolved."
+          : "; authored guard candidates: " +
+            path.preconditions.slice(0, 2).map(guard =>
+              concise(guard.expression) + "=" + guard.branch).join("; ") +
+            ". Not evaluated at runtime.")),
       ...(reconstructionByFeature.get(feature.id)?.unresolvedDimensions.length
         ? ["  Unresolved mechanics: " +
           reconstructionByFeature.get(feature.id)!.unresolvedDimensions.join(", ")]

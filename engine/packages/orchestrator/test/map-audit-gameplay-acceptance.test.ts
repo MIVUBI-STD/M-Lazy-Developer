@@ -260,10 +260,19 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
         item.blockedSubjectIds.includes(interaction!.id))).toBe(true);
       expect(result.mapAuditReport.gameplayFlowBasis)
         .toBe("AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY");
-      expect(result.mapAuditReport.gameplayStructure
-        ?.mechanicReconstructions.some(item =>
-          item.name === "NPC interaction: Start Challenge" &&
-          item.exactSourceFlowIds.includes(sourceFlow!.id))).toBe(true);
+      const reconstructed = result.mapAuditReport.gameplayStructure
+        ?.mechanicReconstructions.find(item =>
+          item.name === "NPC interaction: Start Challenge");
+      expect(reconstructed?.exactSourceFlowIds).toContain(sourceFlow!.id);
+      const entry = reconstructed?.sourceActivationCandidates.find(item =>
+        item.sourceFlowId === sourceFlow!.id);
+      expect(entry?.entryKind).toBe("dialogue-command");
+      expect(entry?.evidenceBasis).toBe("EXACT_SOURCE_ENTRY_REFERENCE");
+      expect(entry?.supportingEvidenceIds).toContain(relation!.id);
+      expect(entry?.runtimeStatus).toBe("NOT_OBSERVED");
+      expect(reconstructed?.unresolvedDimensions)
+        .not.toContain("NO_ACTIVATION_RELATION");
+      expect(brief).toContain("Source entry (EXACT_SOURCE_ENTRY_REFERENCE; NOT EXECUTED)");
       expect(result.mapAuditReport.gameplayStructure
         ?.features.find(item => item.label === "NPC interaction: Start Challenge")
         ?.sourceBehaviorPaths.some(path =>
@@ -324,6 +333,11 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
         .find(item => item.entryKind === "dialogue-command" &&
           item.executionEdgeIds.includes(edge!.id));
       expect(flow?.unresolvedExecutionEdgeIds).toContain(edge?.id);
+      // An unresolved edge cannot authorize an exact source-entry receipt.
+      const activation = result.mapAuditReport.gameplayStructure
+        ?.mechanicReconstructions.flatMap(item => item.sourceActivationCandidates) ?? [];
+      expect(activation.every(item =>
+        !item.supportingEvidenceIds.includes(edge!.id))).toBe(true);
       // Recognition succeeds, but ambiguity blocks exact target traversal;
       // it must not be converted to an understood or executed mechanic.
       expect(result.inspection.gameplayDiscoveryClosure.status).toBe("PARTIAL");
@@ -560,6 +574,7 @@ describe("source-linked Game Design path bridges (bounded source-only)", () => {
           exactSourceFlowIds: kind === "mechanic" ? ["flow:start"] : [],
           exactSourceStepIds: [], authoredBehaviorRelationIds: [],
           sourceGuardedTransitionCandidateIds: [],
+          sourceActivationCandidates: [],
           relations: [], unresolvedDimensions: [],
           runtimeStatus: "NOT_OBSERVED",
         };

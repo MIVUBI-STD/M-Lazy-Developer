@@ -99,6 +99,14 @@ Function-derived state mutations, discriminated status/outcome returns, guarded 
 
 **Remaining limitations:** a shared world scoreboard objective can legitimately be global and must not be blindly module-scoped. Same-file duplicate function/member declarations without exact unique parser/IR owner identity, unclassified source entries, and semantic equivalence of real state across modules remain unresolved until independently grounded. This P2 slice improves identity safety, not coverage of all actor/trigger/guard semantics or Minecraft runtime correctness.
 
+### Trigger-to-effect source interpretation (P2)
+
+The existing `reconstructClassifiedMechanics()` in the Scenario Graph now distinguishes an authored *source entry reference* from trace co-placement. An inferred `requires` helper dependency, `valid-during` rule or `scoped-to` label does not prove that a mechanic has a trigger. An entry reference must be source-associated with an event, NPC dialogue or behavior animation and match the exact selected-artifact Intent/IR evidence; otherwise it remains `TRACE_CONTEXT_ONLY` and activation remains unresolved.
+
+One existing mechanic projection records `sourceActivationCandidates` with source-flow/entry IDs, entry kind, exact supporting source IDs, directly matched material source steps, branch-point count and unresolved call edges. An exact source state write, resource action or world effect can establish limited *source-effect linkage* without proving that the source executed or that the effect is intended Game Design. The canonical Map Audit Output V2, `--brief` and bounded `--handoff` expose these receipts without adding another proof engine, manager, agent or report.
+
+The model is still static: an authored entry is not proof of player accessibility, execution, guards being satisfied, effective world changes or actual gameplay. All runtime-native claims and independent cross-map recall remain UNKNOWN.
+
 ### Partial game-loop interpretation (source only)
 
 The existing Scenario Graph's `reconstructAuthoredJourneyCandidates()` now retains exact selected-artifact **state/resource bridge subjects** between classified mechanics, objectives and outcomes. It does not add invented gameplay subjects, infer transitions from nearby source, use historical design as authority, or traverse non-temporal `requires/owns` relationships as player actions. The same bounded graph traversal, not a new game-loop owner, derives `gameplayStructure.gameplayJourneyCandidates[].interpretation`. An interpretation identifies each known subject and relationship, whether a cue comes from embedded authored design, player-facing source text or only technical source naming, exact source evidence, known source-flow links, and explicit missing design/runtime proof.

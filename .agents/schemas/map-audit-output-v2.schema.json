@@ -4331,6 +4331,7 @@
               "exactSourceStepIds",
               "authoredBehaviorRelationIds",
               "sourceGuardedTransitionCandidateIds",
+              "sourceActivationCandidates",
               "relations",
               "unresolvedDimensions",
               "runtimeStatus"
@@ -4441,6 +4442,75 @@
               },
               "runtimeStatus": {
                 "const": "NOT_OBSERVED"
+              },
+              "sourceActivationCandidates": {
+                "type": "array",
+                "description": "Authoring-side source-entry references for an existing classified feature; no executed player trigger or runtime proof.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sourceFlowId",
+                    "entryRegionId",
+                    "entryKind",
+                    "evidenceBasis",
+                    "supportingEvidenceIds",
+                    "materialSourceStepIds",
+                    "unresolvedExecutionEdgeIds",
+                    "branchPointCount",
+                    "runtimeStatus"
+                  ],
+                  "properties": {
+                    "sourceFlowId": {
+                      "type": "string"
+                    },
+                    "entryRegionId": {
+                      "type": "string"
+                    },
+                    "entryKind": {
+                      "enum": [
+                        "event-source",
+                        "script-module",
+                        "script-function",
+                        "script-callback",
+                        "mcfunction",
+                        "behavior-animation",
+                        "dialogue-command"
+                      ]
+                    },
+                    "evidenceBasis": {
+                      "enum": [
+                        "EXACT_SOURCE_ENTRY_REFERENCE",
+                        "TRACE_CONTEXT_ONLY"
+                      ]
+                    },
+                    "supportingEvidenceIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "materialSourceStepIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "unresolvedExecutionEdgeIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "branchPointCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "runtimeStatus": {
+                      "const": "NOT_OBSERVED"
+                    }
+                  }
+                }
               }
             }
           }

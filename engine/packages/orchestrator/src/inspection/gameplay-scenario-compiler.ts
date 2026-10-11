@@ -2232,6 +2232,56 @@ function reconstructClassifiedMechanics(
         .filter(candidate => evidenceIds.has(candidate.writeOperationId))
         .map(candidate => candidate.readOperationId + ":" +
           candidate.writeOperationId).sort();
+      // Do not mistake synchronous helper "requires" for a game trigger.
+      // Exact event / dialogue / animation source links may establish an
+      // authored entry REFERENCE only, never player reachability or execution.
+      const entryKinds = new Set(["event-source", "dialogue-command",
+        "behavior-animation"]);
+      const participationIds = new Set(relations.filter(edge =>
+        edge.kind === "participates-in").flatMap(edge => edge.evidenceIds));
+      const sourceActivationCandidates:
+        GameplayMechanicReconstruction["sourceActivationCandidates"] =
+        witnessed.filter(flow => entryKinds.has(flow.entryKind))
+          .map(flow => {
+            const unresolved = new Set(flow.unresolvedExecutionEdgeIds);
+            const supportingEvidenceIds = [...new Set([
+              ...flow.executionEdgeIds.filter(id => scopedEvidence.has(id) &&
+                !unresolved.has(id) &&
+                (participationIds.has(id) || evidenceIds.has(id))),
+              ...flow.authoredBehaviorRelationIds.filter(id =>
+                scopedEvidence.has(id) && evidenceIds.has(id) &&
+                (flow.executionEdgeIds.length === 0 ||
+                 flow.executionEdgeIds.some(edgeId =>
+                   !unresolved.has(edgeId)))),
+            ])].sort();
+            const materialSourceStepIds = flow.sourceSteps.filter(step =>
+              evidenceIds.has(step.id) &&
+              (step.kind === "world-effect" ||
+               step.kind === "resource-action" ||
+               (step.kind === "state" &&
+                ["write", "delete", "clear"].includes(step.operation ?? ""))))
+              .map(step => step.id).sort();
+            return {
+              sourceFlowId: flow.id,
+              entryRegionId: flow.entryRegionId,
+              entryKind: flow.entryKind,
+              evidenceBasis: supportingEvidenceIds.length
+                ? "EXACT_SOURCE_ENTRY_REFERENCE" as const
+                : "TRACE_CONTEXT_ONLY" as const,
+              supportingEvidenceIds,
+              materialSourceStepIds,
+              unresolvedExecutionEdgeIds: [...flow.unresolvedExecutionEdgeIds],
+              branchPointCount: flow.branchPoints.length,
+              runtimeStatus: "NOT_OBSERVED" as const,
+            };
+          }).sort((a,b) => a.sourceFlowId.localeCompare(b.sourceFlowId));
+      const directlyObservedEffects = new Set(witnessed.flatMap(flow =>
+        flow.sourceSteps.filter(step => evidenceIds.has(step.id) &&
+          (step.kind === "world-effect" ||
+           step.kind === "resource-action" ||
+           (step.kind === "state" &&
+             ["write", "delete", "clear"].includes(step.operation ?? ""))))
+          .map(step => step.id)));
       const unresolvedDimensions: GameplayMechanicReconstruction["unresolvedDimensions"][number][] = [];
       if (exactSourceFlowIds.length === 0) unresolvedDimensions.push("NO_EXACT_IR_LINK");
       // Role-specific dimensions: a terminal outcome is not a mechanic
@@ -2239,10 +2289,10 @@ function reconstructClassifiedMechanics(
       const needsBehavior = node.kind === "mechanic" ||
         node.kind === "phase" || node.kind === "lifecycle";
       if (needsBehavior &&
-          !relations.some(edge =>
-            ["requires","valid-during","scoped-to"].includes(edge.kind)))
+          !sourceActivationCandidates.some(candidate =>
+            candidate.evidenceBasis === "EXACT_SOURCE_ENTRY_REFERENCE"))
         unresolvedDimensions.push("NO_ACTIVATION_RELATION");
-      if (needsBehavior &&
+      if (needsBehavior && directlyObservedEffects.size === 0 &&
           !relations.some(edge => ["transitions-to","produces","consumes",
               "resets","persists","recovers-to"].includes(edge.kind)))
         unresolvedDimensions.push("NO_STATE_OR_EFFECT_RELATION");
@@ -2263,6 +2313,7 @@ function reconstructClassifiedMechanics(
         exactSourceStepIds,
         authoredBehaviorRelationIds,
         sourceGuardedTransitionCandidateIds,
+        sourceActivationCandidates,
         relations,
         unresolvedDimensions,
         runtimeStatus: "NOT_OBSERVED" as const,

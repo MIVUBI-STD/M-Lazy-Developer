@@ -160,6 +160,18 @@ export interface GameplayMechanicReconstruction {
   readonly authoredBehaviorRelationIds: readonly string[];
   /** Only source candidates whose exact write IR ID belongs to this feature. */
   readonly sourceGuardedTransitionCandidateIds: readonly string[];
+  /** Source-only entry references; neither authored invocation nor runtime activation. */
+  readonly sourceActivationCandidates: readonly {
+    readonly sourceFlowId: string;
+    readonly entryRegionId: string;
+    readonly entryKind: GameplaySourceFlowCandidate["entryKind"];
+    readonly evidenceBasis: "EXACT_SOURCE_ENTRY_REFERENCE" | "TRACE_CONTEXT_ONLY";
+    readonly supportingEvidenceIds: readonly string[];
+    readonly materialSourceStepIds: readonly string[];
+    readonly unresolvedExecutionEdgeIds: readonly string[];
+    readonly branchPointCount: number;
+    readonly runtimeStatus: "NOT_OBSERVED";
+  }[];
   /** Original direction and kinds are preserved; no inferred execution order. */
   readonly relations: readonly {
     readonly id: string;

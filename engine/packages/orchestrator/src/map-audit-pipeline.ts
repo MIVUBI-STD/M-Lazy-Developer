@@ -263,6 +263,8 @@ export interface SelectedMapAuditModelHandoff {
       readonly grounding: "SOURCE_EVIDENCED" | "UNVERIFIED";
       readonly sourceEvidenceIds: readonly string[];
       readonly sourceEffectCount: number;
+      readonly sourceActivationCandidates:
+        NonNullable<MapAuditOutputV2["gameplayStructure"]>["mechanicReconstructions"][number]["sourceActivationCandidates"];
     }[];
     readonly omittedFeatures: number;
     /** Existing directed source paths, not chronological player sessions. */
@@ -301,6 +303,10 @@ export function projectSelectedMapAuditModelHandoff(
       .includes(link.status))
     .map((link) => link.id));
   const features = audit.mapAuditReport.gameplayStructure?.features ?? [];
+  const activationByFeature = new Map(
+    (audit.mapAuditReport.gameplayStructure?.mechanicReconstructions ?? [])
+      .map(item => [item.featureId, item.sourceActivationCandidates] as const),
+  );
   const selected = audit.modelTaskPackets.slice(offset, offset + limit);
   return {
     schemaVersion: 1,
@@ -322,6 +328,8 @@ export function projectSelectedMapAuditModelHandoff(
         sourceEffectCount: new Set(feature.sourceBehaviorPaths
           .filter((path) => path.association === "DIRECT_EFFECT_EVIDENCE")
           .map((path) => path.effectId)).size,
+        sourceActivationCandidates:
+          (activationByFeature.get(feature.id) ?? []).slice(0, 3),
       })),
       omittedFeatures: Math.max(0, features.length - 16),
       sourceDesignPaths: (audit.mapAuditReport.gameplayStructure?.gameplayJourneyCandidates ?? [])

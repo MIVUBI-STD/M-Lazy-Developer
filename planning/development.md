@@ -1,3 +1,13 @@
+## P2 bounded batch — source trigger/effect truthfulness (2026-10-11)
+
+**Observed source error:** `reconstructClassifiedMechanics()` previously treated `requires` between helper functions as sufficient activation evidence. This could close `NO_ACTIVATION_RELATION` even without an authored event/dialogue/animation entry. The same source pipeline has exact Semantic IR entry and effect IDs, but did not use them consistently to distinguish an exact trigger reference from a mere source-trace association.
+
+**Bounded correction:** keep the Scenario Graph as the sole owner, emit source-bound `sourceActivationCandidates` with `EXACT_SOURCE_ENTRY_REFERENCE` versus `TRACE_CONTEXT_ONLY`, and only close source activation uncertainty for exact referenced entries. IR-proven material source step IDs can satisfy source-effect linkage without converting a call into gameplay execution. The single Map Audit Output V2 schema, operator brief and existing bounded model handoff consume these records. No map name, private map rules, new graph, new detection owner or autonomous AI authority.
+
+**Verification:** exact-head source producer/consumer/schema review plus selected positive/negative cases in existing synthetic acceptance and schema tests, **NOT EXECUTED** as Vitest/TypeScript/CLI, no actual Minecraft runtime or real-map scoring. Further P2 semantic questions remain open, and P3 scoped game-loop reconstruction is still pending.
+
+---
+
 ## P2 bounded macro batch — generic source-owner Gameplay Intent identity (2026-10-11)
 
 **Root cause (observed from exact pinned source):** `extractGameplayIntentSignals()` previously keyed named classified callable candidates by `kind + lexical symbol`, merging two independent source modules' identically named functions into one semantic owner. The resulting `requires`/`transitions-to`/`produces` relationships could combine source evidence from unrelated game modes. In the same owner, global typed-transition signature deduplication also allowed a typed table in one module to suppress an untyped declaration in another unrelated source. The legacy classifier also returned a bare lexical candidate when the source target region did not match the symbol, including imported aliases that differ from the actual executable target.
