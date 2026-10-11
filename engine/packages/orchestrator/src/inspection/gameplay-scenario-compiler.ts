@@ -2185,7 +2185,12 @@ function sourceFlowCandidates(ir: SemanticIr): readonly GameplaySourceFlowCandid
       temporalRelationIds: [], branchPoints: [],
     }));
   }
-  return flows.sort((a,b) => a.id.localeCompare(b.id));
+  // Empty source modules are not material gameplay flow evidence.
+  return flows.filter(flow => flow.sourceSteps.length > 0 ||
+    flow.executionEdgeIds.length > 0 ||
+    flow.unresolvedExecutionEdgeIds.length > 0 ||
+    flow.branchPoints.length > 0)
+    .sort((a,b) => a.id.localeCompare(b.id));
 }
 
 export function compileGameplayScenarioGraph(

@@ -265,7 +265,8 @@ export interface GameplayArchitectureNavigation {
       readonly exactFeatureIds: readonly string[];
       readonly candidateScenarioContextIds: readonly string[];
       readonly uninterpretedEvidenceIds: readonly string[];
-      readonly unclassifiedEffectIds: readonly string[];
+      /** Material effects lacking exact classified feature ownership. */
+      readonly unclassifiedMaterialStepIds: readonly string[];
     })[];
     /** Source-authored cross-file behavior references, not executable proof. */
     readonly authoredBehaviorRelationships: readonly NonNullable<
@@ -1462,7 +1463,11 @@ export function deriveGameplayArchitectureNavigation(
       const exactFeatures = new Set(exactFeatureIds);
       const directlyAssignedIds = new Set(featureComponents
         .flatMap(component => component.evidenceIds.filter(id => evidenceIds.has(id))));
-      const sourceSteps = flow.sourceSteps.map(step => step.id);
+      const materialSteps = flow.sourceSteps.filter(step =>
+        step.kind !== "state" ||
+        step.operation === "write" ||
+        step.operation === "delete" ||
+        step.operation === "clear");
       return {
         ...flow,
         exactFeatureIds,
@@ -1476,8 +1481,8 @@ export function deriveGameplayArchitectureNavigation(
             unknown.evidenceIds?.some(id => evidenceIds.has(id)))
           .flatMap(unknown =>
             (unknown.evidenceIds ?? []).filter(id => evidenceIds.has(id)))),
-        unclassifiedEffectIds: sourceSteps.filter(id =>
-          !directlyAssignedIds.has(id)),
+        unclassifiedMaterialStepIds: materialSteps
+          .map(step => step.id).filter(id => !directlyAssignedIds.has(id)),
       };
     }).sort((a,b) => a.id.localeCompare(b.id)),
     authoredBehaviorRelationships:
