@@ -14,6 +14,20 @@ const artifact = resolve(artifactPath);
 const auditPath = resolve(auditOutputPath);
 const outputPath = resolve(frozenOutputPath);
 const audit = JSON.parse(readFileSync(auditPath, "utf8"));
+if (
+  audit.schemaVersion !== 2 ||
+  audit.evidenceScope?.mode !== "selected-map-version-only" ||
+  audit.gameplayFlowBasis !== "AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY" ||
+  !audit.control ||
+  !Array.isArray(audit.bugs) ||
+  !Array.isArray(audit.designMismatches)
+) {
+  throw new Error(
+    "Observed output must have canonical MapAuditOutputV2 structure; " +
+    "a static oracle, dev inspection or partial projection is not an audit result. " +
+    "Matching structure alone does not verify execution provenance.",
+  );
+}
 const sha256 = createHash("sha256")
   .update(readFileSync(artifact))
   .digest("hex");
@@ -33,7 +47,7 @@ const frozen = {
   execution: {
     gitCommit,
     frozenAt: new Date().toISOString(),
-    command: "npm run cli -- audit <artifact>",
+    command: "npm run audit -- <artifact>",
   },
   observed: audit,
 };

@@ -1,3 +1,15 @@
+## Defense v1.1.5 — Benchmark execution boundary (2026-10-11)
+
+**Artifact authority:** SHA-256 `eb554476d26b7b9de949628d8efe00f12beb95669f6c424a2eb754b52d39f45c`, 24,032,943 bytes; CRC verifies all 529 archive entries, including 77 `.mcstructure` files. Google Drive ID `1U6s2Obtt332ShMBYJZ1yVNuoynAn0Qgi`; binary stays outside GitHub.
+
+**Readiness blocker (new discovery):** frozen `cal-defense-challenge-1-1-5.json` is an independent multi-claim static oracle, **not** a valid `benchmark-expectation.schema.json` single-disposition expectation: `target.edition` is unresolved, `target.minecraftVersion` is absent and `expected.disposition` is absent. Preserve it unchanged; the case remains `candidate` / NOT SCORABLE by the standard benchmark scorer. Do not mark `ready` or report precision/recall based on the 16/16 independent static checks.
+
+**Existing benchmark-owner repair:** `check-case-ready.mjs` now verifies the actual frozen expectation exists, matches its case/lane/SHA and passes the canonical `validate-expectation.mjs` validator before declaring metadata promotable; this prevents false readiness. `freeze-observed-map-audit.mjs` rejects anything other than canonical Map Audit Output V2 and records the actual `npm run audit -- <artifact>` entrypoint. Neither script executes `runSelectedMapAudit` or changes detector source.
+
+**Execution limitation:** GitHub connector provides source reads but not a binary checkout, and this ChatGPT container has Node v22 while repository specifies Node >=24. Direct GitHub terminal access cannot resolve github.com. There is no canonical engine output for this SHA, so neither TP/FN nor real-map pass can be assigned. Next valid transition: obtain an authentic canonical `runSelectedMapAudit()` result for exactly this SHA, then use an **independently approved, schema-valid** scoring expectation or retain the multi-claim oracle as qualitative calibration only. Do not rewrite frozen evidence to agree with engine output, and do not ask for the user's PC as a development prerequisite.
+
+---
+
 ## Completed source integration batch — Knowledge-to-investigation (2026-10-11)
 
 **Outcome:** make the existing Knowledge Catalog useful to the *production* selected-map investigation rather than only the repository-search CLI. Reuse the already-loaded catalog and source-grounded `modelTaskPackets`. No new database, index store, report schema, agent, detector or audit entrypoint.
