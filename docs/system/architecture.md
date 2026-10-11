@@ -97,6 +97,30 @@ For each authored effect/return the owner traverses *only uniquely identified re
 
 The existing `deriveGameplayArchitectureNavigation()` consumes these behavior-model slices once, connects effects to graph components only by exact evidence ID and separately labels feature associations encountered on a source-call path. It publishes them through the already-established `MapAuditOutputV2.gameplayStructure` view. Static path association is not player-facing gameplay meaning or PROVEN causality; unowned effect IDs remain explicit. Testing/CI are deferred until the integrated BUILD acceptance boundary.
 
+### Evidence-linked mechanic profiles and authored journey candidates
+
+The existing Scenario Compiler now reconciles classified Gameplay Intent
+mechanic/objective/phase/lifecycle/outcome subjects with exact source-flow
+step, IR edge and authored behavior-relation IDs. Only current selected-artifact
+evidence can ground a profile; a source filename, matching label or scenario
+co-placement does not establish ownership. Each observed mechanic profile
+preserves original directional Intent relationship IDs, authored/inferred
+status, and explicit gaps for activation, state/effect and outcome.
+
+The same Scenario Graph also provides *bounded candidate chains* following
+selected-artifact evidence on authored/inferred directed transitions,
+recoveries, effects and terminal relations. Chain order is **authored relation
+order**, not runtime chronology. Cycles, sink nodes and depth/path truncation
+are explicit, and an outcome label is not proof of successful gameplay
+completion. These profiles and candidate routes appear in the existing
+Gameplay Architecture Navigation / Map Audit V2 gameplayStructure only.
+They do not create new mechanic/phase nodes, playable scenarios, causal
+PROVEN edges, audit closure or a replacement map-agnostic game-flow checklist.
+
+This is a structural link toward mechanic identification, not general
+automatic understanding of unknown game purpose, successful runtime
+transitions, multiplayer correctness or full-stage lifecycle.
+
 ### Source-backed flow candidates in the canonical scenario graph
 
 The scenario compiler now consumes the SAME selected-artifact Semantic IR as

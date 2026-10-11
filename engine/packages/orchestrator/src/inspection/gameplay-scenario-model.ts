@@ -144,6 +144,49 @@ export interface GameplaySourceFlowCandidate {
   readonly runtimeStatus: "NOT_OBSERVED";
 }
 
+/**
+ * Classified mechanic + source evidence agreement, NOT executable behavior.
+ * One owner: the existing Scenario Graph, from the same Gameplay Intent/IR.
+ */
+export interface GameplayMechanicReconstruction {
+  readonly featureId: string;
+  readonly kind: "mechanic" | "objective" | "phase" | "lifecycle" | "outcome";
+  readonly name: string;
+  readonly meaningStatus: "AUTHORED" | "INFERRED";
+  readonly declaredEvidenceIds: readonly string[];
+  readonly exactSourceFlowIds: readonly string[];
+  readonly exactSourceStepIds: readonly string[];
+  readonly authoredBehaviorRelationIds: readonly string[];
+  /** Original direction and kinds are preserved; no inferred execution order. */
+  readonly relations: readonly {
+    readonly id: string;
+    readonly from: string;
+    readonly to: string;
+    readonly kind: import("../../../gameplay-intent/src/index.js").GameplayIntentEdgeKind;
+    readonly evidenceIds: readonly string[];
+    readonly status: "AUTHORED_RELATION" | "INFERRED_RELATION";
+  }[];
+  readonly unresolvedDimensions: readonly (
+    "NO_EXACT_IR_LINK" | "NO_ACTIVATION_RELATION" |
+    "NO_STATE_OR_EFFECT_RELATION" | "NO_OUTCOME_RELATION"
+  )[];
+  readonly runtimeStatus: "NOT_OBSERVED";
+}
+
+/**
+ * Bounded directed authored/inferred relation chain; never a proven journey.
+ */
+export interface GameplayJourneyCandidate {
+  readonly id: string;
+  readonly subjectIds: readonly string[];
+  readonly relationIds: readonly string[];
+  readonly evidenceIds: readonly string[];
+  readonly exactSourceFlowIds: readonly string[];
+  readonly meaningStatus: "SOURCE_AUTHORED" | "SOURCE_INFERRED";
+  readonly boundary: "OUTCOME_SUBJECT" | "SOURCE_SINK" | "CYCLE" | "DEPTH_LIMIT";
+  readonly runtimeStatus: "NOT_OBSERVED";
+}
+
 export interface GameplayScenarioGraph {
   readonly schemaVersion: 1;
   readonly policy: "scenario-driven-causal-audit";
@@ -158,6 +201,11 @@ export interface GameplayScenarioGraph {
    * entries, scenario closure evidence, or authored player journey.
    */
   readonly sourceFlowCandidates?: readonly GameplaySourceFlowCandidate[];
+  /** Evidence-first classified features, without manufacturing mechanic names. */
+  readonly mechanicReconstructions?: readonly GameplayMechanicReconstruction[];
+  /** Directed Intent relations, not an inferred chronological game session. */
+  readonly gameplayJourneyCandidates?: readonly GameplayJourneyCandidate[];
+  readonly gameplayJourneyTruncated?: boolean;
 }
 
 export type GameplayScenarioClosureStatus =
@@ -261,6 +309,9 @@ export interface GameplayArchitectureNavigation {
     })[];
     readonly effectIdsWithoutComponentOwner: readonly string[];
     /** Source-to-effect traces compiled upstream in the scenario owner. */
+    readonly mechanicReconstructions: readonly GameplayMechanicReconstruction[];
+    readonly gameplayJourneyCandidates: readonly GameplayJourneyCandidate[];
+    readonly gameplayJourneyTruncated: boolean;
     readonly sourceFlowCandidates: readonly (GameplaySourceFlowCandidate & {
       readonly exactFeatureIds: readonly string[];
       readonly candidateScenarioContextIds: readonly string[];
@@ -1451,6 +1502,9 @@ export function deriveGameplayArchitectureNavigation(
     effectIdsWithoutComponentOwner: effectSlices
       .filter(slice => slice.exactComponentIds.length === 0)
       .map(slice => slice.effectId),
+    mechanicReconstructions: graph.mechanicReconstructions ?? [],
+    gameplayJourneyCandidates: graph.gameplayJourneyCandidates ?? [],
+    gameplayJourneyTruncated: graph.gameplayJourneyTruncated ?? false,
     sourceFlowCandidates: (graph.sourceFlowCandidates ?? []).map(flow => {
       const evidenceIds = new Set([
         flow.entryRegionId, ...flow.regionIds, ...flow.executionEdgeIds,
