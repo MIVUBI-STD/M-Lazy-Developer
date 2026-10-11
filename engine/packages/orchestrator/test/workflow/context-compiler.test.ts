@@ -452,6 +452,53 @@ describe("context compiler", () => {
     ]);
   });
 
+  it("passes target applicability to the model-facing context for selected Knowledge", () => {
+    const resourceId = "knowledge.persistence.dynamic-properties-survive-restart";
+    const result = compileContextPack({
+      goal: "examine persistent state",
+      graph: fixtureGraph(),
+      intent,
+      resourceSelection: [{
+        resource: {
+          id: resourceId, class: "KNOWLEDGE", domain: "persistence",
+          authority: "REFERENCE",
+          path: "engine/knowledge/world-engine/persistence-bedrock.json",
+          locator: "persistence.dynamic-properties-survive-restart",
+          lifecycle: "ACTIVE",
+        },
+        score: { routing: 30, graph: 0, structural: 8, lexical: 30, semantic: 0, authority: 10, total: 78 },
+        reasons: ["lexical-rank"],
+      }],
+      resourceKnowledge: {
+        [resourceId]: {
+          kind: "fact",
+          subject: "dynamic properties",
+          summary: "World dynamic properties survive restart.",
+          classification: "engine-fact",
+          applicability: { editions: ["education"] },
+          applicabilityStatus: "NOT_EVALUATED",
+          sourceIds: ["official"],
+          sources: [{
+            id: "official", title: "Official reference",
+            url: "https://learn.microsoft.com/en-us/minecraft/creator/",
+            authority: "official", confidence: "documented", retrievedDate: "2026-09-23",
+          }],
+        },
+      },
+      targetRuntimeProfile: {
+        schemaVersion: 2,
+        product: { family: "bedrock-engine", edition: "bedrock-retail", version: "1.21.30" },
+        host: "client", scriptModules: {}, experiments: [],
+        inventory: {
+          scriptModules: "unknown", experiments: "unknown",
+          worldSettings: "unknown", packs: "unknown",
+        },
+      },
+    });
+    expect(result.resources?.items[0]?.targetApplicability?.state)
+      .toBe("does-not-apply");
+  });
+
   it("rejects invalid context budgets", () => {
     expect(() =>
       compileContextPack({

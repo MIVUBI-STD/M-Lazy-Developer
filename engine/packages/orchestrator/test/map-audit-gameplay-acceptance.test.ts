@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { packageDirectoryDeterministically } from "../../archive/src/index.js";
 import { runSelectedMapAudit } from "../src/map-audit-pipeline.js";
+import { deriveAuditModelKnowledgeLookup } from "../src/map-audit-model-task.js";
 
 /**
  * Synthetic authoring styles, not production game maps or runtime evidence.
@@ -271,3 +272,53 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
     }
   });
 });
+
+describe("source-grounded Knowledge search hints", () => {
+  it("routes supported map mechanics without treating historical or unknown mechanics as established", () => {
+    const intent = {
+      schemaVersion: 1 as const,
+      id: "selected-map",
+      evidence: [{
+        id: "src:arena", origin: "source-code" as const,
+        locator: "scripts/arena.ts:20", summary: "Arena reset",
+        scope: "selected-artifact" as const,
+      }, {
+        id: "old:arena", origin: "historical-diff" as const,
+        locator: "old-version", summary: "Previous behavior",
+        scope: "external-reference" as const,
+      }],
+      nodes: [{
+        id: "mechanic:reset", kind: "mechanic" as const, label: "Arena cleanup",
+        status: "inferred" as const, evidenceIds: ["src:arena"],
+      }, {
+        id: "mechanic:legacy", kind: "mechanic" as const, label: "Legacy mode",
+        status: "hypothesis" as const, evidenceIds: ["old:arena"],
+      }],
+      edges: [], invariants: [], unknowns: [],
+    };
+    const lookup = deriveAuditModelKnowledgeLookup(
+      intent,
+      "Why does replay keep old inventory?",
+      ["mechanic:reset", "mechanic:legacy", "mechanic:novel"],
+    );
+    expect(lookup?.grounding).toBe("SELECTED_ARTIFACT");
+    expect(lookup?.query).toContain("Arena cleanup");
+    expect(lookup?.query).not.toContain("Legacy mode");
+    expect(lookup?.matchedSubjectIds).toEqual(["mechanic:reset"]);
+    expect(lookup?.sourceEvidenceIds).toEqual(["src:arena"]);
+    expect(lookup?.sourceLocators).toEqual(["scripts/arena.ts:20"]);
+    expect(lookup?.omittedSupportedSubjectIds).toEqual([]);
+    expect(lookup?.unresolvedSubjectIds).toEqual([
+      "mechanic:legacy", "mechanic:novel",
+    ]);
+    expect(lookup?.authority).toBe("SEARCH_HINT_NOT_GAMEPLAY_PROOF");
+
+    const unknownOnly = deriveAuditModelKnowledgeLookup(
+      intent, "Investigate the new mechanic", ["mechanic:novel"],
+    );
+    expect(unknownOnly?.grounding).toBe("GOAL_ONLY");
+    expect(unknownOnly?.query).toBe("Investigate the new mechanic");
+    expect(deriveAuditModelKnowledgeLookup(intent, "all", [])).toBeUndefined();
+  });
+});
+

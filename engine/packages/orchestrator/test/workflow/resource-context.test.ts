@@ -132,6 +132,83 @@ describe("compileResourceContext", () => {
     });
   });
 
+  it("evaluates selected Knowledge against an explicit target profile without promoting it to runtime proof", () => {
+    const selected = {
+      ...selection[0]!,
+      resource: {
+        id: "knowledge.persistence.dynamic-properties-survive-restart",
+        class: "KNOWLEDGE" as const,
+        domain: "persistence",
+        authority: "REFERENCE" as const,
+        path: "engine/knowledge/world-engine/persistence-bedrock.json",
+        locator: "persistence.dynamic-properties-survive-restart",
+        lifecycle: "ACTIVE" as const,
+      },
+    };
+    const record: RetrievedKnowledgeContext = {
+      kind: "fact",
+      subject: "dynamic properties",
+      summary: "World dynamic properties survive restart.",
+      classification: "engine-fact",
+      applicability: {
+        editions: ["bedrock"],
+        versions: {
+          minMinecraftVersion: "1.21.0",
+          scriptModule: "@minecraft/server",
+          scriptModuleVersion: "2.0.0",
+        },
+      },
+      applicabilityStatus: "NOT_EVALUATED",
+      sourceIds: ["official-example"],
+      sources: [{
+        id: "official-example",
+        title: "Official reference",
+        url: "https://learn.microsoft.com/en-us/minecraft/creator/",
+        authority: "official",
+        confidence: "documented",
+        retrievedDate: "2026-09-23",
+      }],
+      capabilityTags: ["dynamic-properties"],
+      riskSurfaces: ["stale-persistence"],
+    };
+    const profile = {
+      schemaVersion: 2 as const,
+      product: { family: "bedrock-engine" as const, edition: "bedrock-retail" as const, version: "1.21.30" },
+      host: "client" as const,
+      experiments: [],
+      scriptModules: { "@minecraft/server": { version: "2.1.0", track: "stable" as const } },
+      inventory: {
+        scriptModules: "complete" as const,
+        experiments: "unknown" as const,
+        worldSettings: "unknown" as const,
+        packs: "unknown" as const,
+      },
+    };
+    const source = { [selected.resource.id]: record };
+    const withoutProfile = compileResourceContext([selected], 1, source);
+    expect(withoutProfile?.items[0]?.targetApplicability?.state).toBe("not-evaluated");
+
+    const applies = compileResourceContext([selected], 1, source, profile);
+    expect(applies?.items[0]?.targetApplicability?.state).toBe("applies");
+    expect(applies?.items[0]?.knowledge?.applicabilityStatus).toBe("NOT_EVALUATED");
+
+    const differentEdition = compileResourceContext([selected], 1, source, {
+      ...profile,
+      product: { ...profile.product, edition: "education" as const },
+    });
+    expect(differentEdition?.items[0]?.targetApplicability?.state).toBe("does-not-apply");
+
+    const unknownModule = compileResourceContext([selected], 1, source, {
+      ...profile,
+      scriptModules: {},
+      inventory: { ...profile.inventory, scriptModules: "partial" as const },
+    });
+    expect(unknownModule?.items[0]?.targetApplicability?.state).toBe("unknown");
+    expect(unknownModule?.items[0]?.targetApplicability?.missing).toContain(
+      "script-module:@minecraft/server",
+    );
+  });
+
   it("rejects invalid resource context limits", () => {
     expect(() => compileResourceContext(selection, 0)).toThrow(
       /positive integer/,

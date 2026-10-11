@@ -2,6 +2,15 @@ import type {
   RetrievalResult,
   SectionRetrievalResult,
 } from "../../../analysis-planner/src/index.js";
+import {
+  evaluateKnowledgeApplicabilityV2,
+  runtimeConstraintFromLegacyKnowledgeApplicability,
+  type KnowledgeApplicabilityDecision,
+} from "../../../knowledge/src/index.js";
+import {
+  validateMinecraftRuntimeProfile,
+  type MinecraftRuntimeProfile,
+} from "../../../runtime-profile/src/index.js";
 import type {
   KnowledgeApplicability,
   KnowledgeClassification,
@@ -31,6 +40,14 @@ export interface RetrievedKnowledgeContext {
   };
 }
 
+export type KnowledgeTargetApplicability =
+  | KnowledgeApplicabilityDecision
+  | {
+      readonly state: "not-evaluated";
+      readonly reasons: readonly string[];
+      readonly missing: readonly string[];
+    };
+
 export interface CompiledResourceContextItem {
   readonly id: string;
   readonly class: string;
@@ -42,6 +59,8 @@ export interface CompiledResourceContextItem {
   readonly score: number;
   readonly reasons: readonly string[];
   readonly knowledge?: RetrievedKnowledgeContext;
+  /** Applicability to a supplied profile; NOT Minecraft runtime proof. */
+  readonly targetApplicability?: KnowledgeTargetApplicability;
 }
 
 export interface CompiledResourceContext {
@@ -65,8 +84,15 @@ export function compileResourceContext(
   selection: readonly RetrievalResult[] | undefined,
   maximum?: number,
   knowledgeByResourceId?: Readonly<Record<string, RetrievedKnowledgeContext>>,
+  targetProfile?: MinecraftRuntimeProfile,
 ): CompiledResourceContext | undefined {
   if (selection === undefined) return undefined;
+  if (targetProfile !== undefined) {
+    const issues = validateMinecraftRuntimeProfile(targetProfile);
+    if (issues.length > 0) {
+      throw new Error("Invalid Knowledge target runtime profile: " + issues.join("; "));
+    }
+  }
 
   const limit = positiveMaximum(maximum);
   const selected = selection.slice(0, limit);
@@ -74,6 +100,21 @@ export function compileResourceContext(
     const knowledge = result.resource.class === "KNOWLEDGE"
       ? knowledgeByResourceId?.[result.resource.id]
       : undefined;
+    const targetApplicability: KnowledgeTargetApplicability | undefined =
+      knowledge === undefined
+        ? undefined
+        : targetProfile === undefined
+          ? {
+              state: "not-evaluated",
+              reasons: ["No selected Minecraft runtime profile was supplied."],
+              missing: ["runtime-profile"],
+            }
+          : evaluateKnowledgeApplicabilityV2(
+              runtimeConstraintFromLegacyKnowledgeApplicability(
+                knowledge.applicability,
+              ),
+              targetProfile,
+            );
     return {
       id: result.resource.id,
       class: result.resource.class,
@@ -89,6 +130,7 @@ export function compileResourceContext(
       score: result.score.total,
       reasons: [...result.reasons],
       ...(knowledge === undefined ? {} : { knowledge }),
+      ...(targetApplicability === undefined ? {} : { targetApplicability }),
     };
   });
   const missingKnowledgeIds = knowledgeByResourceId === undefined

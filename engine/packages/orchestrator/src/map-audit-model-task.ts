@@ -50,6 +50,17 @@ export interface AuditModelTaskKnowledgeContext {
   readonly platformClaims?: GameplayWorldModel["platformKnowledge"]["claims"];
 }
 
+export interface AuditModelTaskKnowledgeLookup {
+  readonly query: string;
+  readonly matchedSubjectIds: readonly string[];
+  readonly sourceEvidenceIds: readonly string[];
+  readonly sourceLocators: readonly string[];
+  readonly unresolvedSubjectIds: readonly string[];
+  readonly omittedSupportedSubjectIds: readonly string[];
+  readonly grounding: "SELECTED_ARTIFACT" | "GOAL_ONLY";
+  readonly authority: "SEARCH_HINT_NOT_GAMEPLAY_PROOF";
+}
+
 export interface AuditModelTaskPacket {
   readonly schemaVersion: 1;
   readonly policy: "bounded-audit-model-task";
@@ -69,6 +80,8 @@ export interface AuditModelTaskPacket {
   readonly evidenceContext: readonly AuditModelTaskEvidenceContext[];
   readonly unresolvedEvidenceIds: readonly string[];
   readonly knowledgeContext: readonly AuditModelTaskKnowledgeContext[];
+  /** Route ChatGPT/source lookup from the current map, not from a generic bug taxonomy. */
+  readonly knowledgeLookup?: AuditModelTaskKnowledgeLookup;
   readonly unresolvedObligationIds: readonly string[];
   readonly userSearchContext?: {
     readonly authorityNote: string;
@@ -135,6 +148,66 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(
     values.filter((value) => value.trim().length > 0),
   )].sort();
+}
+
+// A lookup suggestion uses only source-grounded selected-map mechanics.
+// Unknown/hypothetical subjects remain visible and never become a reason to
+// invent a mechanic or force an unrelated global knowledge domain.
+export function deriveAuditModelKnowledgeLookup(
+  intent: GameplayIntentModel,
+  question: string,
+  subjectIds: readonly string[],
+): AuditModelTaskKnowledgeLookup | undefined {
+  const wanted = unique(subjectIds);
+  if (wanted.length === 0) return undefined;
+
+  const evidenceById = new Map(
+    intent.evidence.map((evidence) => [evidence.id, evidence]),
+  );
+  const sourceOrigins = new Set([
+    "game-design-spec", "source-code", "manifest", "command",
+    "scoreboard", "tag", "dialogue", "translation", "structure", "world-db",
+  ]);
+  const bySubject = new Map(
+    intent.nodes.map((node) => [node.id, node]),
+  );
+  const supported = wanted.flatMap((id) => {
+    const node = bySubject.get(id);
+    if (node === undefined || node.status === "hypothesis") return [];
+    const sourceEvidenceIds = node.evidenceIds.filter((evidenceId) => {
+      const evidence = evidenceById.get(evidenceId);
+      if (evidence === undefined) return false;
+      return evidence.scope === "selected-artifact" ||
+        (evidence.scope === undefined && sourceOrigins.has(evidence.origin));
+    });
+    return sourceEvidenceIds.length === 0
+      ? []
+      : [{ node, sourceEvidenceIds }];
+  });
+  const matchedIds = new Set(supported.map(({ node }) => node.id));
+  const bounded = supported.slice(0, 4);
+  const query = [
+    question.trim().slice(0, 220),
+    ...bounded.map(({ node }) => node.label.trim().slice(0, 90)),
+  ].filter(Boolean).join(" ").trim();
+  if (!query) return undefined;
+  const usedEvidenceIds = unique(
+    bounded.flatMap(({ sourceEvidenceIds }) => sourceEvidenceIds),
+  );
+
+  return {
+    query,
+    matchedSubjectIds: bounded.map(({ node }) => node.id),
+    sourceEvidenceIds: usedEvidenceIds,
+    sourceLocators: unique(usedEvidenceIds.flatMap((id) => {
+      const locator = evidenceById.get(id)?.locator;
+      return locator === undefined ? [] : [locator];
+    })),
+    unresolvedSubjectIds: wanted.filter((id) => !matchedIds.has(id)),
+    omittedSupportedSubjectIds: supported.slice(4).map(({ node }) => node.id),
+    grounding: bounded.length > 0 ? "SELECTED_ARTIFACT" : "GOAL_ONLY",
+    authority: "SEARCH_HINT_NOT_GAMEPLAY_PROOF",
+  };
 }
 
 function evidenceContext(
@@ -663,10 +736,18 @@ export function deriveAuditModelTaskPackets(input: {
             ...auditObligationPackets,
           ];
 
-  return packets.map((packet) => ({
-    ...packet,
-    ...(userSearchContext === undefined
-      ? {}
-      : { userSearchContext }),
-  }));
+  return packets.map((packet) => {
+    const knowledgeLookup = deriveAuditModelKnowledgeLookup(
+      input.intent,
+      packet.decisionNeeded,
+      packet.subjectIds,
+    );
+    return {
+      ...packet,
+      ...(userSearchContext === undefined
+        ? {}
+        : { userSearchContext }),
+      ...(knowledgeLookup === undefined ? {} : { knowledgeLookup }),
+    };
+  });
 }

@@ -226,6 +226,32 @@ a GitHub code-search hit from the default branch represents `Local`.
 The CLI's enriched output is a production/source contract for callers that
 can actually execute it; it is not a new ChatGPT remote execution capability.
 
+## Gameplay-driven Knowledge lookup
+
+The production `deriveAuditModelTaskPackets()` derives a small
+`knowledgeLookup` hint only for packets with scoped subject IDs.
+Its query uses the packet's decision question and up to four grounded,
+non-hypothetical current-artifact mechanic labels. Unknown/historical-only
+subjects are retained in `unresolvedSubjectIds`, not promoted to gameplay
+facts or forced into a generic detector category. The hint is **not**
+a claim of Knowledge retrieval, applicability, or Minecraft execution.
+
+The existing `retrieveResources()` and repository retrieval CLI can use
+this `knowledgeLookup.query` as scoped search text; selected facts/relations
+still come from the canonical Resource Catalog and are hydrated only
+after selection. Through GitHub-only ChatGPT access, the agent must follow
+the equivalent exact-commit ownership/targeted-file retrieval sequence;
+there is no claim that the GitHub connector executes repo TypeScript.
+
+The existing `compileResourceContext()` and `compileContextPack()`
+accept an optional `targetRuntimeProfile` and use the **existing**
+`evaluateKnowledgeApplicabilityV2()` on legacy fact/relation constraints.
+Returned state is `applies`, `does-not-apply`, `unknown`,
+or `not-evaluated` without a profile. This is a decision relative to the
+supplied profile, not proof the profile matches a particular `.mcworld`
+or that gameplay behavior occurs. An inapplicable fact remains visible
+with its status so it cannot silently supply bug proof.
+
 ## Exact lookup rule
 
 Do not expand this document back into a per-symbol or per-file database.

@@ -22,6 +22,7 @@ import type {
   RetrievalResult,
   SectionRetrievalResult,
 } from "../../../analysis-planner/src/index.js";
+import type { MinecraftRuntimeProfile } from "../../../runtime-profile/src/index.js";
 import {
   compileResourceContext,
   compileSectionContext,
@@ -54,6 +55,8 @@ export interface ContextCompilerRequest {
   resourceSelection?: readonly RetrievalResult[];
   resourceLimit?: number;
   resourceKnowledge?: Readonly<Record<string, RetrievedKnowledgeContext>>;
+  /** Only an actual selected-target profile may authorize applicability. */
+  targetRuntimeProfile?: MinecraftRuntimeProfile;
   sectionSelection?: readonly SectionRetrievalResult[];
   sectionLimit?: number;
   budget?: Partial<ContextCompilerBudget>;
@@ -316,6 +319,7 @@ export function compileContextPack(
       input.resourceSelection,
       input.resourceLimit,
       input.resourceKnowledge,
+      input.targetRuntimeProfile,
     );
   const sections =
     compileSectionContext(
