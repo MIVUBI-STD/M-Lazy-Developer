@@ -199,6 +199,8 @@ Context
 
 Catalog and Graph are derived navigation structures. They never replace the source/data owners listed above. The 458 knowledge-to-analyzer/proof declarations (as of the 2026-10-11 Phase D audit) remain in the reliability registry for explicit lookup, but no longer create inferred module-level `USES`/`VALIDATES` edges in the active retrieval Graph. Of those declarations, 375 reference at least one file in the orchestrator package; collapsing those files to one SOURCE module created a large unrelated-fact fanout. These were administrative relationships, not proven analyzer consumption. Keep the direct Knowledge Catalog, content lookup and scoped lexical retrieval; do not promote declaration count to detector coverage or bug-finding recall.
 
+**Seeded retrieval after Phase D:** `retrieveResources()` retains strict explicit-domain searches and empty-text Graph navigation. For a source/owner seed and a nonempty text query with no relevant reachable candidate in the requested class, it may fall back to **scored** structural, lexical and semantic hits without restoring declared analyzer-binding edges. Returned resources remain evidence-navigation candidates, not claims of applicability, gameplay design, or detector recall. Source-only and unsupported-language queries can still miss; ChatGPT should reformulate the question using grounded English Minecraft identifiers/terms and examine actual source content rather than trusting top scores.
+
 ## Bounded Knowledge context delivery (ChatGPT + GitHub)
 
 The repository retrieval entrypoint returns ranked Resource IDs and, for each selected

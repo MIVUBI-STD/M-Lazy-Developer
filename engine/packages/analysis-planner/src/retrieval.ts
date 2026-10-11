@@ -204,9 +204,41 @@ function candidateResources(
   resources: readonly CatalogResource[],
   graphScore: ReadonlyMap<string, number>,
   domains: ReadonlySet<string>,
+  classes: ReadonlySet<CatalogResourceClass>,
+  seeds: ReadonlySet<string>,
+  queryTokens: readonly string[],
+  lexicalScores: Readonly<Record<string, number>>,
+  semanticScores: Readonly<Record<string, number>>,
 ): readonly CatalogResource[] {
   if (domains.size === 0 && graphScore.size === 0) {
     return resources;
+  }
+
+  // A source-module seed can lack relevant graph neighbors after removing
+  // declaration-only bindings. Do not interpret that as no relevant Knowledge.
+  // Keep domain-scoped and graph-only searches strict.
+  const hasRelevantNeighbor = resources.some((resource) =>
+    !seeds.has(resource.id) &&
+    graphScore.has(resource.id) &&
+    (classes.size === 0 || classes.has(resource.class)) &&
+    (
+      structuralScore(resource, queryTokens) > 0 ||
+      (lexicalScores[resource.id] ?? 0) > 0 ||
+      (semanticScores[resource.id] ?? 0) > 0
+    ),
+  );
+  if (
+    seeds.size > 0 &&
+    domains.size === 0 &&
+    queryTokens.length > 0 &&
+    !hasRelevantNeighbor
+  ) {
+    return resources.filter((resource) =>
+      graphScore.has(resource.id) ||
+      structuralScore(resource, queryTokens) > 0 ||
+      (lexicalScores[resource.id] ?? 0) > 0 ||
+      (semanticScores[resource.id] ?? 0) > 0
+    );
   }
 
   return resources.filter(
@@ -238,7 +270,16 @@ export function retrieveResources(
   const semanticScores = query.semanticScores ?? {};
   const limit = clamp(query.limit ?? 12, 1, 50);
 
-  return candidateResources(resources, graphScore, domains)
+  return candidateResources(
+    resources,
+    graphScore,
+    domains,
+    classes,
+    seedIds,
+    queryTokens,
+    lexicalScores,
+    semanticScores,
+  )
     .filter((resource) => resource.lifecycle === "ACTIVE")
     .filter(
       (resource) =>
