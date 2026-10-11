@@ -1482,9 +1482,15 @@ export function deriveGameplayArchitectureNavigation(
     sourceEffectSlices.map(slice => {
       const exactComponents = graph.components.filter(component =>
         component.evidenceIds.includes(slice.effectId));
-      const sourceRegions = new Set(slice.candidateIngress.flatMap(entry =>
-        entry.regionIds));
-      sourceRegions.add(slice.executionRegionId);
+      // A source-identified UI/action feature may own an exact call edge,
+      // without owning the callee region. Preserve that as path CONTEXT,
+      // never as direct effect ownership or evidence that the call ran.
+      const pathEvidenceIds = new Set([
+        slice.executionRegionId,
+        ...slice.candidateIngress.flatMap(entry => [
+          ...entry.regionIds, ...entry.executionEdgeIds,
+        ]),
+      ]);
       const exactComponentIds = sorted(exactComponents.map(c => c.id));
       return {
         ...slice,
@@ -1494,7 +1500,7 @@ export function deriveGameplayArchitectureNavigation(
         // contextual association only, never a PROVEN semantic dependency.
         pathAssociatedFeatureIds: sorted(featureComponents
           .filter(component => component.evidenceIds.some(id =>
-            sourceRegions.has(id)) &&
+            pathEvidenceIds.has(id)) &&
             !exactComponentIds.includes(component.id))
           .map(component => component.id)),
       };
@@ -1695,7 +1701,8 @@ export function deriveGameplayArchitectureNavigation(
             const associatedPaths = paths.filter(entry =>
               association === "DIRECT_EFFECT_EVIDENCE" ||
               (entry !== undefined && component.evidenceIds.some(id =>
-                entry.regionIds.includes(id))));
+                entry.regionIds.includes(id) ||
+                entry.executionEdgeIds.includes(id))));
             return associatedPaths.map(entry => ({
               effectId: slice.effectId,
               association,

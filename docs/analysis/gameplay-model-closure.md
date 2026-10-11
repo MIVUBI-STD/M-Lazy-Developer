@@ -27,6 +27,44 @@ Do not claim whole-map completeness while Discovery Closure is OPEN or PARTIAL. 
 
 The goal is not to prove every runtime outcome before auditing. The goal is to ensure every discovered gameplay-relevant surface is understood enough to reason about, or explicitly marked blocked/unknown.
 
+## Discovery V1 product acceptance boundary
+
+This is a **development STOP criterion**, not an alternative Map Audit publication
+gate or a claim of Minecraft runtime success. Use the existing
+`runSelectedMapAudit()` output and canonical Scenario Graph / Map Audit V2
+navigation; do not introduce another state machine, dashboard, or graph owner.
+
+- **A2 source accounted:** file coverage, parser failures, inactive/unlisted
+  packs, and unresolved executable references are reported separately. A2
+  COMPLETE does not assert gameplay comprehension.
+- **A7 gameplay interpreted:** for each material *discovered* feature, present
+  its exact source evidence, inferred or authored meaning, applicable
+  source-behavior paths, and specific missing dimensions. A matched call edge
+  identifies a *candidate* path to a downstream effect, never direct effect
+  ownership, player activation, chronology, or execution success.
+- **Coverage without fabrication:** unclassified material source operations,
+  unresolved branches/targets, unplaced mechanics, truncated routes and
+  unknown outcomes remain visible. No zero-gap or 100%-understanding claim
+  can be inferred from a finite parser inventory.
+- **One bounded acceptance batch:** reuse the existing selected-map
+  production-entrypoint positive dialogue/function, animation/function,
+  and ambiguous-function cases; then compare at least one Defense-like map
+  and two contrasting real authored maps against independently known
+  mechanics and intentional unknowns. Do not add a new runner, fixtures for
+  each commit, or unbounded per-feature tests.
+- **Stop and classify:** for each actual acceptance difference, assign the
+  first incorrect canonical owner, or mark the claim `RUNTIME_REQUIRED`,
+  `SOURCE_UNAVAILABLE`, or `UNRESOLVED_DESIGN` with the exact blocked
+  behavior. Runtime-only uncertainty is not a mandate to extend static
+  discovery indefinitely. Source-level work may be completed with executable
+  or real-map acceptance explicitly `NOT EXECUTED`.
+
+V1 development acceptance is achieved only once the bounded executable
+production checks and the independently reviewed contrasting-map comparison
+have evidence. It is not achieved by authoring tests, adding more analyzers,
+or setting A2 COMPLETE. Map Audit report publication retains its existing
+mandatory procedure and independent proof requirements.
+
 ## Core principle
 
 Do not infer game design from implementation details alone.

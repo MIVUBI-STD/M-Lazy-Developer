@@ -147,6 +147,12 @@ describe("Game-Centric Discovery selected-map acceptance (synthetic)", () => {
         ?.mechanicReconstructions.some(item =>
           item.name === "NPC interaction: Start Challenge" &&
           item.exactSourceFlowIds.includes(sourceFlow!.id))).toBe(true);
+      expect(result.mapAuditReport.gameplayStructure
+        ?.features.find(item => item.label === "NPC interaction: Start Challenge")
+        ?.sourceBehaviorPaths.some(path =>
+          path.effectId === teleport!.id &&
+          path.association === "CALL_PATH_CONTEXT" &&
+          path.executionEdgeIds.includes(edge!.id))).toBe(true);
     } finally {
       await fixture.cleanup();
     }
@@ -202,6 +208,11 @@ describe("Game-Centric Discovery selected-map acceptance (synthetic)", () => {
       expect(flow?.regionIds).toHaveLength(1);
       expect(flow?.sourceSteps.some(step =>
         step.executionRegionId !== flow.entryRegionId)).toBe(false);
+      // An unresolved/duplicate target cannot be credited with effects
+      // from either same-named function. No guessed call-path context.
+      expect(result.mapAuditReport.gameplayStructure?.features
+        .filter(item => item.label === "NPC interaction: Start Challenge")
+        .flatMap(item => item.sourceBehaviorPaths)).toEqual([]);
       expect(result.mapAuditReport.gameplayFlowBasis)
         .toBe("AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY");
     } finally {
