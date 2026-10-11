@@ -1522,3 +1522,280 @@ describe("gameplay intent analyzer", () => {
     }));
   });
 });
+
+
+describe("source-owned gameplay interpretation across modules", () => {
+  const makeScript = (relativePath: string): ParsedScriptFile => {
+    const authoredSource = {
+      artifactId: "art:two-mode-example",
+      relativePath,
+    };
+    return {
+      ...script(),
+      identifier: relativePath,
+      source: authoredSource,
+      localFunctionCalls: [{
+        callerRegion: "function:startWave",
+        targetRegion: "function:resetArena",
+        targetName: "resetArena",
+        source: authoredSource,
+      }],
+      lifecycleMemberExposures: [],
+      enumValueComparisons: [],
+      typeProperties: [],
+      transitionDeclarations: [],
+      events: [],
+      deferredCallbacks: [],
+      commandLiterals: [],
+      stateMutations: [{
+        target: "session.state",
+        targetName: "state",
+        value: {
+          kind: "member" as const,
+          owner: "SessionState",
+          member: "Active",
+          symbol: "SessionState.Active",
+        },
+        executionRegion: "function:resetArena",
+        source: authoredSource,
+      }],
+      returnOutcomes: [{
+        executionRegion: "function:resetArena",
+        propertyName: "action",
+        value: "finish",
+        source: { ...authoredSource, range: {
+          lineStart: 9, lineEnd: 9, columnStart: 4, columnEnd: 29,
+        } },
+      }],
+      guardedOutcomes: [{
+        executionRegion: "function:resetArena",
+        propertyName: "action",
+        value: "finish",
+        conditionText: "session.enabled",
+        conditionIdentifiers: ["session", "session.enabled"],
+        predicate: {
+          kind: "truthy",
+          operand: { kind: "path", path: "session.enabled" },
+        },
+        conditionSource: authoredSource,
+        outcomeSource: { ...authoredSource, range: {
+          lineStart: 9, lineEnd: 9, columnStart: 4, columnEnd: 29,
+        } },
+      }],
+    };
+  };
+
+  it("keeps duplicate function, state and outcome names in their actual source owners", () => {
+    const paths = [
+      "behavior_packs/demo/scripts/mode-a.js",
+      "behavior_packs/demo/scripts/mode-b.js",
+    ];
+    const result = extractGameplayIntentSignals(paths.map(makeScript));
+    for (const path of paths) {
+      const ownerBase = ":site:" + encodeURIComponent(path) + ":";
+      const startId = "mechanic:start-wave" +
+        ownerBase + encodeURIComponent("function:startWave");
+      const resetSite = ownerBase + encodeURIComponent("function:resetArena");
+      const resetId = "lifecycle:reset-arena" + resetSite;
+      const stateId = "state:session-state-active" + resetSite;
+      const outcomeId = "outcome:reset-arena-finish" + resetSite;
+      const policyId = "policy:reset-arena-session-enabled" + resetSite;
+      for (const id of [startId, resetId, stateId, outcomeId, policyId]) {
+        expect(result.signals.some(signal =>
+          signal.subjectKey === id && signal.locator === path)).toBe(true);
+      }
+      expect(result.relations.some(relation =>
+        relation.edgeKind === "requires" &&
+        relation.fromSubjectKey === startId &&
+        relation.toSubjectKey === resetId)).toBe(true);
+      expect(result.relations.some(relation =>
+        relation.edgeKind === "transitions-to" &&
+        relation.fromSubjectKey === resetId &&
+        relation.toSubjectKey === stateId)).toBe(true);
+      expect(result.relations.some(relation =>
+        relation.edgeKind === "produces" &&
+        relation.fromSubjectKey === resetId &&
+        relation.toSubjectKey === outcomeId)).toBe(true);
+      expect(result.relations.some(relation =>
+        relation.edgeKind === "requires" &&
+        relation.fromSubjectKey === outcomeId &&
+        relation.toSubjectKey === policyId)).toBe(true);
+    }
+    expect(result.signals.filter(item =>
+      item.subjectKey.startsWith("lifecycle:reset-arena:site:"))).toHaveLength(2);
+    expect(result.signals.some(item =>
+      item.subjectKey === "lifecycle:reset-arena")).toBe(false);
+    const moduleKeys = paths.map(path =>
+      ":site:" + encodeURIComponent(path) + ":");
+    expect(result.relations.every(relation => {
+      const fromOwner = moduleKeys.find(key =>
+        relation.fromSubjectKey.includes(key));
+      const toOwner = moduleKeys.find(key =>
+        relation.toSubjectKey.includes(key));
+      return fromOwner === undefined ||
+        toOwner === undefined || fromOwner === toOwner;
+    })).toBe(true);
+    const outcomes = result.outcomePolicyCoverage.filter(item =>
+      item.outcomeSubjectKey.startsWith("outcome:reset-arena-finish:site:"));
+    expect(outcomes).toHaveLength(2);
+    expect(outcomes.every(item => item.completeDirectGuardCoverage))
+      .toBe(true);
+  });
+
+  it("preserves unambiguous names and resolves imported export aliases to actual functions", () => {
+    const entry = "behavior_packs/demo/scripts/entry.js";
+    const owner = "behavior_packs/demo/scripts/actions.js";
+    const artifactId = "art:source-identity";
+    const imported = extractGameplayIntentSignals([
+      { ...makeScript(entry), source: { artifactId, relativePath: entry },
+        localFunctionCalls: [], stateMutations: [], returnOutcomes: [] },
+      { ...makeScript(owner), source: { artifactId, relativePath: owner },
+        localFunctionCalls: [], stateMutations: [], returnOutcomes: [] },
+    ], [{
+      callerModule: entry,
+      callerRegion: "function:resetArena",
+      targetModule: owner,
+      targetExport: "waveAlias",
+      targetRegion: "function:prepareWave",
+      localName: "waveAlias",
+      controlFlow: "unconditional",
+      status: "resolved",
+      source: { artifactId, relativePath: entry },
+    }]);
+    const importedRelation = imported.relations.find(relation =>
+      relation.crossFileCallOrigins?.length);
+    expect(importedRelation).toBeDefined();
+    expect(importedRelation?.fromSubjectKey).toBe("lifecycle:reset-arena");
+    expect(importedRelation?.toSubjectKey).toBe("mechanic:prepare-wave");
+    expect(imported.signals.some(item =>
+      item.subjectKey === "mechanic:wave-alias")).toBe(false);
+    expect(imported.signals.some(item =>
+      item.subjectKey === "mechanic:prepare-wave")).toBe(true);
+    // An unresolved import must never create a function-to-function
+    // gameplay dependency, even if its names happen to be descriptive.
+    const unresolved = extractGameplayIntentSignals([
+      { ...makeScript(entry), source: { artifactId, relativePath: entry },
+        localFunctionCalls: [], stateMutations: [], returnOutcomes: [] },
+      { ...makeScript(owner), source: { artifactId, relativePath: owner },
+        localFunctionCalls: [], stateMutations: [], returnOutcomes: [] },
+    ], [{
+      callerModule: entry, callerRegion: "function:resetArena",
+      targetModule: owner, targetExport: "waveAlias",
+      targetRegion: "function:prepareWave", localName: "waveAlias",
+      controlFlow: "unconditional", status: "unresolved",
+      source: { artifactId, relativePath: entry },
+    }]);
+    expect(unresolved.relations.some(relation =>
+      relation.crossFileCallOrigins?.length)).toBe(false);
+  });
+
+  it("does not merge different declared names that normalize to the same lexical key", () => {
+    const path = "behavior_packs/demo/scripts/round.js";
+    const sample = makeScript(path);
+    const mutation = sample.stateMutations![0]!;
+    const outcome = sample.returnOutcomes![0]!;
+    const enriched: ParsedScriptFile = {
+      ...sample,
+      localFunctionCalls: [
+        ...sample.localFunctionCalls,
+        {
+          callerRegion: "function:start_wave",
+          targetRegion: "function:reset_arena",
+          targetName: "reset_arena",
+          source: sample.source,
+        },
+      ],
+      stateMutations: [
+        mutation,
+        { ...mutation, executionRegion: "function:reset_arena" },
+      ],
+      returnOutcomes: [
+        outcome,
+        { ...outcome, executionRegion: "function:reset_arena" },
+      ],
+    };
+    const result = extractGameplayIntentSignals([enriched]);
+    const ownerBase = ":site:" + encodeURIComponent(path) + ":";
+    const begin = [
+      "mechanic:start-wave" + ownerBase +
+        encodeURIComponent("function:startWave"),
+      "mechanic:start-wave" + ownerBase +
+        encodeURIComponent("function:start_wave"),
+    ];
+    const reset = [
+      "lifecycle:reset-arena" + ownerBase +
+        encodeURIComponent("function:resetArena"),
+      "lifecycle:reset-arena" + ownerBase +
+        encodeURIComponent("function:reset_arena"),
+    ];
+    for (const id of [...begin, ...reset]) {
+      expect(result.signals.some(signal => signal.subjectKey === id))
+        .toBe(true);
+    }
+    expect(result.relations.some(rel =>
+      rel.fromSubjectKey === begin[0] && rel.toSubjectKey === reset[0]))
+      .toBe(true);
+    expect(result.relations.some(rel =>
+      rel.fromSubjectKey === begin[1] && rel.toSubjectKey === reset[1]))
+      .toBe(true);
+    expect(result.relations.some(rel =>
+      rel.fromSubjectKey === begin[0] && rel.toSubjectKey === reset[1]))
+      .toBe(false);
+  });
+
+
+
+  it("does not let a typed transition table in one source suppress another source's transitions", () => {
+    const sourceA = makeScript("behavior_packs/demo/scripts/phase-a.js");
+    const sourceB = makeScript("behavior_packs/demo/scripts/phase-b.js");
+    const shared = { tableName: "TRANSITIONS", from: "active",
+      to: ["finished"] };
+    const a: ParsedScriptFile = {
+      ...sourceA,
+      localFunctionCalls: [], stateMutations: [], returnOutcomes: [],
+      guardedOutcomes: [],
+      transitionDeclarations: [
+        { ...shared, stateType: "SessionPhase", source: sourceA.source },
+        { ...shared, source: sourceA.source },
+      ],
+    };
+    const b: ParsedScriptFile = {
+      ...sourceB,
+      localFunctionCalls: [], stateMutations: [], returnOutcomes: [],
+      guardedOutcomes: [],
+      transitionDeclarations: [
+        { ...shared, source: sourceB.source },
+      ],
+    };
+    const result = extractGameplayIntentSignals([a, b]);
+    const scope = (path: string) =>
+      ":site:" + encodeURIComponent(path) + ":" +
+        encodeURIComponent("table:TRANSITIONS");
+    const typedA = "state:session-phase-active" + scope(a.source.relativePath);
+    const typedAFinish = "state:session-phase-finished" +
+      scope(a.source.relativePath);
+    const untypedB = "state:transitions-active" +
+      scope(b.source.relativePath);
+    const untypedBFinish = "state:transitions-finished" +
+      scope(b.source.relativePath);
+    expect(result.signals.some(item => item.subjectKey === typedA)).toBe(true);
+    expect(result.signals.some(item => item.subjectKey === untypedB)).toBe(true);
+    expect(result.relations.some(edge =>
+      edge.fromSubjectKey === typedA &&
+      edge.toSubjectKey === typedAFinish &&
+      edge.status === "authored")).toBe(true);
+    expect(result.relations.some(edge =>
+      edge.fromSubjectKey === untypedB &&
+      edge.toSubjectKey === untypedBFinish &&
+      edge.status === "authored")).toBe(true);
+    // Duplicate untyped declaration in the SAME module is still suppressed.
+    expect(result.signals.some(item =>
+      item.subjectKey === "state:transitions-active" +
+        scope(a.source.relativePath))).toBe(false);
+    expect(result.relations.every(edge =>
+      !(edge.fromSubjectKey.includes(scope(a.source.relativePath)) &&
+        edge.toSubjectKey.includes(scope(b.source.relativePath))))).toBe(true);
+  });
+
+
+});

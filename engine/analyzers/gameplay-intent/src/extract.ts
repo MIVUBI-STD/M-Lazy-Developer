@@ -392,16 +392,37 @@ function sameAuthoredSite(
     a.columnStart === b.columnStart && a.columnEnd === b.columnEnd;
 }
 
-/** Ground a classified function in one exact parser-observed region. */
+/**
+ * Stable across map releases: module ownership is a semantic dimension,
+ * selected-artifact identity belongs to the model/evidence authority instead.
+ */
+function functionOwnerSuffix(
+  source: ParsedScriptFile["source"], region: string,
+): string {
+  return ":site:" + encodeURIComponent(source.relativePath) +
+    ":" + encodeURIComponent(region);
+}
+
+/** The lexical symbol must match its parsed named region candidate.
+ * A parser-assigned region alone does not prove declaration reachability,
+ * invocation, or player-facing purpose; IR retains that proof boundary.
+ */
 function classifiedFunctionSignal(
   script: ParsedScriptFile,
   name: string,
   region: string,
+  ambiguousFunctionKeys: ReadonlySet<string>,
 ): GameplayIntentSignal | undefined {
+  if (region !== "function:" + name) return undefined;
   const base = lexicalSignal(script.source.relativePath, name);
-  if (!base || region !== "function:" + name) return base;
+  if (!base) return undefined;
+  const subjectKey = ambiguousFunctionKeys.has(base.subjectKey)
+    ? base.subjectKey + functionOwnerSuffix(script.source, region)
+    : base.subjectKey;
   return {
     ...base,
+    id: "signal:" + subjectKey + ":" + slug(script.source.relativePath),
+    subjectKey,
     executionRegionOrigins: [{
       scriptSource: script.source,
       scriptIdentifier: script.identifier,
@@ -554,23 +575,34 @@ export function extractGameplayIntentSignals(
 ): GameplayIntentSignalSet {
   const signals = new Map<string, GameplayIntentSignal>();
   const relations = new Map<string, GameplayIntentRelationSignal>();
+  // Transition-table labels may repeat in independent modules/modes.
+  // Deduplicate typed/untyped declarations only inside the owning source.
+  const transitionSignature = (
+    script: ParsedScriptFile,
+    transition: NonNullable<ParsedScriptFile["transitionDeclarations"]>[number],
+  ): string => [
+    script.source.artifactId,
+    script.source.relativePath,
+    transition.tableName,
+    transition.from,
+    transition.to.join(","),
+  ].join("\u0000");
   const typedTransitionSignatures = new Set(
-    scripts.flatMap((script) =>
-      (script.transitionDeclarations ?? [])
-        .filter(
-          (transition) =>
-            transition.stateType !== undefined,
-        )
-        .map(
-          (transition) =>
-            transition.tableName +
-            "::" +
-            transition.from +
-            "::" +
-            transition.to.join(","),
-        ),
-    ),
+    scripts.flatMap(script => (script.transitionDeclarations ?? [])
+      .filter(transition => transition.stateType !== undefined)
+      .map(transition => transitionSignature(script, transition))),
   );
+  const tableOwners = new Map<string, Set<string>>();
+  for (const script of scripts) {
+    for (const transition of script.transitionDeclarations ?? []) {
+      const owners = tableOwners.get(transition.tableName) ?? new Set<string>();
+      owners.add(functionOwnerSuffix(script.source, "table:" + transition.tableName));
+      tableOwners.set(transition.tableName, owners);
+    }
+  }
+  const ambiguousTableNames = new Set([...tableOwners]
+    .filter(([, owners]) => owners.size > 1)
+    .map(([name]) => name));
   const outcomeCoverage = new Map<
     string,
     {
@@ -578,6 +610,77 @@ export function extractGameplayIntentSignals(
       directlyGuardedReturnSites: number;
     }
   >();
+
+  // Group named region candidates referenced by this source inspection.
+  // Same symbol names in distinct modules (or distinct authored region names
+  // whose normalized labels collide) cannot share gameplay evidence or intent.
+  // IR matching still owns source/executable identity and reachability.
+  const scriptsByPath = new Map<string, ParsedScriptFile[]>();
+  for (const script of scripts) {
+    const path = script.source.relativePath.replaceAll("\\", "/");
+    scriptsByPath.set(path, [...(scriptsByPath.get(path) ?? []), script]);
+  }
+  const functionOwners = new Map<string, Set<string>>();
+  const observeNamedRegion = (
+    script: ParsedScriptFile, region: string | undefined,
+  ): void => {
+    if (!region?.startsWith("function:")) return;
+    const classified = lexicalSignal(
+      script.source.relativePath, region.slice("function:".length),
+    );
+    if (!classified) return;
+    const owners = functionOwners.get(classified.subjectKey) ?? new Set<string>();
+    owners.add(functionOwnerSuffix(script.source, region));
+    functionOwners.set(classified.subjectKey, owners);
+  };
+  for (const script of scripts) {
+    const regions: (string | undefined)[] = [
+      ...script.localFunctionCalls.flatMap(call =>
+        [call.callerRegion, call.targetRegion]),
+      ...(script.stateMutations ?? []).map(item => item.executionRegion),
+      ...(script.guardedOutcomes ?? []).map(item => item.executionRegion),
+      ...(script.returnOutcomes ?? []).map(item => item.executionRegion),
+      ...(script.cleanupResourceEvidence ?? []).map(item => item.executionRegion),
+      ...script.events.map(item => item.callbackRegion),
+      ...script.deferredCallbacks.flatMap(item =>
+        [item.callerRegion, item.callbackRegion]),
+    ];
+    for (const region of regions) observeNamedRegion(script, region);
+  }
+  for (const call of crossFileCallEdges) {
+    if (call.status !== "resolved" ||
+        !call.callerRegion.startsWith("function:") ||
+        !call.targetRegion?.startsWith("function:") ||
+        call.targetModule === undefined) continue;
+    for (const script of scriptsByPath.get(call.callerModule) ?? []) {
+      if (script.source.artifactId === call.source.artifactId) {
+        observeNamedRegion(script, call.callerRegion);
+      }
+    }
+    for (const script of scriptsByPath.get(call.targetModule) ?? []) {
+      if (script.source.artifactId === call.source.artifactId) {
+        observeNamedRegion(script, call.targetRegion);
+      }
+    }
+  }
+  const ambiguousFunctionKeys = new Set([...functionOwners]
+    .filter(([, owners]) => owners.size > 1)
+    .map(([key]) => key));
+  const classifiedFunction = (
+    script: ParsedScriptFile, name: string, region: string,
+  ): GameplayIntentSignal | undefined =>
+    classifiedFunctionSignal(script, name, region, ambiguousFunctionKeys);
+
+  // Scoped status/outcome/guard nodes must follow their originating function;
+  // splitting functions alone would still create false cross-module bridges.
+  const scopedFunctionValueKey = (
+    key: string, signal: GameplayIntentSignal | undefined,
+  ): string => {
+    const origin = signal?.executionRegionOrigins?.[0];
+    if (origin === undefined) return key;
+    const suffix = functionOwnerSuffix(origin.scriptSource, origin.region);
+    return signal.subjectKey.endsWith(suffix) ? key + suffix : key;
+  };
 
   // Name-only class declarations are observations, not proof that a
   // gameplay mechanic exists. Repeated names need distinct authored sites;
@@ -1000,7 +1103,7 @@ export function extractGameplayIntentSignals(
     }
 
     for (const call of script.localFunctionCalls) {
-      const target = classifiedFunctionSignal(
+      const target = classifiedFunction(
         script, call.targetName, call.targetRegion,
       );
       if (target) pushSignal(signals, target);
@@ -1009,7 +1112,7 @@ export function extractGameplayIntentSignals(
       const caller =
         call.callerRegion === "module"
           ? undefined
-          : classifiedFunctionSignal(script, callerName, call.callerRegion);
+          : classifiedFunction(script, callerName, call.callerRegion);
       if (caller) pushSignal(signals, caller);
 
       if (caller && target) {
@@ -1038,7 +1141,7 @@ export function extractGameplayIntentSignals(
           ? undefined
           : mutation.executionRegion.replace(/^function:/, "");
       const sourceSignal = sourceName
-        ? classifiedFunctionSignal(script, sourceName, mutation.executionRegion)
+        ? classifiedFunction(script, sourceName, mutation.executionRegion)
         : undefined;
       if (sourceSignal) pushSignal(signals, sourceSignal);
 
@@ -1046,7 +1149,9 @@ export function extractGameplayIntentSignals(
         mutation.value.kind === "member"
           ? mutation.value.owner + " " + mutation.value.member
           : mutation.targetName + " " + mutation.value.literal;
-      const stateKey = "state:" + slug(rawValue);
+      const stateKey = scopedFunctionValueKey(
+        "state:" + slug(rawValue), sourceSignal,
+      );
       const stateSignal: GameplayIntentSignal = {
         id: "signal:" + stateKey + ":" + slug(path),
         subjectKey: stateKey,
@@ -1139,25 +1244,19 @@ export function extractGameplayIntentSignals(
     }
 
     for (const transition of script.transitionDeclarations ?? []) {
-      const transitionSignature =
-        transition.tableName +
-        "::" +
-        transition.from +
-        "::" +
-        transition.to.join(",");
       if (
         transition.stateType === undefined &&
-        typedTransitionSignatures.has(
-          transitionSignature,
-        )
+        typedTransitionSignatures.has(transitionSignature(script, transition))
       ) {
         continue;
       }
 
-      const stateType =
-        transition.stateType ?? transition.tableName;
+      const stateType = transition.stateType ?? transition.tableName;
+      const tableSuffix = ambiguousTableNames.has(transition.tableName)
+        ? functionOwnerSuffix(script.source, "table:" + transition.tableName)
+        : "";
       const fromKey =
-        "state:" + slug(stateType + " " + transition.from);
+        "state:" + slug(stateType + " " + transition.from) + tableSuffix;
       const fromSignal: GameplayIntentSignal = {
         id: "signal:" + fromKey + ":" + slug(path),
         subjectKey: fromKey,
@@ -1173,7 +1272,7 @@ export function extractGameplayIntentSignals(
 
       for (const targetState of transition.to) {
         const toKey =
-          "state:" + slug(stateType + " " + targetState);
+          "state:" + slug(stateType + " " + targetState) + tableSuffix;
         const toSignal: GameplayIntentSignal = {
           id: "signal:" + toKey + ":" + slug(path),
           subjectKey: toKey,
@@ -1219,7 +1318,7 @@ export function extractGameplayIntentSignals(
       const sourceSignal =
         guarded.executionRegion === "module"
           ? undefined
-          : classifiedFunctionSignal(script, sourceName, guarded.executionRegion);
+          : classifiedFunction(script, sourceName, guarded.executionRegion);
       if (
         !acceptsOutcomeDiscriminant(
           guarded.propertyName,
@@ -1241,10 +1340,10 @@ export function extractGameplayIntentSignals(
           sourceSignal !== undefined,
         )
       ) {
-        const stateKey =
-          "state:" +
-          slug(sourceName) + ":" +
-          slug(guarded.value);
+        const stateKey = scopedFunctionValueKey(
+          "state:" + slug(sourceName) + ":" + slug(guarded.value),
+          sourceSignal,
+        );
         pushSignal(signals, {
           id: "signal:" + stateKey + ":" + slug(path),
           subjectKey: stateKey,
@@ -1263,9 +1362,10 @@ export function extractGameplayIntentSignals(
           predicateUsesOnlyMinifiedRoots(
             guarded.predicate,
           );
-        const policyKey =
-          "policy:" +
-          slug(sourceName + " " + guarded.conditionText);
+        const policyKey = scopedFunctionValueKey(
+          "policy:" + slug(sourceName + " " + guarded.conditionText),
+          sourceSignal,
+        );
         pushSignal(signals, {
           id: "signal:" + policyKey + ":" + slug(path),
           subjectKey: policyKey,
@@ -1333,9 +1433,10 @@ export function extractGameplayIntentSignals(
         continue;
       }
 
-      const outcomeKey =
-        "outcome:" +
-        slug(sourceName + " " + guarded.value);
+      const outcomeKey = scopedFunctionValueKey(
+        "outcome:" + slug(sourceName + " " + guarded.value),
+        sourceSignal,
+      );
       recordOutcomeCoverage(outcomeKey, "guarded");
 
       const outcomeSignal: GameplayIntentSignal = {
@@ -1357,9 +1458,10 @@ export function extractGameplayIntentSignals(
         predicateUsesOnlyMinifiedRoots(
           guarded.predicate,
         );
-      const policyKey =
-        "policy:" +
-        slug(sourceName + " " + guarded.conditionText);
+      const policyKey = scopedFunctionValueKey(
+        "policy:" + slug(sourceName + " " + guarded.conditionText),
+        sourceSignal,
+      );
       const policySignal: GameplayIntentSignal = {
         id: "signal:" + policyKey + ":" + slug(path),
         subjectKey: policyKey,
@@ -1413,7 +1515,7 @@ export function extractGameplayIntentSignals(
     // gameplay relationship from a removeTag/clearRun call alone.
     for (const action of script.cleanupResourceEvidence ?? []) {
       if (!action.executionRegion.startsWith("function:")) continue;
-      const signal = classifiedFunctionSignal(
+      const signal = classifiedFunction(
         script, action.executionRegion.slice("function:".length),
         action.executionRegion,
       );
@@ -1430,7 +1532,7 @@ export function extractGameplayIntentSignals(
           ? undefined
           : outcome.executionRegion.replace(/^function:/, "");
       const sourceSignal = sourceName
-        ? classifiedFunctionSignal(script, sourceName, outcome.executionRegion)
+        ? classifiedFunction(script, sourceName, outcome.executionRegion)
         : undefined;
 
       if (
@@ -1440,10 +1542,11 @@ export function extractGameplayIntentSignals(
         )
       ) {
         if (sourceSignal) pushSignal(signals, sourceSignal);
-        const stateKey =
-          "state:" +
-          slug(sourceName ?? outcome.propertyName) + ":" +
-          slug(outcome.value);
+        const stateKey = scopedFunctionValueKey(
+          "state:" + slug(sourceName ?? outcome.propertyName) + ":" +
+            slug(outcome.value),
+          sourceSignal,
+        );
         pushSignal(signals, {
           id: "signal:" + stateKey + ":" + slug(path),
           subjectKey: stateKey,
@@ -1491,9 +1594,11 @@ export function extractGameplayIntentSignals(
       }
       if (sourceSignal) pushSignal(signals, sourceSignal);
 
-      const outcomeKey =
-        "outcome:" +
-        slug((sourceName ?? outcome.propertyName) + " " + outcome.value);
+      const outcomeKey = scopedFunctionValueKey(
+        "outcome:" + slug((sourceName ?? outcome.propertyName) +
+          " " + outcome.value),
+        sourceSignal,
+      );
       recordOutcomeCoverage(outcomeKey, "total");
 
       const outcomeSignal: GameplayIntentSignal = {
@@ -1538,7 +1643,7 @@ export function extractGameplayIntentSignals(
       const callbackName = event.callbackRegion?.startsWith("function:")
         ? event.callbackRegion.slice("function:".length) : undefined;
       const callbackSignal = callbackName && event.callbackRegion
-        ? classifiedFunctionSignal(script, callbackName, event.callbackRegion)
+        ? classifiedFunction(script, callbackName, event.callbackRegion)
         : undefined;
       if (callbackSignal) pushSignal(signals, callbackSignal);
       if (signal && callbackSignal && event.callbackRegion) {
@@ -1564,10 +1669,10 @@ export function extractGameplayIntentSignals(
       const targetName = callback.callbackRegion?.startsWith("function:")
         ? callback.callbackRegion.slice("function:".length) : undefined;
       const caller = callerName && callback.callerRegion
-        ? classifiedFunctionSignal(script, callerName, callback.callerRegion)
+        ? classifiedFunction(script, callerName, callback.callerRegion)
         : undefined;
       const target = targetName && callback.callbackRegion
-        ? classifiedFunctionSignal(script, targetName, callback.callbackRegion)
+        ? classifiedFunction(script, targetName, callback.callbackRegion)
         : undefined;
       if (caller) pushSignal(signals, caller);
       if (target) pushSignal(signals, target);
@@ -1620,14 +1725,10 @@ export function extractGameplayIntentSignals(
   // identity. Keep source relationships only between *classified* gameplay
   // symbols; anonymous callbacks and unclassified utilities remain IR facts.
   // A named import is not evidence that a gameplay mechanic executed.
-  const scriptsByPath = new Map<string, ParsedScriptFile[]>();
-  for (const script of scripts) {
-    const path = script.source.relativePath.replaceAll("\\", "/");
-    scriptsByPath.set(path, [...(scriptsByPath.get(path) ?? []), script]);
-  }
   for (const call of crossFileCallEdges) {
     if (call.status !== "resolved" ||
-        call.targetRegion === undefined || call.targetModule === undefined ||
+        !call.targetRegion?.startsWith("function:") ||
+        call.targetModule === undefined ||
         !call.callerRegion.startsWith("function:") ||
         call.callerModule === call.targetModule) continue;
     const callers = scriptsByPath.get(call.callerModule) ?? [];
@@ -1639,11 +1740,13 @@ export function extractGameplayIntentSignals(
         targetSource.artifactId !== call.source.artifactId ||
         callerSource.relativePath !== call.callerModule ||
         targetSource.relativePath !== call.targetModule) continue;
-    const caller = classifiedFunctionSignal(
+    const caller = classifiedFunction(
       callers[0]!, call.callerRegion.slice("function:".length), call.callerRegion,
     );
-    const target = classifiedFunctionSignal(
-      targets[0]!, call.targetExport, call.targetRegion,
+    // Imported aliases are call-site names, not the target's declared
+    // source region. Bind semantic identity to the exact resolved declaration.
+    const target = classifiedFunction(
+      targets[0]!, call.targetRegion.slice("function:".length), call.targetRegion,
     );
     if (!caller || !target) continue;
     pushSignal(signals, caller);

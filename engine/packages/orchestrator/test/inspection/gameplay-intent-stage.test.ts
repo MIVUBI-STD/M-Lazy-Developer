@@ -1239,3 +1239,94 @@ describe("exact Semantic IR provenance in Gameplay Intent", () => {
       edge.evidenceIds.some(id => id.startsWith("exec-edge:")))).toBe(false);
   });
 });
+
+
+describe("same-named source-owned operations (universal semantic isolation)", () => {
+  it("keeps actor/effect candidate links inside the module that actually authored them", () => {
+    const artifactId = "selected:two-modes";
+    const paths = [
+      "behavior_packs/p/scripts/a.js",
+      "behavior_packs/p/scripts/b.js",
+    ];
+    const scripts = paths.map(relativePath => {
+      const owner = { artifactId, relativePath };
+      return {
+        ...parsed(),
+        identifier: relativePath,
+        source: owner,
+        localFunctionCalls: [{
+          callerRegion: "function:startWave",
+          targetRegion: "function:resetArena",
+          targetName: "resetArena",
+          source: owner,
+        }],
+        stateMutations: [{
+          target: "session.state",
+          targetName: "state",
+          value: {
+            kind: "member" as const,
+            owner: "SessionState",
+            member: "Active",
+            symbol: "SessionState.Active",
+          },
+          executionRegion: "function:resetArena",
+          source: owner,
+        }],
+        returnOutcomes: [{
+          executionRegion: "function:resetArena",
+          propertyName: "action",
+          value: "finish",
+          source: owner,
+        }],
+        guardedOutcomes: [],
+        enumValueComparisons: [],
+        transitionDeclarations: [],
+        typeProperties: [],
+        lifecycleMemberExposures: [],
+      } satisfies ParsedScriptFile;
+    });
+    const model = buildGameplayIntentModel({
+      id: "intent:separate-source-modes",
+      artifactId,
+      parsedScripts: scripts.map(parsed => ({ parsed })),
+    });
+    const pathSuffixes = paths.map(path =>
+      ":site:" + encodeURIComponent(path) + ":");
+    for (const ownerBase of pathSuffixes) {
+      const start = "mechanic:start-wave" + ownerBase +
+        encodeURIComponent("function:startWave");
+      const resetSite = ownerBase +
+        encodeURIComponent("function:resetArena");
+      const reset = "lifecycle:reset-arena" + resetSite;
+      const state = "state:session-state-active" + resetSite;
+      const result = "outcome:reset-arena-finish" + resetSite;
+      expect(model.nodes.some(node => node.id === start)).toBe(true);
+      expect(model.nodes.some(node => node.id === reset)).toBe(true);
+      expect(model.nodes.some(node => node.id === state)).toBe(true);
+      expect(model.nodes.some(node => node.id === result)).toBe(true);
+      expect(model.edges.some(edge =>
+        edge.from === start && edge.to === reset &&
+        edge.kind === "requires")).toBe(true);
+      expect(model.edges.some(edge =>
+        edge.from === reset && edge.to === state &&
+        edge.kind === "transitions-to")).toBe(true);
+      expect(model.edges.some(edge =>
+        edge.from === reset && edge.to === result &&
+        edge.kind === "produces")).toBe(true);
+    }
+    expect(model.edges.every(edge => {
+      const from = pathSuffixes.find(suffix => edge.from.includes(suffix));
+      const to = pathSuffixes.find(suffix => edge.to.includes(suffix));
+      return from === undefined || to === undefined || from === to;
+    })).toBe(true);
+    expect(model.nodes.filter(node =>
+      node.id.startsWith("lifecycle:reset-arena:site:"))).toHaveLength(2);
+    const sourceBindings = model.evidence.filter(item =>
+      item.scope === "selected-artifact" &&
+      paths.includes(item.locator));
+    expect(sourceBindings.length).toBeGreaterThan(0);
+    // Source-specific identity isn't evidence that any call actually ran.
+    expect(model.edges.some(edge => edge.status === "authored" &&
+      edge.kind === "produces")).toBe(false);
+  });
+});
