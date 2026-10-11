@@ -154,6 +154,23 @@
         "artifactFingerprint": "missing",
         "frozenExpectation": "missing"
       }
+    },
+    {
+      "id": "cal-defense-challenge-1-1-5",
+      "status": "candidate",
+      "artifactFile": "Defense Challenge v1.1.5.mcworld",
+      "externalArtifact": {
+        "provider": "google-drive",
+        "fileId": "1U6s2Obtt332ShMBYJZ1yVNuoynAn0Qgi",
+        "sha256": "eb554476d26b7b9de949628d8efe00f12beb95669f6c424a2eb754b52d39f45c"
+      },
+      "readiness": {
+        "artifactFingerprint": "eb554476d26b7b9de949628d8efe00f12beb95669f6c424a2eb754b52d39f45c",
+        "frozenExpectation": "engine/reliability/corpus/expectations/cal-defense-challenge-1-1-5.json"
+      },
+      "scope": "mixed-positive-negative-real-map-static-calibration",
+      "execution": "NOT_EXECUTED: ChatGPT has binary and GitHub source reads, but not a complete runnable repository checkout with declared Node 24 toolchain.",
+      "note": "Frozen independently of Lazy-Developer output. Do not score until canonical audit output from this exact SHA exists."
     }
   ],
   "policy": {
