@@ -267,6 +267,14 @@ export interface SelectedMapAuditModelHandoff {
         NonNullable<MapAuditOutputV2["gameplayStructure"]>["mechanicReconstructions"][number]["sourceActivationCandidates"];
     }[];
     readonly omittedFeatures: number;
+    /** Selected-source memory alias uncertainty; not game/runtime scope. */
+    readonly sourceStateIdentityQuestions: readonly {
+      readonly id: string;
+      readonly question: string;
+      readonly blockedSubjectIds: readonly string[];
+      readonly evidenceIds: readonly string[];
+    }[];
+    readonly omittedSourceStateIdentityQuestions: number;
     /** Existing directed source paths, not chronological player sessions. */
     readonly sourceDesignPaths: NonNullable<MapAuditOutputV2["gameplayStructure"]>["gameplayJourneyCandidates"];
     readonly omittedSourceDesignPaths: number;
@@ -307,6 +315,10 @@ export function projectSelectedMapAuditModelHandoff(
     (audit.mapAuditReport.gameplayStructure?.mechanicReconstructions ?? [])
       .map(item => [item.featureId, item.sourceActivationCandidates] as const),
   );
+  const sourceStateIdentityQuestions =
+    audit.inspection.gameplayIntent.model.unknowns
+      .filter(item => item.id.startsWith("unknown:source-state-alias:"))
+      .sort((a, b) => a.id.localeCompare(b.id));
   const selected = audit.modelTaskPackets.slice(offset, offset + limit);
   return {
     schemaVersion: 1,
@@ -332,6 +344,16 @@ export function projectSelectedMapAuditModelHandoff(
           (activationByFeature.get(feature.id) ?? []).slice(0, 3),
       })),
       omittedFeatures: Math.max(0, features.length - 16),
+      sourceStateIdentityQuestions: sourceStateIdentityQuestions.slice(0, 8)
+        .map(item => ({
+          id: item.id,
+          question: item.question,
+          blockedSubjectIds: [...item.blockedSubjectIds],
+          evidenceIds: [...(item.evidenceIds ?? [])],
+        })),
+      omittedSourceStateIdentityQuestions: Math.max(
+        0, sourceStateIdentityQuestions.length - 8,
+      ),
       sourceDesignPaths: (audit.mapAuditReport.gameplayStructure?.gameplayJourneyCandidates ?? [])
         .slice(0, 6),
       omittedSourceDesignPaths: Math.max(0,

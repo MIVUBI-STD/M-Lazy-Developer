@@ -209,6 +209,9 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
       expect(brief).toContain("NPC interaction: Start Challenge");
       expect(brief).toContain("Source-derived relations: activation");
       const handoff = projectSelectedMapAuditModelHandoff(result);
+      expect(handoff.gameUnderstanding.sourceStateIdentityQuestions).toEqual([]);
+      expect(handoff.gameUnderstanding.omittedSourceStateIdentityQuestions)
+        .toBe(0);
       expect(handoff.policy).toBe("selected-map-audit-model-handoff");
       expect(handoff.artifactId).toBe(result.identity.artifactId);
       expect(handoff.artifactFingerprint).toBe(result.identity.artifactFingerprint);

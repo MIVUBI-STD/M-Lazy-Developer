@@ -1242,6 +1242,48 @@ describe("exact Semantic IR provenance in Gameplay Intent", () => {
 
 
 describe("same-named source-owned operations (universal semantic isolation)", () => {
+  it("does not invent a source-state alias question when one exact script-memory target has multiple writers", () => {
+    const owner = {
+      artifactId: "selected:one-source",
+      relativePath: "behavior_packs/p/scripts/round.js",
+    };
+    const one = parsed();
+    const stateWrite = one.stateMutations![0]!;
+    const script = {
+      ...one,
+      source: owner,
+      identifier: owner.relativePath,
+      localFunctionCalls: [],
+      lifecycleMemberExposures: [],
+      typeProperties: [],
+      enumValueComparisons: [],
+      transitionDeclarations: [],
+      returnOutcomes: [],
+      guardedOutcomes: [],
+      stateMutations: [
+        {
+          ...stateWrite,
+          executionRegion: "function:resetArena",
+          source: owner,
+        },
+        {
+          ...stateWrite,
+          executionRegion: "function:decideReconnect",
+          source: owner,
+        },
+      ],
+    } satisfies ParsedScriptFile;
+    const result = buildGameplayIntentModel({
+      id: "intent:one-memory-source",
+      artifactId: owner.artifactId,
+      parsedScripts: [{ parsed: script }],
+    });
+    expect(result.nodes.filter(node =>
+      node.id === "state:session-state-active")).toHaveLength(1);
+    expect(result.unknowns.some(item =>
+      item.id.startsWith("unknown:source-state-alias:"))).toBe(false);
+  });
+
   it("keeps actor/effect candidate links inside the module that actually authored them", () => {
     const artifactId = "selected:two-modes";
     const paths = [
@@ -1292,13 +1334,15 @@ describe("same-named source-owned operations (universal semantic isolation)", ()
     });
     const pathSuffixes = paths.map(path =>
       ":site:" + encodeURIComponent(path) + ":");
-    for (const ownerBase of pathSuffixes) {
+    for (const path of paths) {
+      const ownerBase = ":site:" + encodeURIComponent(path) + ":";
       const start = "mechanic:start-wave" + ownerBase +
         encodeURIComponent("function:startWave");
       const resetSite = ownerBase +
         encodeURIComponent("function:resetArena");
       const reset = "lifecycle:reset-arena" + resetSite;
-      const state = "state:session-state-active" + resetSite;
+      const state = "state:session-state-active:memory:" +
+        encodeURIComponent(path) + ":" + encodeURIComponent("session.state");
       const result = "outcome:reset-arena-finish" + resetSite;
       expect(model.nodes.some(node => node.id === start)).toBe(true);
       expect(model.nodes.some(node => node.id === reset)).toBe(true);
@@ -1321,6 +1365,16 @@ describe("same-named source-owned operations (universal semantic isolation)", ()
     })).toBe(true);
     expect(model.nodes.filter(node =>
       node.id.startsWith("lifecycle:reset-arena:site:"))).toHaveLength(2);
+    const aliasQuestions = model.unknowns.filter(item =>
+      item.id === "unknown:source-state-alias:" +
+        encodeURIComponent("state:session-state-active"));
+    expect(aliasQuestions).toHaveLength(1);
+    expect(aliasQuestions[0]?.blockedSubjectIds).toEqual(paths.map(path =>
+      "state:session-state-active:memory:" + encodeURIComponent(path) +
+      ":" + encodeURIComponent("session.state")).sort());
+    expect(aliasQuestions[0]?.evidenceIds).toHaveLength(2);
+    expect(aliasQuestions[0]?.question).toContain(
+      "player/session/arena/mode scope are NOT established");
     const sourceBindings = model.evidence.filter(item =>
       item.scope === "selected-artifact" &&
       paths.includes(item.locator));

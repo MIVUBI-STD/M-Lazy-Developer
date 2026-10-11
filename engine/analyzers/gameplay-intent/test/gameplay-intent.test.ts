@@ -1597,7 +1597,8 @@ describe("source-owned gameplay interpretation across modules", () => {
         ownerBase + encodeURIComponent("function:startWave");
       const resetSite = ownerBase + encodeURIComponent("function:resetArena");
       const resetId = "lifecycle:reset-arena" + resetSite;
-      const stateId = "state:session-state-active" + resetSite;
+      const stateId = "state:session-state-active:memory:" +
+        encodeURIComponent(path) + ":" + encodeURIComponent("session.state");
       const outcomeId = "outcome:reset-arena-finish" + resetSite;
       const policyId = "policy:reset-arena-session-enabled" + resetSite;
       for (const id of [startId, resetId, stateId, outcomeId, policyId]) {
@@ -1744,6 +1745,104 @@ describe("source-owned gameplay interpretation across modules", () => {
   });
 
 
+
+  it("separates identical state labels written to distinct source-memory targets", () => {
+    const paths = [
+      "behavior_packs/demo/scripts/alpha.js",
+      "behavior_packs/demo/scripts/beta.js",
+    ];
+    const first = makeScript(paths[0]!);
+    const second = makeScript(paths[1]!);
+    const crossModule = extractGameplayIntentSignals([
+      first,
+      {
+        ...second,
+        localFunctionCalls: [],
+        stateMutations: second.stateMutations!.map(item => ({
+          ...item, executionRegion: "function:decideReconnect",
+        })),
+      },
+    ]);
+    const stateKeys = paths.map(path =>
+      "state:session-state-active:memory:" +
+        encodeURIComponent(path) + ":" + encodeURIComponent("session.state"));
+    for (const key of stateKeys) {
+      const signal = crossModule.signals.find(item => item.subjectKey === key);
+      expect(signal?.status).toBe("authored");
+      expect(signal?.sourceStateCollisionBaseKey).toBe("state:session-state-active");
+      expect(signal?.stateMutationOrigins).toHaveLength(1);
+    }
+    expect(crossModule.signals.some(item =>
+      item.subjectKey === "state:session-state-active")).toBe(false);
+    expect(crossModule.relations.some(edge =>
+      edge.toSubjectKey === stateKeys[0])).toBe(true);
+    expect(crossModule.relations.some(edge =>
+      edge.toSubjectKey === stateKeys[1])).toBe(true);
+
+    // A mutation to a different target in the SAME source also has a
+    // different canonical script-memory surface even with the same label.
+    const ownTarget = first.stateMutations![0]!;
+    const sameModule = extractGameplayIntentSignals([{
+      ...first,
+      stateMutations: [
+        ownTarget,
+        { ...ownTarget, target: "player.state" },
+      ],
+    }]);
+    const localKeys = ["session.state", "player.state"].map(target =>
+      "state:session-state-active:memory:" +
+        encodeURIComponent(paths[0]!) + ":" + encodeURIComponent(target));
+    expect(localKeys.every(key => sameModule.signals.some(signal =>
+      signal.subjectKey === key &&
+      signal.sourceStateCollisionBaseKey === "state:session-state-active")))
+      .toBe(true);
+  });
+
+  it("keeps one actual source-memory target shared between source functions and preserves global scoreboard resources", () => {
+    const path = "behavior_packs/demo/scripts/round.js";
+    const one = makeScript(path);
+    const original = one.stateMutations![0]!;
+    const sameTarget = extractGameplayIntentSignals([{
+      ...one,
+      stateMutations: [
+        original,
+        { ...original, executionRegion: "function:decideReconnect" },
+      ],
+    }]);
+    const state = sameTarget.signals.find(item =>
+      item.subjectKey === "state:session-state-active");
+    expect(state?.stateMutationOrigins).toHaveLength(2);
+    expect(state?.sourceStateCollisionBaseKey).toBeUndefined();
+    expect(sameTarget.signals.some(item =>
+      item.subjectKey.startsWith("state:session-state-active:memory:")))
+      .toBe(false);
+
+    // A scoreboard objective is a global technical resource in Semantic IR,
+    // not a per-module script-memory target. Do not scope it on the basis
+    // of unrelated source modules.
+    const a = makeScript("behavior_packs/demo/scripts/a.js");
+    const b = makeScript("behavior_packs/demo/scripts/b.js");
+    const commands = [a, b].map(item => ({
+      ...item,
+      stateMutations: [],
+      commandLiterals: [{
+        command: "scoreboard players add @s coins 1",
+        source: item.source,
+      }],
+    }));
+    const scoreboard = extractGameplayIntentSignals(commands);
+    expect(scoreboard.signals.filter(item =>
+      item.subjectKey === "resource:coins")).toHaveLength(1);
+
+    const foreign = extractGameplayIntentSignals([{
+      ...one,
+      stateMutations: [{
+        ...original, source: { ...one.source, artifactId: "another-artifact" },
+      }],
+    }]);
+    expect(foreign.signals.some(item =>
+      item.stateMutationOrigins?.length)).toBe(false);
+  });
 
   it("does not let a typed transition table in one source suppress another source's transitions", () => {
     const sourceA = makeScript("behavior_packs/demo/scripts/phase-a.js");

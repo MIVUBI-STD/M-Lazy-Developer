@@ -19,6 +19,11 @@ export interface GameplayIntentSignal {
   summary: string;
   policyPredicate?: GameplayIntentPolicyPredicate;
   spatialProfile?: GameplayIntentSpatialProfile;
+  /**
+   * Same lexical state value appears on distinct script-memory targets.
+   * This is an identity/alias question, not a claim about runtime scope.
+   */
+  sourceStateCollisionBaseKey?: string;
   /** Exact parsed named function region, not evidence of its actual invocation. */
   executionRegionOrigins?: readonly {
     scriptSource: ParsedScriptFile["source"];

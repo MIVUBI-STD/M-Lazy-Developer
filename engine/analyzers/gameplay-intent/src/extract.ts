@@ -403,6 +403,29 @@ function functionOwnerSuffix(
     ":" + encodeURIComponent(region);
 }
 
+/**
+ * Canonical script-memory owner is module + exact authored target, the
+ * identity already used by Semantic IR. The suffix is a SOURCE distinction,
+ * not an assertion of global/session/arena/player runtime storage scope.
+ */
+function sourceMemorySuffix(
+  script: ParsedScriptFile,
+  mutation: NonNullable<ParsedScriptFile["stateMutations"]>[number],
+): string {
+  return ":memory:" + encodeURIComponent(script.source.relativePath) +
+    ":" + encodeURIComponent(mutation.target);
+}
+
+function sourceStateValueKey(
+  mutation: NonNullable<ParsedScriptFile["stateMutations"]>[number],
+): string {
+  return "state:" + slug(
+    mutation.value.kind === "member"
+      ? mutation.value.owner + " " + mutation.value.member
+      : mutation.targetName + " " + mutation.value.literal,
+  );
+}
+
 /** The lexical symbol must match its parsed named region candidate.
  * A parser-assigned region alone does not prove declaration reachability,
  * invocation, or player-facing purpose; IR retains that proof boundary.
@@ -603,6 +626,24 @@ export function extractGameplayIntentSignals(
   const ambiguousTableNames = new Set([...tableOwners]
     .filter(([, owners]) => owners.size > 1)
     .map(([name]) => name));
+  // Two different module/target surfaces may have the SAME lexical state
+  // label, but there is no parsed alias proof that they are one mutable
+  // storage location. Keep the previous ID when only one owner is present.
+  const memoryOwnersByStateLabel = new Map<string, Set<string>>();
+  for (const script of scripts) {
+    for (const mutation of script.stateMutations ?? []) {
+      if (mutation.source.artifactId !== script.source.artifactId ||
+          mutation.source.relativePath !== script.source.relativePath) continue;
+      const key = sourceStateValueKey(mutation);
+      const owners = memoryOwnersByStateLabel.get(key) ?? new Set<string>();
+      owners.add(sourceMemorySuffix(script, mutation));
+      memoryOwnersByStateLabel.set(key, owners);
+    }
+  }
+  const collidingSourceStateLabels = new Set([...memoryOwnersByStateLabel]
+    .filter(([, owners]) => owners.size > 1)
+    .map(([label]) => label));
+
   const outcomeCoverage = new Map<
     string,
     {
@@ -1136,6 +1177,10 @@ export function extractGameplayIntentSignals(
     }
 
     for (const mutation of script.stateMutations ?? []) {
+      // Never publish a selected-script state fact from an operation
+      // attributed by the parser to another module/artifact.
+      if (mutation.source.artifactId !== script.source.artifactId ||
+          mutation.source.relativePath !== script.source.relativePath) continue;
       const sourceName =
         mutation.executionRegion === "module"
           ? undefined
@@ -1149,9 +1194,11 @@ export function extractGameplayIntentSignals(
         mutation.value.kind === "member"
           ? mutation.value.owner + " " + mutation.value.member
           : mutation.targetName + " " + mutation.value.literal;
-      const stateKey = scopedFunctionValueKey(
-        "state:" + slug(rawValue), sourceSignal,
-      );
+      const baseStateKey = sourceStateValueKey(mutation);
+      const ambiguousSourceOwners = collidingSourceStateLabels.has(baseStateKey);
+      const stateKey = ambiguousSourceOwners
+        ? baseStateKey + sourceMemorySuffix(script, mutation)
+        : baseStateKey;
       const stateSignal: GameplayIntentSignal = {
         id: "signal:" + stateKey + ":" + slug(path),
         subjectKey: stateKey,
@@ -1160,8 +1207,14 @@ export function extractGameplayIntentSignals(
         status: "authored",
         evidenceOrigin: "source-code",
         locator: path,
-        summary:
-          "Source explicitly assigns a gameplay state-like variable to this value.",
+        summary: ambiguousSourceOwners
+          ? "Source assigns an authored value at this exact script-memory " +
+            "target. Another source target uses the same state label; " +
+            "runtime alias and player/mode/arena scope remain unresolved."
+          : "Source explicitly assigns a gameplay state-like variable to this value.",
+        ...(ambiguousSourceOwners
+          ? { sourceStateCollisionBaseKey: baseStateKey }
+          : {}),
         stateMutationOrigins: [{ scriptSource: script.source, mutation }],
       };
       pushSignal(signals, stateSignal);

@@ -242,6 +242,13 @@ export function buildGameplayIntentModel(
     return [...linked].sort();
   };
 
+  // Aggregate one source-alias question per lexical value rather than
+  // creating a new unknown for every write site in the same state surface.
+  const stateAliasQuestions = new Map<string, {
+    readonly subjectIds: Set<string>;
+    readonly evidenceIds: Set<string>;
+  }>();
+
   for (const signal of extracted.signals) {
     const id = evidenceId(signal);
     const signalScope =
@@ -260,6 +267,17 @@ export function buildGameplayIntentModel(
 
     const exactTechnicalEvidenceIds = signalIrEvidenceIds(signal);
     const signalEvidenceIds = [id, ...exactTechnicalEvidenceIds];
+    if (signalScope === "selected-artifact" &&
+        signal.sourceStateCollisionBaseKey !== undefined) {
+      const key = signal.sourceStateCollisionBaseKey;
+      const group = stateAliasQuestions.get(key) ?? {
+        subjectIds: new Set<string>(),
+        evidenceIds: new Set<string>(),
+      };
+      group.subjectIds.add(signal.subjectKey);
+      group.evidenceIds.add(id);
+      stateAliasQuestions.set(key, group);
+    }
     const existing = nodes.get(signal.subjectKey);
     if (!existing) {
       nodes.set(signal.subjectKey, {
@@ -299,6 +317,21 @@ export function buildGameplayIntentModel(
         : signal.spatialProfile !== undefined
         ? { spatialProfile: signal.spatialProfile }
         : {}),
+    });
+  }
+
+  for (const [valueKey, group] of [...stateAliasQuestions]
+    .sort(([a], [b]) => a.localeCompare(b))) {
+    if (group.subjectIds.size < 2) continue;
+    intentUnknowns.push({
+      id: "unknown:source-state-alias:" + encodeURIComponent(valueKey),
+      question: "Multiple independently authored script-memory targets " +
+        "produce this same lexical state value. Exact source ownership is " +
+        "known, but shared runtime identity, cross-module aliasing, and " +
+        "player/session/arena/mode scope are NOT established. Resolve " +
+        "the storage/alias path before combining these state subjects.",
+      blockedSubjectIds: [...group.subjectIds].sort(),
+      evidenceIds: [...group.evidenceIds].sort(),
     });
   }
 

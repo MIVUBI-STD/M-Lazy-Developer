@@ -755,6 +755,9 @@ export function formatSelectedMapAuditBrief(input: {
       .map((mechanic) => [mechanic.featureId, mechanic] as const),
   );
   const journeys = report.gameplayStructure?.gameplayJourneyCandidates ?? [];
+  const sourceStateAliasUnknowns = intent.unknowns
+    .filter(item => item.id.startsWith("unknown:source-state-alias:"))
+    .sort((a, b) => a.id.localeCompare(b.id));
   const findings = [...report.bugs, ...report.designMismatches];
   const unresolvedSurfaces = report.gameplayClosure.surfaceInventory.filter(
     (item) => item.status === "blocked" || item.status === "unknown",
@@ -832,6 +835,33 @@ export function formatSelectedMapAuditBrief(input: {
   }
   if (features.length > 12) {
     out.push("Additional features omitted: " + (features.length - 12));
+  }
+  if (sourceStateAliasUnknowns.length > 0) {
+    out.push("", "### State identity questions (SOURCE ONLY; UNRESOLVED)");
+    out.push("Identical state labels in distinct source-memory targets do NOT " +
+      "prove shared runtime storage or distinct player/arena state.");
+    for (const unknown of sourceStateAliasUnknowns.slice(0, 5)) {
+      const sourceLocations = [...new Set((unknown.evidenceIds ?? [])
+        .flatMap(id => {
+          const record = evidenceById.get(id);
+          return record?.scope === "selected-artifact"
+            ? [record.locator] : [];
+        }))].sort();
+      out.push(
+        "- " + concise(unknown.id) + ": " +
+          unknown.blockedSubjectIds.length + " source-owned state subjects; " +
+          "runtime alias/scope unresolved.",
+        "  Exact subjects: " + unknown.blockedSubjectIds.slice(0, 4)
+          .map(concise).join("; "),
+        "  Sources: " + (sourceLocations.length
+          ? sourceLocations.slice(0, 3).map(concise).join("; ")
+          : "unresolved"),
+      );
+    }
+    if (sourceStateAliasUnknowns.length > 5) {
+      out.push("Additional state identity questions omitted: " +
+        (sourceStateAliasUnknowns.length - 5));
+    }
   }
   out.push("", "### Possible player journeys (NOT OBSERVED)");
   out.push("A directed source relation does NOT prove chronological gameplay, player access or engine execution.");
