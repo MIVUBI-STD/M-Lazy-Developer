@@ -94,7 +94,9 @@ function script(): ParsedScriptFile {
         executionRegion: "function:decideReconnect",
         propertyName: "action",
         value: "cleanup",
-        source,
+        source: { ...source, range: {
+          lineStart: 10, lineEnd: 10, columnStart: 4, columnEnd: 28,
+        } },
       },
       {
         executionRegion: "function:decideReconnect",
@@ -117,7 +119,9 @@ function script(): ParsedScriptFile {
       propertyName: "action",
       value: "cleanup",
       conditionSource: source,
-      outcomeSource: source,
+      outcomeSource: { ...source, range: {
+        lineStart: 10, lineEnd: 10, columnStart: 4, columnEnd: 28,
+      } },
     }],
     capabilities: [],
   };
@@ -168,6 +172,11 @@ describe("gameplay intent analyzer", () => {
 
   it("downgrades minified bundled guard predicates to unknown", () => {
     const base = script();
+    const own = { artifactId: "art_test",
+      relativePath: "behavior_packs/demo/scripts/main.js" };
+    const ret = { ...own, range: {
+      lineStart: 6, lineEnd: 6, columnStart: 4, columnEnd: 24,
+    } };
     const bundled: ParsedScriptFile = {
       ...base,
       identifier: "scripts/main",
@@ -186,13 +195,13 @@ describe("gameplay intent analyzer", () => {
       declaredMembers: [{
         member: "readRecovery",
         memberKind: "method",
-        source: base.source,
+        source: own,
       }],
       returnOutcomes: [{
         executionRegion: "function:readRecovery",
         propertyName: "status",
         value: "reading",
-        source: base.source,
+        source: ret,
       }],
       guardedOutcomes: [{
         executionRegion: "function:readRecovery",
@@ -217,8 +226,8 @@ describe("gameplay intent analyzer", () => {
         },
         propertyName: "status",
         value: "reading",
-        conditionSource: base.source,
-        outcomeSource: base.source,
+        conditionSource: own,
+        outcomeSource: ret,
       }],
     };
 
@@ -241,6 +250,11 @@ describe("gameplay intent analyzer", () => {
 
   it("preserves stable bundled guard predicates with named roots", () => {
     const base = script();
+    const own = { artifactId: "art_test",
+      relativePath: "behavior_packs/demo/scripts/main.js" };
+    const ret = { ...own, range: {
+      lineStart: 6, lineEnd: 6, columnStart: 4, columnEnd: 24,
+    } };
     const bundled: ParsedScriptFile = {
       ...base,
       identifier: "scripts/main",
@@ -259,13 +273,13 @@ describe("gameplay intent analyzer", () => {
       declaredMembers: [{
         member: "decideReconnect",
         memberKind: "method",
-        source: base.source,
+        source: own,
       }],
       returnOutcomes: [{
         executionRegion: "function:decideReconnect",
         propertyName: "action",
         value: "resume",
-        source: base.source,
+        source: ret,
       }],
       guardedOutcomes: [{
         executionRegion: "function:decideReconnect",
@@ -288,8 +302,8 @@ describe("gameplay intent analyzer", () => {
         },
         propertyName: "action",
         value: "resume",
-        conditionSource: base.source,
-        outcomeSource: base.source,
+        conditionSource: own,
+        outcomeSource: ret,
       }],
     };
 
@@ -740,6 +754,11 @@ describe("gameplay intent analyzer", () => {
 
   it("models classified status returns as state values instead of gameplay outcomes", () => {
     const base = script();
+    const own = { artifactId: "art_test",
+      relativePath: "behavior_packs/demo/scripts/recovery.js" };
+    const ret = { ...own, range: {
+      lineStart: 6, lineEnd: 6, columnStart: 4, columnEnd: 24,
+    } };
     const recovery: ParsedScriptFile = {
       ...base,
       identifier: "scripts/recovery",
@@ -761,13 +780,13 @@ describe("gameplay intent analyzer", () => {
           executionRegion: "function:readRecovery",
           propertyName: "status",
           value: "ready",
-          source: base.source,
+          source: own,
         },
         {
           executionRegion: "function:readRecovery",
           propertyName: "status",
           value: "clean",
-          source: base.source,
+          source: ret,
         },
       ],
       guardedOutcomes: [{
@@ -782,8 +801,8 @@ describe("gameplay intent analyzer", () => {
         },
         propertyName: "status",
         value: "clean",
-        conditionSource: base.source,
-        outcomeSource: base.source,
+        conditionSource: own,
+        outcomeSource: ret,
       }],
     };
 
@@ -1283,6 +1302,8 @@ describe("gameplay intent analyzer", () => {
 
   it("ignores structural helper return discriminants while preserving lifecycle decisions", () => {
     const base = script();
+    const own = { artifactId: "art_test",
+      relativePath: "behavior_packs/demo/scripts/domain/helpers.js" };
     const sample: ParsedScriptFile = {
       ...base,
       identifier: "scripts/domain/helpers",
@@ -1305,21 +1326,21 @@ describe("gameplay intent analyzer", () => {
             "function:createKitTrialPerformance",
           propertyName: "outcome",
           value: "pending",
-          source: base.source,
+          source: own,
         },
         {
           executionRegion:
             "function:resolveInventoryTarget",
           propertyName: "kind",
           value: "inventory",
-          source: base.source,
+          source: own,
         },
         {
           executionRegion:
             "function:decideReconnect",
           propertyName: "kind",
           value: "cleanup_to_lobby",
-          source: base.source,
+          source: own,
         },
       ],
       guardedOutcomes: [],
@@ -1349,6 +1370,11 @@ describe("gameplay intent analyzer", () => {
 
   it("accepts kind/type return discriminants only for classified gameplay functions", () => {
     const base = script();
+    const own = { artifactId: "art_test",
+      relativePath: "behavior_packs/demo/scripts/domain/reconnect.js" };
+    const ret = { ...own, range: {
+      lineStart: 6, lineEnd: 6, columnStart: 4, columnEnd: 24,
+    } };
     const reconnect: ParsedScriptFile = {
       ...base,
       identifier: "scripts/domain/reconnect",
@@ -1369,13 +1395,13 @@ describe("gameplay intent analyzer", () => {
           executionRegion: "function:decideReconnect",
           propertyName: "kind",
           value: "cleanup_to_lobby",
-          source: base.source,
+          source: ret,
         },
         {
           executionRegion: "function:helper",
           propertyName: "kind",
           value: "internal",
-          source: base.source,
+          source: own,
         },
       ],
       guardedOutcomes: [{
@@ -1390,8 +1416,8 @@ describe("gameplay intent analyzer", () => {
         },
         propertyName: "kind",
         value: "cleanup_to_lobby",
-        conditionSource: base.source,
-        outcomeSource: base.source,
+        conditionSource: own,
+        outcomeSource: ret,
       }],
     };
 
@@ -1894,6 +1920,100 @@ describe("source-owned gameplay interpretation across modules", () => {
     expect(result.relations.every(edge =>
       !(edge.fromSubjectKey.includes(scope(a.source.relativePath)) &&
         edge.toSubjectKey.includes(scope(b.source.relativePath))))).toBe(true);
+  });
+
+
+
+  it("does not equate one unmatched guard with an equal-count authored return", () => {
+    const file = makeScript("behavior_packs/demo/scripts/decision.js");
+    const returnSite = file.returnOutcomes![0]!.source;
+    const notTheReturnSite = {
+      ...returnSite, range: {
+        lineStart: 19, lineEnd: 19, columnStart: 4, columnEnd: 24,
+      },
+    };
+    const result = extractGameplayIntentSignals([{
+      ...file,
+      guardedOutcomes: file.guardedOutcomes!.map(item => ({
+        ...item, outcomeSource: notTheReturnSite,
+      })),
+    }]);
+    const key = "outcome:reset-arena-finish";
+    expect(result.signals.some(item => item.subjectKey === key)).toBe(true);
+    expect(result.relations.some(item =>
+      item.fromSubjectKey === key && item.edgeKind === "requires"))
+      .toBe(false);
+    expect(result.outcomePolicyCoverage.find(item =>
+      item.outcomeSubjectKey === key)).toEqual({
+        outcomeSubjectKey: key,
+        totalLiteralReturnSites: 1,
+        directlyGuardedReturnSites: 0,
+        completeDirectGuardCoverage: false,
+      });
+  });
+
+  it("deduplicates matched guard observations without treating a partially guarded outcome as complete", () => {
+    const file = makeScript("behavior_packs/demo/scripts/decision.js");
+    const guard = file.guardedOutcomes![0]!;
+    const duplicated = extractGameplayIntentSignals([{
+      ...file, guardedOutcomes: [guard, { ...guard }],
+    }]);
+    const key = "outcome:reset-arena-finish";
+    expect(duplicated.outcomePolicyCoverage.find(item =>
+      item.outcomeSubjectKey === key)).toEqual({
+        outcomeSubjectKey: key,
+        totalLiteralReturnSites: 1,
+        directlyGuardedReturnSites: 1,
+        completeDirectGuardCoverage: true,
+      });
+
+    const otherSite = {
+      ...file.returnOutcomes![0]!,
+      source: { ...file.source, range: {
+        lineStart: 20, lineEnd: 20, columnStart: 4, columnEnd: 24,
+      } },
+    };
+    const partial = extractGameplayIntentSignals([{
+      ...file, returnOutcomes: [...file.returnOutcomes!, otherSite],
+    }]);
+    expect(partial.outcomePolicyCoverage.find(item =>
+      item.outcomeSubjectKey === key)).toEqual({
+        outcomeSubjectKey: key,
+        totalLiteralReturnSites: 2,
+        directlyGuardedReturnSites: 1,
+        completeDirectGuardCoverage: false,
+      });
+  });
+
+  it("rejects foreign return sites and does not turn module-level technical returns into game outcomes", () => {
+    const file = makeScript("behavior_packs/demo/scripts/decision.js");
+    const foreign = extractGameplayIntentSignals([{
+      ...file,
+      returnOutcomes: file.returnOutcomes!.map(item => ({
+        ...item,
+        source: { ...item.source, artifactId: "foreign-map-version" },
+      })),
+    }]);
+    expect(foreign.signals.some(item =>
+      item.subjectKey === "outcome:reset-arena-finish")).toBe(false);
+    expect(foreign.relations.some(item =>
+      item.toSubjectKey === "outcome:reset-arena-finish")).toBe(false);
+    expect(foreign.outcomePolicyCoverage).toEqual([]);
+
+    const moduleOnly = extractGameplayIntentSignals([{
+      ...file, localFunctionCalls: [], stateMutations: [],
+      returnOutcomes: [{
+        executionRegion: "module", propertyName: "action", value: "complete",
+        source: { ...file.source, range: {
+          lineStart: 2, lineEnd: 2, columnStart: 1, columnEnd: 25,
+        } },
+      }],
+      guardedOutcomes: [],
+    }]);
+    expect(moduleOnly.signals.some(item =>
+      item.nodeKind === "outcome" || item.nodeKind === "policy"))
+      .toBe(false);
+    expect(moduleOnly.outcomePolicyCoverage).toEqual([]);
   });
 
 

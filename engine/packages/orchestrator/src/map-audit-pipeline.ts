@@ -275,6 +275,14 @@ export interface SelectedMapAuditModelHandoff {
       readonly evidenceIds: readonly string[];
     }[];
     readonly omittedSourceStateIdentityQuestions: number;
+    /** Scoped return-guard matching questions; no authored policy proof. */
+    readonly sourceReturnPolicyQuestions: readonly {
+      readonly id: string;
+      readonly question: string;
+      readonly blockedSubjectIds: readonly string[];
+      readonly evidenceIds: readonly string[];
+    }[];
+    readonly omittedSourceReturnPolicyQuestions: number;
     /** Existing directed source paths, not chronological player sessions. */
     readonly sourceDesignPaths: NonNullable<MapAuditOutputV2["gameplayStructure"]>["gameplayJourneyCandidates"];
     readonly omittedSourceDesignPaths: number;
@@ -319,6 +327,10 @@ export function projectSelectedMapAuditModelHandoff(
     audit.inspection.gameplayIntent.model.unknowns
       .filter(item => item.id.startsWith("unknown:source-state-alias:"))
       .sort((a, b) => a.id.localeCompare(b.id));
+  const sourceReturnPolicyQuestions =
+    audit.inspection.gameplayIntent.model.unknowns
+      .filter(item => item.id.startsWith("unknown:outcome-policy-coverage:"))
+      .sort((a, b) => a.id.localeCompare(b.id));
   const selected = audit.modelTaskPackets.slice(offset, offset + limit);
   return {
     schemaVersion: 1,
@@ -353,6 +365,16 @@ export function projectSelectedMapAuditModelHandoff(
         })),
       omittedSourceStateIdentityQuestions: Math.max(
         0, sourceStateIdentityQuestions.length - 8,
+      ),
+      sourceReturnPolicyQuestions: sourceReturnPolicyQuestions.slice(0, 8)
+        .map(item => ({
+          id: item.id,
+          question: item.question,
+          blockedSubjectIds: [...item.blockedSubjectIds],
+          evidenceIds: [...(item.evidenceIds ?? [])],
+        })),
+      omittedSourceReturnPolicyQuestions: Math.max(
+        0, sourceReturnPolicyQuestions.length - 8,
       ),
       sourceDesignPaths: (audit.mapAuditReport.gameplayStructure?.gameplayJourneyCandidates ?? [])
         .slice(0, 6),

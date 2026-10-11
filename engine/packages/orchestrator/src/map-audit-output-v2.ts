@@ -758,6 +758,9 @@ export function formatSelectedMapAuditBrief(input: {
   const sourceStateAliasUnknowns = intent.unknowns
     .filter(item => item.id.startsWith("unknown:source-state-alias:"))
     .sort((a, b) => a.id.localeCompare(b.id));
+  const returnPolicyUnknowns = intent.unknowns
+    .filter(item => item.id.startsWith("unknown:outcome-policy-coverage:"))
+    .sort((a, b) => a.id.localeCompare(b.id));
   const findings = [...report.bugs, ...report.designMismatches];
   const unresolvedSurfaces = report.gameplayClosure.surfaceInventory.filter(
     (item) => item.status === "blocked" || item.status === "unknown",
@@ -861,6 +864,31 @@ export function formatSelectedMapAuditBrief(input: {
     if (sourceStateAliasUnknowns.length > 5) {
       out.push("Additional state identity questions omitted: " +
         (sourceStateAliasUnknowns.length - 5));
+    }
+  }
+  if (returnPolicyUnknowns.length > 0) {
+    out.push("", "### Return policy questions (SOURCE ONLY; UNRESOLVED)");
+    out.push("Equal return/guard counts, similar function names and missing " +
+      "source spans do NOT establish that an outcome is guarded.");
+    for (const unknown of returnPolicyUnknowns.slice(0, 5)) {
+      const ids = unknown.evidenceIds ?? [];
+      const sourceLocations = [...new Set(ids.flatMap(id => {
+        const record = evidenceById.get(id);
+        return record?.scope === "selected-artifact"
+          ? [record.locator] : [];
+      }))].sort();
+      out.push(
+        "- " + concise(unknown.id) + ": " + concise(unknown.question),
+        "  Subjects: " + unknown.blockedSubjectIds
+          .slice(0, 3).map(concise).join("; "),
+        "  Source: " + (sourceLocations.length > 0
+          ? sourceLocations.slice(0, 3).map(concise).join("; ")
+          : "unresolved"),
+      );
+    }
+    if (returnPolicyUnknowns.length > 5) {
+      out.push("Additional return-policy questions omitted: " +
+        (returnPolicyUnknowns.length - 5));
     }
   }
   out.push("", "### Possible player journeys (NOT OBSERVED)");

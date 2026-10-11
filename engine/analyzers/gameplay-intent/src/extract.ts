@@ -374,6 +374,17 @@ function title(value: string): string {
     .join(" ");
 }
 
+/** Only a complete authored return location can support policy coverage. */
+function exactReturnSiteKey(source: ParsedScriptFile["source"]): string | undefined {
+  const r = source.range;
+  if (r?.lineStart === undefined || r.lineEnd === undefined ||
+      r.columnStart === undefined || r.columnEnd === undefined) return undefined;
+  return JSON.stringify([
+    source.artifactId, source.relativePath, source.jsonPointer ?? null,
+    r.lineStart, r.lineEnd, r.columnStart, r.columnEnd,
+  ]);
+}
+
 /** Conservative source-site equality, never path-only or name-only. */
 function sameAuthoredSite(
   left: ParsedScriptFile["source"],
@@ -644,13 +655,12 @@ export function extractGameplayIntentSignals(
     .filter(([, owners]) => owners.size > 1)
     .map(([label]) => label));
 
-  const outcomeCoverage = new Map<
-    string,
-    {
-      totalLiteralReturnSites: number;
-      directlyGuardedReturnSites: number;
-    }
-  >();
+  const outcomeCoverage = new Map<string, {
+    totalLiteralReturnSites: number;
+    exactReturnSites: Set<string>;
+    matchedGuardSites: Set<string>;
+    unlocatedReturnSiteCount: number;
+  }>();
 
   // Group named region candidates referenced by this source inspection.
   // Same symbol names in distinct modules (or distinct authored region names
@@ -910,13 +920,23 @@ export function extractGameplayIntentSignals(
   const recordOutcomeCoverage = (
     outcomeSubjectKey: string,
     kind: "total" | "guarded",
+    returnSource: ParsedScriptFile["source"],
   ): void => {
     const current = outcomeCoverage.get(outcomeSubjectKey) ?? {
       totalLiteralReturnSites: 0,
-      directlyGuardedReturnSites: 0,
+      exactReturnSites: new Set<string>(),
+      matchedGuardSites: new Set<string>(),
+      unlocatedReturnSiteCount: 0,
     };
-    if (kind === "total") current.totalLiteralReturnSites += 1;
-    else current.directlyGuardedReturnSites += 1;
+    const site = exactReturnSiteKey(returnSource);
+    if (kind === "total") {
+      current.totalLiteralReturnSites += 1;
+      if (site === undefined) current.unlocatedReturnSiteCount += 1;
+      else current.exactReturnSites.add(site);
+    } else if (site !== undefined) {
+      // Two guard observations for one return are not two guarded returns.
+      current.matchedGuardSites.add(site);
+    }
     outcomeCoverage.set(outcomeSubjectKey, current);
   };
 
@@ -1355,15 +1375,24 @@ export function extractGameplayIntentSignals(
     }
 
     for (const guarded of script.guardedOutcomes ?? []) {
-      // Exact branch/return site correspondence, not file-wide value matching.
+      // The parsed guard and returned value must belong to THIS source file.
+      // A stale/foreign artifact with the same filename or outcome text is
+      // not authority for this selected artifact's design.
+      if (guarded.conditionSource.artifactId !== script.source.artifactId ||
+          guarded.conditionSource.relativePath !== script.source.relativePath ||
+          guarded.outcomeSource.artifactId !== script.source.artifactId ||
+          guarded.outcomeSource.relativePath !== script.source.relativePath) continue;
+      // Direct-guard semantics require ONE uniquely matched actual return
+      // SITE. Similar names and counts are not a guard/return dependency.
       const matchedReturnSites = (script.returnOutcomes ?? []).filter(outcome =>
         outcome.executionRegion === guarded.executionRegion &&
         outcome.propertyName === guarded.propertyName &&
         outcome.value === guarded.value &&
         sameAuthoredSite(outcome.source, guarded.outcomeSource));
-      const guardedReturnOrigins = matchedReturnSites.length === 1
-        ? [{ scriptSource: script.source, outcome: matchedReturnSites[0]! }]
-        : [];
+      if (matchedReturnSites.length !== 1) continue;
+      const guardedReturnOrigins = [{
+        scriptSource: script.source, outcome: matchedReturnSites[0]!,
+      }];
       const sourceName =
         guarded.executionRegion === "module"
           ? guarded.propertyName
@@ -1490,7 +1519,7 @@ export function extractGameplayIntentSignals(
         "outcome:" + slug(sourceName + " " + guarded.value),
         sourceSignal,
       );
-      recordOutcomeCoverage(outcomeKey, "guarded");
+      recordOutcomeCoverage(outcomeKey, "guarded", matchedReturnSites[0]!.source);
 
       const outcomeSignal: GameplayIntentSignal = {
         id: "signal:" + outcomeKey + ":" + slug(path),
@@ -1580,6 +1609,8 @@ export function extractGameplayIntentSignals(
     }
 
     for (const outcome of script.returnOutcomes ?? []) {
+      if (outcome.source.artifactId !== script.source.artifactId ||
+          outcome.source.relativePath !== script.source.relativePath) continue;
       const sourceName =
         outcome.executionRegion === "module"
           ? undefined
@@ -1652,7 +1683,7 @@ export function extractGameplayIntentSignals(
           " " + outcome.value),
         sourceSignal,
       );
-      recordOutcomeCoverage(outcomeKey, "total");
+      recordOutcomeCoverage(outcomeKey, "total", outcome.source);
 
       const outcomeSignal: GameplayIntentSignal = {
         id: "signal:" + outcomeKey + ":" + slug(path),
@@ -1834,12 +1865,14 @@ export function extractGameplayIntentSignals(
         outcomeSubjectKey,
         totalLiteralReturnSites:
           counts.totalLiteralReturnSites,
-        directlyGuardedReturnSites:
-          counts.directlyGuardedReturnSites,
+        directlyGuardedReturnSites: counts.matchedGuardSites.size,
         completeDirectGuardCoverage:
           counts.totalLiteralReturnSites > 0 &&
-          counts.totalLiteralReturnSites ===
-            counts.directlyGuardedReturnSites,
+          counts.unlocatedReturnSiteCount === 0 &&
+          counts.exactReturnSites.size === counts.totalLiteralReturnSites &&
+          counts.exactReturnSites.size === counts.matchedGuardSites.size &&
+          [...counts.exactReturnSites].every(site =>
+            counts.matchedGuardSites.has(site)),
       }))
       .sort((a, b) =>
         a.outcomeSubjectKey.localeCompare(

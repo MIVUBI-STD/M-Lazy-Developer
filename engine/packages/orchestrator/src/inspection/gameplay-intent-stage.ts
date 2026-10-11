@@ -77,14 +77,22 @@ function sameExactCallSource(left: SourceRef, right: SourceRef): boolean {
 export function buildGameplayIntentModel(
   input: GameplayIntentStageInput,
 ): GameplayIntentModel {
-  const contractScripts =
-    input.contractScripts ?? [];
+  const contractScripts = input.contractScripts ?? [];
+  // Filter by artifact ID BEFORE classification. Identical relative paths
+  // across map versions are not equivalent source authority and must not
+  // contribute nodes, return policies, or alias/intent evidence.
+  const currentScript = (entry: { parsed: ParsedScriptFile }): boolean =>
+    input.artifactId === undefined ||
+    entry.parsed.source.artifactId === input.artifactId;
+  const selectedScripts = input.parsedScripts.filter(currentScript);
+  const selectedContracts = contractScripts.filter(currentScript);
+  const selectedCalls = (input.crossFileCallEdges ?? []).filter(call =>
+    input.artifactId === undefined ||
+    call.source.artifactId === input.artifactId);
   const extractedBase = extractGameplayIntentSignals([
-    ...input.parsedScripts.map((item) => item.parsed),
-    ...contractScripts.map(
-      (item) => item.parsed,
-    ),
-  ], input.crossFileCallEdges ?? []);
+    ...selectedScripts.map(item => item.parsed),
+    ...selectedContracts.map(item => item.parsed),
+  ], selectedCalls);
   const supplementalSignals =
     input.supplementalSignals ?? [];
   const extracted = {
@@ -95,15 +103,12 @@ export function buildGameplayIntentModel(
     ],
   };
   const selectedArtifactSourcePaths = new Set([
-    ...input.parsedScripts.map(
-      (item) => item.parsed.source.relativePath,
-    ),
-    ...contractScripts.map(
-      (item) => item.parsed.source.relativePath,
-    ),
-    ...(input.parsedFunctions ?? []).map(
-      (item) => item.parsed.source.relativePath,
-    ),
+    ...selectedScripts.map(item => item.parsed.source.relativePath),
+    ...selectedContracts.map(item => item.parsed.source.relativePath),
+    ...(input.parsedFunctions ?? []).filter(item =>
+      input.artifactId === undefined ||
+      item.parsed.source.artifactId === input.artifactId,
+    ).map(item => item.parsed.source.relativePath),
     ...supplementalSignals.map(
       (signal) => signal.locator,
     ),
@@ -841,6 +846,9 @@ export function buildGameplayIntentModel(
         question:
           "Not every recognized literal return site for this outcome is controlled by a directly modeled if-guard; switch/default/nested or other control flow may still define admissibility.",
         blockedSubjectIds: [coverage.outcomeSubjectKey],
+        evidenceIds: (nodes.get(coverage.outcomeSubjectKey)?.evidenceIds ?? [])
+          .filter(id => evidence.get(id)?.scope === "selected-artifact")
+          .sort(),
       });
     }
   }

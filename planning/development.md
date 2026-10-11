@@ -1,3 +1,15 @@
+## P2 bounded batch — exact return/guard provenance and artifact isolation (2026-10-11)
+
+**Observed source defect:** `outcomePolicyCoverage` previously compared the number of guarded observations to the number of returned values, even when the two originated at different source locations. This could grant a direct authored `requires` policy relation or `admissible-policy` invariant without a unique return-site witness. Separately, `buildGameplayIntentModel()` could extract scripts from another artifact if it received both revisions with identical relative paths; the path-based source set did not itself verify the artifact ID.
+
+**One generic production correction:** keep `engine/analyzers/gameplay-intent/src/extract.ts` and the existing `gameplay-intent-stage.ts` as owners. Direct guard projection now requires one complete, unique return-site match (artifact, module, pointer, span, region, property and value); duplicate guard records do not count as additional returns, partial/unlocated return coverage remains unresolved. Source instances belonging to a foreign artifact are discarded BEFORE current-artifact extraction; nested guarded/return sites are checked against the parent script source. The existing gameplay-policy unknown now carries selected-artifact supporting evidence IDs. Canonical `--brief` and bounded `--handoff` display unresolved return-policy questions. Module-level and unclassified returns remain technical evidence rather than new gameplay outcome rules. No second graph, database, detector or report schema.
+
+**Acceptance/source review:** adjusted old synthetic fixtures to use accurate owner paths and exact return spans; extended existing analyzer/model test suites with mismatched-site, repeated-guard, partially guarded outcome, foreign return/artifact and module-level technical-return negatives. Static source/consumer review, NOT TypeScript/Vitest/CLI or real Minecraft execution. Previously frozen corpus expectations and sample map files remain untouched.
+
+**Unresolved next:** independent real-map replay, actual cross-module alias/dataflow and runtime guard satisfiability are NOT EXECUTED/UNKNOWN. Keep P2 open only for evidenced semantic gaps; P3 scoped game loop/P4 AI investigation/P5 independent generalization acceptance remain separate phases.
+
+---
+
 ## P2 bounded source batch — script-memory identity without imaginary gameplay scope (2026-10-11)
 
 **Observed root cause:** the canonical extractor keyed a parsed `stateMutation` by the *lexical value label* alone unless its classified function name collided. Two independently authored source-memory targets in different modules (or the same module) could therefore collapse to one Gameplay Intent state, allowing unrelated producers to connect through the same node. In contrast, existing Semantic IR already keys `script-memory` by source module + exact authored target.

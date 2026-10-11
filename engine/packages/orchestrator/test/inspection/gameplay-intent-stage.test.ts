@@ -81,7 +81,9 @@ function parsed(): ParsedScriptFile {
         executionRegion: "function:decideReconnect",
         propertyName: "action",
         value: "cleanup",
-        source,
+        source: { ...source, range: {
+          lineStart: 10, lineEnd: 10, columnStart: 4, columnEnd: 28,
+        } },
       },
       {
         executionRegion: "function:decideReconnect",
@@ -104,7 +106,9 @@ function parsed(): ParsedScriptFile {
       propertyName: "action",
       value: "cleanup",
       conditionSource: source,
-      outcomeSource: source,
+      outcomeSource: { ...source, range: {
+        lineStart: 10, lineEnd: 10, columnStart: 4, columnEnd: 28,
+      } },
     }],
     capabilities: [],
   };
@@ -1382,5 +1386,90 @@ describe("same-named source-owned operations (universal semantic isolation)", ()
     // Source-specific identity isn't evidence that any call actually ran.
     expect(model.edges.some(edge => edge.status === "authored" &&
       edge.kind === "produces")).toBe(false);
+  });
+});
+
+
+describe("exact authored return-policy source admission", () => {
+  it("retains unguarded uncertainty when an authored predicate points to a different return source site", () => {
+    const base = parsed();
+    const wrong = {
+      ...base,
+      guardedOutcomes: base.guardedOutcomes!.map(guard => ({
+        ...guard,
+        outcomeSource: {
+          ...base.source,
+          range: { lineStart: 30, lineEnd: 30,
+            columnStart: 1, columnEnd: 24 },
+        },
+      })),
+    } satisfies ParsedScriptFile;
+    const intent = buildGameplayIntentModel({
+      id: "intent:mismatched-return-guard",
+      artifactId: base.source.artifactId,
+      parsedScripts: [{ parsed: wrong }],
+    });
+    expect(intent.nodes.some(node =>
+      node.id === "outcome:decide-reconnect-cleanup")).toBe(true);
+    expect(intent.edges.some(edge =>
+      edge.from === "outcome:decide-reconnect-cleanup" &&
+      edge.kind === "requires" &&
+      intent.nodes.find(item => item.id === edge.to)?.kind === "policy"))
+      .toBe(false);
+    expect(intent.invariants.some(item =>
+      item.id === "inv:admissible-policy:outcome:decide-reconnect-cleanup"))
+      .toBe(false);
+    const unresolved = intent.unknowns.find(item =>
+      item.id === "unknown:outcome-policy-coverage:outcome:decide-reconnect-cleanup");
+    expect(unresolved).toBeDefined();
+    expect(unresolved?.blockedSubjectIds).toContain(
+      "outcome:decide-reconnect-cleanup");
+    expect(unresolved?.evidenceIds?.length).toBeGreaterThan(0);
+  });
+
+  it("does not import matching-path returns from a foreign artifact into the selected map", () => {
+    const selected = parsed();
+    const stale = { ...selected.source, artifactId: "previous-map-release" };
+    const foreign = {
+      ...selected,
+      source: stale,
+      identifier: "previous-script",
+      returnOutcomes: [{
+        executionRegion: "function:decideReconnect",
+        propertyName: "action",
+        value: "victory",
+        source: { ...stale, range: {
+          lineStart: 5, lineEnd: 5, columnStart: 1, columnEnd: 24,
+        } },
+      }],
+      guardedOutcomes: [],
+      localFunctionCalls: [],
+      enumValueComparisons: [],
+      stateMutations: [],
+      typeProperties: [],
+      transitionDeclarations: [],
+      lifecycleMemberExposures: [],
+    } satisfies ParsedScriptFile;
+    const model = buildGameplayIntentModel({
+      id: "intent:isolated-map-version",
+      artifactId: selected.source.artifactId,
+      parsedScripts: [{ parsed: selected }, { parsed: foreign }],
+      contractScripts: [{ parsed: foreign }],
+    });
+    expect(model.nodes.some(node =>
+      node.id === "outcome:decide-reconnect-cleanup")).toBe(true);
+    expect(model.nodes.some(node =>
+      node.id === "outcome:decide-reconnect-victory")).toBe(false);
+    expect(model.evidence.some(item =>
+      item.summary.includes("victory"))).toBe(false);
+
+    const foreignOnly = buildGameplayIntentModel({
+      id: "intent:foreign-only",
+      artifactId: selected.source.artifactId,
+      parsedScripts: [{ parsed: foreign }],
+    });
+    expect(foreignOnly.nodes).toEqual([]);
+    expect(foreignOnly.unknowns.some(item =>
+      item.id === "unknown:no-intent-signals")).toBe(true);
   });
 });
