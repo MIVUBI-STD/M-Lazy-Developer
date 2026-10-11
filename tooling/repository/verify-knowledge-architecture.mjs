@@ -405,6 +405,22 @@ try {
     );
   }
 
+  // The Catalog registers Knowledge relations as resources. Require the
+  // existing lexical reader to make their subject/predicate/object searchable.
+  const relationId = "knowledge.persistence.relation-worldload-gates-reconcile";
+  const relationResource = byId.get(relationId);
+  if (!relationResource) {
+    failures.push("Canonical persistence relation resource is missing.");
+  } else {
+    const relationScores = scoreResourcesLexically(
+      [relationResource],
+      "worldLoad durable-state-reconciliation",
+    );
+    if (!(relationScores[relationId] > 0)) {
+      failures.push("Lexical retrieval cannot search a Knowledge relation by its content.");
+    }
+  }
+
   const sectionLexicalScores =
     scoreSectionsLexically(
       sectionIndex.sections,

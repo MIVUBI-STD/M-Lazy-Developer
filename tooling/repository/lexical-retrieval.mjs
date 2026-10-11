@@ -117,19 +117,26 @@ function resourceText(resource, jsonCache) {
       jsonCache.set(resource.path, data);
     }
 
-    const fact = (data.facts ?? []).find(
+    // Facts and relations share Resource Catalog identities; both must be
+    // searchable by content rather than only by locator/filename.
+    const entry = (data.facts ?? []).find(
+      (item) => item?.id === resource.locator,
+    ) ?? (data.relations ?? []).find(
       (item) => item?.id === resource.locator,
     );
-    if (fact === undefined) return undefined;
+    if (entry === undefined) return undefined;
 
     return [
-      fact.id,
-      fact.domain,
-      fact.subject,
-      fact.statement,
-      ...(fact.capabilityTags ?? []),
-      ...(fact.riskSurfaces ?? []),
-      ...(fact.diagnosticHints ?? []),
+      entry.id,
+      entry.domain,
+      entry.subject,
+      ...(typeof entry.statement === "string"
+        ? [entry.statement]
+        : [entry.kind, entry.object, entry.diagnosticHint]),
+      ...(entry.capabilityTags ?? []),
+      ...(entry.riskSurfaces ?? []),
+      ...(entry.diagnosticHints ?? []),
+      ...(entry.causalConsequences ?? []),
     ]
       .filter(Boolean)
       .join("\n");

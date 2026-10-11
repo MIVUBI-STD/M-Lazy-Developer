@@ -140,8 +140,8 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Knowledge-detector binding verification passed. " +
-    "Coverage: " +
+  "Knowledge-detector binding declaration integrity passed (IDs and referenced paths only; analyzer consumption NOT VERIFIED). " +
+    "Declarations: " +
     knowledgeCoverage.bound +
     "/" +
     knowledgeCoverage.known +

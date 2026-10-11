@@ -2482,13 +2482,13 @@
     },
     {
       "knowledgeId": "inventory.relation-equipment-requires-separate-reset",
-      "consumer": "inventory-reset-analysis",
+      "consumer": "inventory-lifecycle-analysis",
       "analyzerPaths": [
-        "engine/packages/orchestrator/src/inspection/inventory-reset-analysis.ts",
+        "engine/packages/orchestrator/src/inspection/inventory-lifecycle-analysis.ts",
         "engine/packages/orchestrator/src/arena/arena-reset-closure-analysis.ts"
       ],
       "proofPaths": [
-        "engine/packages/orchestrator/test/inspection/inventory-reset-analysis.test.ts"
+        "engine/packages/orchestrator/test/inspection/inventory-lifecycle-analysis.test.ts"
       ]
     },
     {

@@ -1,3 +1,17 @@
+## Active implementation direction — Knowledge retrieval utility (2026-10-11)
+
+**Goal:** use the existing catalogs, graph and retrieval owners to deliver relevant, attributable knowledge to selected-map reasoning. No new database, graph owner, agent, or second audit workflow.
+
+- **Phase A — Retrieval integrity:** index relation content through the existing lexical owner, correct stale binding paths, and label binding verification as declaration integrity instead of actual consumption proof. Source/static evidence only; tests and Minecraft runtime not executed.
+- **Phase B — Context delivery:** fetch the bounded contents, provenance and applicability of chosen resources through existing retrieval/context owners. Preserve unknown version/profile matches instead of claiming applicability.
+- **Phase C — Gameplay-driven retrieval:** map real gameplay questions to scoped source/knowledge lookup, retaining mechanics that do not appear in a global catalog.
+- **Phase D — Binding rationalization:** distinguish declared from actually consumed relations, consolidate or retire obsolete administrative links only after dependency review.
+- **Phase E — End-to-end acceptance:** compare independent real-map understanding, retrieval misses, and supported issue quality against baseline across contrasting game genres. No release/runtime claims without matching evidence.
+
+**Acceptance boundary:** a retrieval hit is not proof of applicability or gameplay execution; a binding is not evidence of use. All future changes must demonstrate a production consumer. Save conclusions in existing source/docs, not in a new status registry.
+
+---
+
 ## Historical development handoff — PAUSED (2026-10-10; superseded by explicit user continuation)
 
 **Historical state:** the user paused development at this point, then explicitly resumed it and requested an architecture-first BUILD emphasis on 2026-10-11. The old pause is no longer the active instruction. Remain on GitHub branch `Local`; do not promote to `Main` without separate authorization.
