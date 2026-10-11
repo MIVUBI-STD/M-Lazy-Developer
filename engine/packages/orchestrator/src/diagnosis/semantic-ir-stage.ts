@@ -911,7 +911,8 @@ export function buildInspectionSemanticIr(
         resolution: targetRegion ? "resolved" : "unresolved",
         ...(targetRegion ? { to: targetRegion } : {}),
         source: effect.source,
-        controlFlow: /^\\?execute\s/i.test(relation.to.trim())
+        controlFlow: relation.to.trim().replace(/^[/]/, "")
+          .toLowerCase().startsWith("execute ")
           ? "conditional" : "unconditional",
       });
       const existing = behaviorCommandCallIds.get(relation.id) ?? [];
