@@ -87,6 +87,19 @@ implementation detail
 → assumed design
 ```
 
+## Bounded production acceptance
+
+The existing synthetic selected-map acceptance must exercise
+`runSelectedMapAudit()` end to end for a resolved NPC command, a uniquely
+resolved behavior-animation command and an ambiguous cross-pack function.
+Each case must reconcile full physical inventory, relevant source records,
+the strict `gameplayStructure` report projection, and the non-observed
+runtime ceiling. A resolved reference may add `CALL_PATH_CONTEXT` to a
+mechanic, but cannot prove its purpose or actual effect. An ambiguous
+reference must stay unresolved without inheriting either target's effects.
+The production acceptance is not a real-world multi-genre or Minecraft
+runtime PASS; no new runner or sample-world asset is introduced.
+
 ## Understand → Model output contract
 
 The existing Map Audit V2 `gameplayStructure` is one **derived** navigation

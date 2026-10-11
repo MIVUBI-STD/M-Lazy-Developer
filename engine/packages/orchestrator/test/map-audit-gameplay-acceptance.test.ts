@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -112,11 +113,47 @@ async function syntheticMcworld(kind: Case): Promise<{
   }
 }
 
-describe("Game-Centric Discovery selected-map acceptance (synthetic)", () => {
+// One acceptance boundary checks the real operator output, rather than
+// treating individual source/Intent/Scenario helpers as product proof.
+function expectReconstructionContract(
+  result: Awaited<ReturnType<typeof runSelectedMapAudit>>,
+): void {
+  const discovery = result.inspection.gameplayDiscoveryClosure;
+  const view = result.mapAuditReport.gameplayStructure;
+  expect(discovery.sourceFileAccountingComplete).toBe(true);
+  expect(discovery.inventoriedFileCount)
+    .toBe(result.inspection.fileInventory.length);
+  expect(discovery.sourceInventoryBalanced).toBe(true);
+  expect(view).toBeDefined();
+
+  const schema = JSON.parse(readFileSync(
+    ".agents/schemas/map-audit-output-v2.schema.json", "utf8",
+  )) as { properties: { gameplayStructure: {
+    required: string[];
+    properties: Record<string, unknown>;
+  } } };
+  for (const key of schema.properties.gameplayStructure.required) {
+    // Keep the strict report contract aligned with the actual production
+    // projection; a documented property without its producer is not accepted.
+    expect(view).toHaveProperty(key);
+    expect(schema.properties.gameplayStructure.properties).toHaveProperty(key);
+  }
+  expect(view!.sourceFlowCandidates.every(item =>
+    item.runtimeStatus === "NOT_OBSERVED")).toBe(true);
+  expect(view!.mechanicReconstructions.every(item =>
+    item.runtimeStatus === "NOT_OBSERVED")).toBe(true);
+  expect(view!.gameplayJourneyCandidates.every(item =>
+    item.runtimeStatus === "NOT_OBSERVED")).toBe(true);
+  expect(result.mapAuditReport.gameplayFlowBasis)
+    .toBe("AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY");
+}
+
+describe("Game Reconstruction selected-map production acceptance (synthetic)", () => {
   it("follows NPC button -> unique function -> sourced score and teleport effects", async () => {
     const fixture = await syntheticMcworld("dialogue");
     try {
       const result = await runSelectedMapAudit({ artifactPath: fixture.archive });
+      expectReconstructionContract(result);
       const ir = result.inspection.semanticIrModel;
       const relation = ir.execution.authoredBehaviorRelations?.find(item =>
         item.kind === "dialogue-button-command");
@@ -141,6 +178,13 @@ describe("Game-Centric Discovery selected-map acceptance (synthetic)", () => {
         node.kind === "mechanic" &&
         node.label === "NPC interaction: Start Challenge" &&
         node.status === "inferred")).toBe(true);
+      const interaction = result.mapAuditReport.gameplayStructure?.features
+        .find(item => item.label === "NPC interaction: Start Challenge");
+      expect(interaction?.purpose).toContain("Gameplay purpose UNKNOWN");
+      expect(interaction?.purpose).toContain("Source context:");
+      expect(interaction?.grounding).toBe("SOURCE_EVIDENCED");
+      expect(result.inspection.gameplayIntent.model.unknowns.some(item =>
+        item.blockedSubjectIds.includes(interaction!.id))).toBe(true);
       expect(result.mapAuditReport.gameplayFlowBasis)
         .toBe("AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY");
       expect(result.mapAuditReport.gameplayStructure
@@ -162,6 +206,7 @@ describe("Game-Centric Discovery selected-map acceptance (synthetic)", () => {
     const fixture = await syntheticMcworld("animation");
     try {
       const result = await runSelectedMapAudit({ artifactPath: fixture.archive });
+      expectReconstructionContract(result);
       const ir = result.inspection.semanticIrModel;
       expect(ir.execution.authoredBehaviorRelations?.some(item =>
         item.kind === "entity-animation-activation" &&
@@ -194,6 +239,7 @@ describe("Game-Centric Discovery selected-map acceptance (synthetic)", () => {
     const fixture = await syntheticMcworld("ambiguous-target");
     try {
       const result = await runSelectedMapAudit({ artifactPath: fixture.archive });
+      expectReconstructionContract(result);
       const ir = result.inspection.semanticIrModel;
       const relation = ir.execution.authoredBehaviorRelations?.find(item =>
         item.kind === "dialogue-button-command");
@@ -205,6 +251,11 @@ describe("Game-Centric Discovery selected-map acceptance (synthetic)", () => {
         .find(item => item.entryKind === "dialogue-command" &&
           item.executionEdgeIds.includes(edge!.id));
       expect(flow?.unresolvedExecutionEdgeIds).toContain(edge?.id);
+      // Recognition succeeds, but ambiguity blocks exact target traversal;
+      // it must not be converted to an understood or executed mechanic.
+      expect(result.inspection.gameplayDiscoveryClosure.status).toBe("PARTIAL");
+      expect(result.inspection.gameplayDiscoveryClosure.unresolvedSourceLinkIds)
+        .toContain(edge!.id);
       expect(flow?.regionIds).toHaveLength(1);
       expect(flow?.sourceSteps.some(step =>
         step.executionRegionId !== flow.entryRegionId)).toBe(false);

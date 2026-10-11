@@ -45,14 +45,18 @@ const SCENARIO_NODE_KINDS = new Set([
 function purposeForNode(
   node: GameplayIntentNode,
 ): string {
-  if (node.description?.trim()) {
-    return node.description.trim();
+  const description = node.description?.trim();
+  // Current inferred source descriptions (for example NPC button wiring)
+  // describe technical surfaces, not their intended player-facing purpose.
+  // Source-observed state descriptions are likewise not authored design.
+  if (description && node.status === "authored" &&
+      !description.startsWith("Source-observed technical")) {
+    return description;
   }
-  // A recognized name and source presence are not a player-facing design
-  // contract. Expose the missing meaning instead of a generic invented goal.
   return "Gameplay purpose UNKNOWN for " + node.kind +
     ": the selected artifact identifies this subject, but its intended " +
-    "player-facing purpose is not independently established.";
+    "player-facing purpose is not independently established." +
+    (description ? " Source context: " + description : "");
 }
 
 function technicalRoleForNode(
