@@ -120,7 +120,21 @@ export function assessGameplayModelClosure(
     .map((surface) => surface.id)
     .sort();
 
+  // Source recognition may be complete before any real game mechanic is
+  // understood. A generic game/root or runtime-domain inventory signal is
+  // not a reconstructed material gameplay contract.
+  const materialGameplaySurfaces = input.surfaces.filter(surface =>
+    surface.material &&
+    surface.kind !== "game" &&
+    surface.kind !== "runtime-domain" &&
+    surface.status !== "not-applicable");
   const reasons: string[] = [];
+
+  if (materialGameplaySurfaces.length === 0) {
+    reasons.push(
+      "No material gameplay mechanic, phase, objective or state has been reconstructed; source recognition alone cannot close UNDERSTAND.",
+    );
+  }
 
   if (unaccountedSurfaceIds.length > 0) {
     reasons.push(
@@ -153,6 +167,7 @@ export function assessGameplayModelClosure(
   }
 
   const status: GameplayClosureStatus =
+    materialGameplaySurfaces.length === 0 ||
     unaccountedSurfaceIds.length > 0 ||
     !input.stateModelComplete
       ? "OPEN"

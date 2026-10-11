@@ -32,6 +32,30 @@ const intent: GameplayIntentModel = {
 };
 
 describe("gameplay model closure", () => {
+  it("stays OPEN after complete source recognition when no gameplay has been reconstructed", () => {
+    const result = assessGameplayModelClosure({
+      discoveredSurfaceIds: [],
+      surfaces: [],
+      stateModelComplete: true,
+      boundariesExtracted: true,
+    });
+    expect(result.status).toBe("OPEN");
+    expect(result.reasons.join(" ")).toContain("source recognition alone");
+  });
+
+  it("does not confuse a generic game/root with reconstructed mechanics", () => {
+    const result = assessGameplayModelClosure({
+      discoveredSurfaceIds: ["game:root", "runtime:state"],
+      surfaces: [
+        { id: "game:root", label: "Map", kind: "game", material: true, status: "understood" },
+        { id: "runtime:state", label: "State present", kind: "runtime-domain", material: true, status: "understood" },
+      ],
+      stateModelComplete: true,
+      boundariesExtracted: true,
+    });
+    expect(result.status).toBe("OPEN");
+  });
+
   it("is OPEN when the state model is incomplete", () => {
     const surfaces = buildIntentClosureSurfaces(intent);
     const result = assessGameplayModelClosure({
