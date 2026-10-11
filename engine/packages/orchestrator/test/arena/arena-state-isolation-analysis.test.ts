@@ -7,6 +7,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player) {",
         "  arena.players.add(player);",
         "  world.setDynamicProperty('arenaState', 1);",
@@ -33,6 +34,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player, objective: ScoreboardObjective) {",
         "  arena.players.add(player);",
         "  world.setDynamicProperty('arena:' + arena.id, 1);",
@@ -76,6 +78,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player) {",
         "  arena.players.add(player);",
         "  world.setDynamicProperty('arenaState', 1);",
@@ -109,6 +112,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player) {",
         "  arena.players.add(player);",
         "  world.setDynamicProperty('arenaState', 1);",
@@ -241,6 +245,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player) {",
         "  arena.members.add(player);",
         "  world.setDynamicProperty('arena:' + arena.id, 1);",
@@ -309,8 +314,10 @@ describe("arena state isolation analysis", () => {
     } as any;
 
     const observations = analyzeArenaStateIsolation([script]).observations;
+    // A handwritten dynamic-property receiver hint is not a proven
+    // imported Minecraft singleton or exact parser-typed API call.
     expect(observations.find((item) => item.surface === "dynamic-property"))
-      .toMatchObject({ status: "partition-proof-required", scope: "world-global" });
+      .toMatchObject({ status: "partition-proof-required", scope: "unknown" });
     expect(observations.find((item) => item.surface === "scoreboard"))
       .toMatchObject({ status: "partition-proof-required", scope: "world-global" });
   });
@@ -351,6 +358,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player) {",
         "  arena.players.add(player);",
         "  world.setDynamicProperty('arenaState', 1);",
@@ -374,6 +382,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player) {",
         "  arena.players.add(player);",
         "  world.setDynamicProperty('arenaState', 1);",
@@ -400,6 +409,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player) {",
         "  arena.players.add(player);",
         "  world.setDynamicProperty('arenaState', 1);",
@@ -426,6 +436,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function join(arena, player) {",
         "  arena.members.add(player);",
         "  world.setDynamicProperty('arenaState', 1);",
@@ -542,6 +553,7 @@ describe("arena state isolation analysis", () => {
     const script = parseScriptFile(
       "main",
       [
+        "import { world } from \"@minecraft/server\";",
         "function cleanup(arena) {",
         "  arena.players.size;",
         "  const players = world.getPlayers({ tags: ['arena_' + arena.id] });",
@@ -571,6 +583,7 @@ describe("arena state isolation analysis", () => {
 describe("source-owned arena state isolation evidence", () => {
   const arenaScript = (artifactId: string, relativePath: string) =>
     parseScriptFile("main", [
+      "import { world } from \"@minecraft/server\";",
       "function join(arena, player) {",
       "  arena.players.add(player);",
       "  world.setDynamicProperty('arenaState', 1);",
@@ -597,7 +610,7 @@ describe("source-owned arena state isolation evidence", () => {
     for (const item of observations) {
       expect(item.scope).toBe("unknown");
       expect(item.status).toBe("partition-proof-required");
-      expect(item.reason).toContain("independent type/alias/authority proof");
+      expect(item.reason).toContain("lacks one trustworthy typed call");
       expect(item.source?.artifactId).toBe("art:one");
       expect(item.source?.relativePath).toBe("scripts/round.js");
     }
@@ -615,14 +628,10 @@ describe("source-owned arena state isolation evidence", () => {
         startAuthorityProven: false,
         startGuardProven: false }],
       dynamicProperties: [
-        { operation: "set" as const, executionRegion: region,
-          receiverHint: "world",
-          propertyExpression: "'arena:' + arena.id",
-          source: parsed.source },
-        { operation: "set" as const, executionRegion: region,
-          receiverHint: "world",
-          propertyExpression: "'arena:' + otherarena.id",
-          source: parsed.source },
+        { ...parsed.dynamicProperties[0]!,
+          propertyExpression: "'arena:' + arena.id" },
+        { ...parsed.dynamicProperties[0]!,
+          propertyExpression: "'arena:' + otherarena.id" },
       ],
     };
     const observed = analyzeArenaStateIsolation([scripted]).observations
@@ -669,5 +678,115 @@ describe("source-owned arena state isolation evidence", () => {
       expect(result.isolated).toBe(1);
       expect(result.partitionProofRequired).toBe(1);
     }
+  });
+});
+
+
+describe("exact API receiver typing for dynamic-property state ownership", () => {
+  it("distinguishes parser-typed Player, Entity, and World API calls from untyped aliases", () => {
+    const script = parseScriptFile("typed", [
+      "function join(arena, player: Player, entity: Entity, alias: World, unknown) {",
+      "  arena.players.add(player);",
+      "  player.setDynamicProperty('state', 'active');",
+      "  entity.setDynamicProperty('state', 'active');",
+      "  alias.setDynamicProperty('state', 'active');",
+      "  unknown.setDynamicProperty('state', 'active');",
+      "}",
+    ].join("\n"), {
+      artifactId: "typed-source", relativePath: "scripts/typed.ts",
+    });
+    const obs = analyzeArenaStateIsolation([script]).observations
+      .filter(item => item.surface === "dynamic-property");
+    const byName = (receiver: string) => obs.find(item =>
+      item.key.startsWith(receiver + ":"));
+    expect(obs).toHaveLength(4);
+    expect(byName("player")).toMatchObject({
+      scope: "player-local", status: "partition-proof-required",
+    });
+    expect(byName("entity")).toMatchObject({
+      scope: "entity-local", status: "partition-proof-required",
+    });
+    expect(byName("alias")).toMatchObject({
+      scope: "world-global", status: "partition-proof-required",
+    });
+    expect(byName("unknown")).toMatchObject({
+      scope: "unknown", status: "partition-proof-required",
+    });
+    for (const name of ["player", "entity", "alias"]) {
+      expect(byName(name)?.reason).toContain("EXACT_TYPED_CALL_SITE");
+      expect(byName(name)?.reason).toContain("not a unique live");
+    }
+    expect(byName("unknown")?.reason).toContain("lacks one trustworthy typed call");
+    expect(analyzeArenaStateIsolation([script]).isolated).toBe(0);
+  });
+
+  it("matches exact ESM world alias while rejecting shadowed lexical world identifiers", () => {
+    const named = parseScriptFile("named", [
+      'import { world as selectedWorld } from "@minecraft/server";',
+      "function join(arena) {",
+      "  arena.players.size;",
+      "  selectedWorld.setDynamicProperty('arena:' + arena.id, 1);",
+      "}",
+    ].join("\n"), { artifactId: "world-proof", relativePath: "scripts/world.js" });
+    expect(analyzeArenaStateIsolation([named]).observations
+      .find(item => item.surface === "dynamic-property"))
+      .toMatchObject({ scope: "arena-local", status: "isolated" });
+
+    const shadowed = parseScriptFile("shadowed", [
+      'import { world } from "@minecraft/server";',
+      "function join(arena, world) {",
+      "  arena.players.size;",
+      "  world.setDynamicProperty('arena:' + arena.id, 1);",
+      "}",
+    ].join("\n"), {
+      artifactId: "world-proof", relativePath: "scripts/shadow.js",
+    });
+    const observed = analyzeArenaStateIsolation([shadowed]).observations
+      .find(item => item.surface === "dynamic-property");
+    expect(observed).toMatchObject({
+      scope: "unknown", status: "partition-proof-required",
+    });
+    expect(observed?.reason).toContain("lacks one trustworthy typed call");
+  });
+
+  it("refuses foreign, shifted or ambiguous typed call-site witnesses", () => {
+    const parsed = parseScriptFile("typed", [
+      "function join(arena, player: Player) {",
+      "  arena.players.add(player);",
+      "  player.setDynamicProperty('status', 'playing');",
+      "}",
+    ].join("\n"), {
+      artifactId: "active-map", relativePath: "scripts/round.js",
+    });
+    const base = parsed.methodCalls.find(item =>
+      item.method === "setDynamicProperty" && item.receiverType === "Player");
+    expect(base).toBeDefined();
+    const shifted = { ...base!, source: { ...base!.source,
+      range: { ...base!.source.range,
+        columnStart: (base!.source.range?.columnStart ?? 1) + 1 } } };
+    const foreign = { ...base!, source: { ...base!.source, artifactId: "other-map" } };
+    for (const methodCalls of [[shifted], [foreign], [base!, { ...base! }]]) {
+      const observed = analyzeArenaStateIsolation([
+        { ...parsed, methodCalls },
+      ]).observations.find(item => item.surface === "dynamic-property");
+      expect(observed).toMatchObject({
+        scope: "unknown", status: "partition-proof-required",
+      });
+    }
+    const foreignNestedAccess = {
+      ...parsed,
+      dynamicProperties: parsed.dynamicProperties.map(item => ({
+        ...item,
+        source: { ...item.source, artifactId: "previous-world-revision" },
+      })),
+    };
+    expect(analyzeArenaStateIsolation([foreignNestedAccess])
+      .observations.filter(item => item.surface === "dynamic-property"))
+      .toHaveLength(0);
+
+    const correct = analyzeArenaStateIsolation([parsed]).observations.find(
+      item => item.surface === "dynamic-property");
+    expect(correct?.scope).toBe("player-local");
+    expect(correct?.status).toBe("partition-proof-required");
   });
 });

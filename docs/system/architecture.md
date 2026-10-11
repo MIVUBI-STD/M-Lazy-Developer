@@ -127,6 +127,40 @@ One existing mechanic projection records `sourceActivationCandidates` with sourc
 
 The model is still static: an authored entry is not proof of player accessibility, execution, guards being satisfied, effective world changes or actual gameplay. All runtime-native claims and independent cross-map recall remain UNKNOWN.
 
+### Exact parser receiver type versus live state-instance ownership (P3)
+
+The canonical `arena-state-isolation-analysis.ts` now reuses the **existing**
+script parser's `inferScriptMethodCalls()` source record for dynamic-property
+operations. A `Player`, `Entity`, or `World` receiver-type candidate may be
+attached to one source-state access **only** where the exact authored method
+name, receiver expression, execution region, artifact, script path, JSON
+pointer and complete line/column span agree uniquely. The API receiver
+type is a bounded parser result; it is not proof that the correct player,
+entity, arena, or session instance owns the state. A typed `Player` or
+`Entity` source receiver is recorded as `player-local` or
+`entity-local` with `partition-proof-required`, never automatically
+`isolated`. Type-annotated `World` aliases remain world-global source
+surfaces needing a partition guard.
+
+The parser already emits `sourceSequence.stableWorldReceiver` for an
+**unshadowed named ESM import** of the Minecraft world singleton, including
+an explicitly aliased import. A receiver that is merely spelled `world`
+does NOT establish this provenance: when import/alias identity is absent,
+or the identifier is shadowed by a local argument, source partition stays
+`unknown` unless a different exact nonshadowed typed witness exists.
+Conflicting duplicate typed-call witnesses, shifted source spans, foreign
+artifacts, and untyped dynamic-property receivers must all fail closed.
+Nested operation source IDs must belong to the currently inspected script.
+
+This bounded enrichment **reuses** the existing analyzer observation
+`scope/status/reason/source`, Gameplay World projection, Scenario Graph
+arena evidence, Map Audit V2 `multiArena.isolationRules`, operator brief and
+bounded model handoff: no new identity registry, receiver-type heuristic,
+graph, standalone report or LLM authority. Actual player identity,
+per-arena scope mapping, cross-module aliasing, live storage separation and
+behavior at runtime remain UNKNOWN without independent evidence; downstream
+`arenaSessionMapping` remains `NOT_YET_ESTABLISHED`.
+
 ### Scope provenance before player/arena/session interpretation (P3)
 
 **Existing state-isolation owner**: `engine/packages/orchestrator/src/arena/arena-state-isolation-analysis.ts`. The script parser's `DynamicPropertyAccess.receiverHint` is an **expression string**, NOT a resolved `Player`, `Entity` or arena instance type. Receiver spellings such as `player`, `group.player`, `session`, `arena`, `round`, or `serverWorld` cannot by themselves establish partition, even when an inferred arena-related function contains that access. Only the directly authored Minecraft `world` root is treated as a known world-global receiver; where an exact same-region authored authority expression partitions the *key* of a world dynamic property, that is a static source partition candidate and **not** proof that live arena IDs are unique.

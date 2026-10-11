@@ -1,3 +1,50 @@
+## P3 bounded fourth integration — exact typed dynamic-property receiver evidence (2026-10-12)
+
+**Source defect and opportunity:** `DynamicPropertyAccess` already has
+complete parser call-site source and an unshadowed ESM-world singleton witness.
+The separate existing `inferScriptMethodCalls()` also computes a bounded
+Minecraft API receiver type from source annotations/return structure with the
+same AST call span. Yet the arena isolation consumer only recognized direct
+`world` string spelling; genuinely typed `Player`/`Entity`/`World`
+receiver aliases were all opaque, and a shadowed or fake `world` label
+could be treated as a world singleton without import provenance.
+
+**Bounded canonical implementation:** within existing
+`engine/packages/orchestrator/src/arena/arena-state-isolation-analysis.ts`,
+reconcile exactly one current-artifact, same-module, same-execution-region,
+same-method, same-receiver-expression, complete-span parsed typed method
+call with the dynamic-property access. Classify the **source receiver type**
+as player-local, entity-local or world-global but always require independent
+partition proof; a typed receiver by itself cannot make status isolated.
+Honor parser-authored `sourceSequence.stableWorldReceiver` for unshadowed
+Minecraft singleton imports, including aliases. A shadowed `world` name,
+duplicate/shifted/foreign typed site or untyped user object remains UNKNOWN.
+Reject any dynamic access not owned by its parent script. Keep source-backed
+explicit arena-key partition candidates and sourced authority-contract
+behavior unchanged. Do not add a parallel binding engine.
+
+**Existing consumers:** the observed `scope` and explicit reason continue
+through Gameplay World → Scenario Graph → Map Audit V2
+`multiArena.isolationRules` → bounded operator `--brief` and
+`--handoff`, preserving existing strict report schema and proof gates.
+
+**Acceptance authored, NOT EXECUTED:** old fixture world calls now have
+actual named ESM world imports (instead of silently trusting a bare global
+name); synthetically unproven world receiver remains unknown. Contrasting
+new source-shape cases distinguish typed Player, Entity and World receiver
+calls from untyped aliases, unshadowed imported world aliases from shadowed
+lexical `world`, and reject foreign, shifted, or duplicate typed source
+sites. Tests are recorded in existing suites; TypeScript/Vitest, real
+`.mcworld` acceptance, true per-player/per-arena storage identity and
+Minecraft runtime were NOT executed. No precision/recall or PASS claim.
+
+**Stop and next:** finish source+consumer review and one bounded commit on
+`Local`. The next source question is independently proven object instance
+and cross-module alias/dataflow. P3 remains IN PROGRESS; no sample-map
+rules or additional manager/registry/CI are permitted.
+
+---
+
 ## P3 bounded third integration — exact source-owner scope and non-lexical arena state isolation (2026-10-12)
 
 **Observed source defect:** `receiverScope()` in the canonical Arena State Isolation analyzer previously returned `arena-local` merely when a dynamic-property receiver hint contained words like `arena/session/round`, and `player-local/entity-local` for suffixes like `player` or `entity`. Parser `DynamicPropertyAccess` has only `receiverHint` as expression spelling, not a resolved API receiver type or runtime owner. Thus unrelated state targets could be reported `isolated` without any partition proof. Additionally, matching a sourced authority contract through a Map keyed only by `script.identifier` silently associated contracts with another script having the same ID; and qualified source authority spellings could be accepted as substrings.

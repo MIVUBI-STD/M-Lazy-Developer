@@ -94,15 +94,81 @@ function arenaRegions(
   return reachable(graphFor(script), roots);
 }
 
-function receiverScope(
-  receiver: string | undefined,
-): ArenaStateScope {
-  // The parser records a dynamic-property receiver EXPRESSION, not a
-  // resolved Minecraft Player/Entity/world instance type. Names containing
-  // player, arena, round or session cannot prove per-instance isolation.
-  // The direct Minecraft 'world' root is a known global source surface;
-  // aliases, member expressions and custom objects remain unresolved here.
-  return receiver?.trim() === "world" ? "world-global" : "unknown";
+/**
+ * Match the existing parser's typed API-call evidence to THIS dynamic
+ * property operation. Two matching file/line labels are insufficient: the
+ * complete call span, owning artifact, module, region, method and receiver
+ * expression must agree, and the typed call must be unique.
+ */
+function sameExactCallSite(left: SourceRef, right: SourceRef): boolean {
+  const a = left.range;
+  const b = right.range;
+  return left.artifactId === right.artifactId &&
+    left.relativePath === right.relativePath &&
+    left.jsonPointer === right.jsonPointer &&
+    a?.lineStart !== undefined && a.lineEnd !== undefined &&
+    a.columnStart !== undefined && a.columnEnd !== undefined &&
+    b?.lineStart !== undefined && b.lineEnd !== undefined &&
+    b.columnStart !== undefined && b.columnEnd !== undefined &&
+    a.lineStart === b.lineStart && a.lineEnd === b.lineEnd &&
+    a.columnStart === b.columnStart && a.columnEnd === b.columnEnd;
+}
+
+function resolveDynamicReceiver(
+  script: ParsedScriptFile,
+  access: ParsedScriptFile["dynamicProperties"][number],
+): {
+  scope: ArenaStateScope;
+  kind: "World" | "Player" | "Entity" | "unresolved";
+  basis: "EXACT_TYPED_CALL_SITE" | "STABLE_WORLD_IMPORT" | "UNRESOLVED";
+} {
+  const method = access.operation === "get" ? "getDynamicProperty"
+    : access.operation === "set" ? "setDynamicProperty"
+    : access.operation === "clear" ? "clearDynamicProperties"
+    : access.operation === "ids" ? "getDynamicPropertyIds"
+    : access.operation === "size" ? "getDynamicPropertyTotalByteCount"
+    : undefined;
+  // Unique typed calls are source-side receiver classifications only. A
+  // Player API type still does NOT prove which player instance was targeted.
+  const candidates = method === undefined ? [] :
+    script.methodCalls.filter(call =>
+      call.method === method &&
+      (call.receiverType === "World" ||
+       call.receiverType === "Player" ||
+       call.receiverType === "Entity") &&
+      call.receiverHint === access.receiverHint &&
+      (call.executionRegion ?? "module") ===
+        (access.executionRegion ?? "module") &&
+      access.source !== undefined &&
+      call.source !== undefined &&
+      sameExactCallSite(call.source, access.source));
+  if (candidates.length > 1) {
+    return { scope: "unknown", kind: "unresolved", basis: "UNRESOLVED" };
+  }
+  // The parser already records exact unshadowed ESM world-singleton
+  // provenance for this statement; unlike spelling, this is admissible.
+  if (access.sourceSequence?.stableWorldReceiver === true) {
+    return { scope: "world-global", kind: "World",
+      basis: "STABLE_WORLD_IMPORT" };
+  }
+  const call = candidates[0];
+  if (!call) {
+    return { scope: "unknown", kind: "unresolved", basis: "UNRESOLVED" };
+  }
+  // A shadowed identifier named "world" can be accepted as World by the
+  // parser's broad singleton fallback. Without stable import provenance
+  // that is not enough to identify a world receiver.
+  if (access.receiverHint === "world" && call.receiverType === "World") {
+    return { scope: "unknown", kind: "unresolved", basis: "UNRESOLVED" };
+  }
+  const kind = call.receiverType;
+  if (kind !== "World" && kind !== "Player" && kind !== "Entity") {
+    return { scope: "unknown", kind: "unresolved", basis: "UNRESOLVED" };
+  }
+  const scope: ArenaStateScope = kind === "World"
+    ? "world-global" : kind === "Player"
+      ? "player-local" : "entity-local";
+  return { scope, kind, basis: "EXACT_TYPED_CALL_SITE" };
 }
 
 function normalizedExpression(
@@ -401,21 +467,26 @@ function analyzeScript(
     }
     const region = access.executionRegion ?? "module";
     if (!regions.has(region)) continue;
+    // Normal parsed records always have source owners. Older/synthetic
+    // partial fixtures must stay UNKNOWN rather than throwing. When both
+    // owners exist, a foreign nested operation cannot enter this analysis.
+    if (access.source && script.source &&
+        (access.source.artifactId !== script.source.artifactId ||
+         access.source.relativePath !== script.source.relativePath)) continue;
 
-    const receiver =
-      receiverScope(access.receiverHint);
+    const receiver = resolveDynamicReceiver(script, access);
     const keyExpression =
       access.propertyExpression ??
       access.propertyId;
 
     const authorityPartitioned =
-      receiver === "world-global" &&
+      receiver.scope === "world-global" &&
       expressionUsesAuthority(
         keyExpression,
         authoritiesForRegion(region),
       );
     const scope: ArenaStateScope =
-      authorityPartitioned ? "arena-local" : receiver;
+      authorityPartitioned ? "arena-local" : receiver.scope;
 
     observations.push({
       scriptId: script.identifier,
@@ -434,9 +505,15 @@ function analyzeScript(
         ? "isolated" : "partition-proof-required",
       reason: authorityPartitioned
         ? "World dynamic-property key expression is explicitly partitioned by the authored arena authority expression. Static source claim only; uniqueness and runtime isolation remain unverified."
-        : scope === "world-global"
-          ? "World dynamic properties are shared by all arenas; the property key must prove arena/session partitioning."
-          : "Dynamic-property receiver text does not resolve a Player, Entity, arena instance or session owner; independent type/alias/authority proof is required.",
+        : receiver.basis === "EXACT_TYPED_CALL_SITE"
+          ? "Exact parser-typed " + receiver.kind +
+            " dynamic-property call at the same authored site (" +
+            receiver.basis + "). Receiver API type describes the source " +
+            "surface, not a unique live player/entity/world instance, " +
+            "arena partition, or successful state mutation."
+          : scope === "world-global"
+            ? "An unshadowed imported Minecraft world singleton owns this dynamic-property source site; globally shared storage requires source partition proof."
+            : "Dynamic-property receiver lacks one trustworthy typed call at the exact selected source site; lexical player/arena/session names and unproven aliases cannot establish instance scope.",
     });
   }
 
