@@ -1,3 +1,15 @@
+## Completed bounded source integration — Linked Game Design interpretation (2026-10-11)
+
+**Outcome:** the existing Scenario Graph source-journey producer retains selected-artifact state/resource bridge subjects, keeps exact directed intent relationships with their own evidence, and derives interpretable partial mechanic → technical state/resource → objective/outcome paths. Its bounded paths now distinguish embedded explicit design, player-facing text cues and implementation-only labels. No new graph, database, detector, rule registry, LLM authority or alternate audit entrypoint.
+
+**Operator integration:** one existing Map Audit Output V2 `gameplayStructure.gameplayJourneyCandidates` carries additive per-path interpretation with source identities and explicit missing proof; the existing `--brief` renders readable bounded paths; the original `--handoff` includes a small source-only path selection. Existing `gameDesign` scalar objective/win/lose summaries now require selected-artifact evidence; multiple candidates without scope yield UNRESOLVED instead of silently choosing the first source-code name. History/platform knowledge cannot author player rules.
+
+**Proof limit:** source-owner/consumer and strict schema integration reviewed from pinned Local `80b62089d914`; one existing source-only positive/negative bridging regression plus production acceptance invariant updated. Repository Node/Vitest/TypeScript, canonical Defense v1.1.5 audit, independent cross-genre precision/recall, actual player journey, real AI model callback and live Minecraft are **NOT EXECUTED**. This is not a proven product-quality PASS. Stop this bounded architecture change after exact-head commit and source continuity.
+
+**Next:** compare the production `--brief` and `--handoff` for a genuinely executed frozen map against independently verified in-map goals and mechanics. Correct the first evidenced source-to-design misinterpretation at its canonical owner, keeping player/mode/arena scope unresolved until evidence exists.
+
+---
+
 ## Completed macro batch — Selected-map AI investigation exchange (2026-10-11)
 
 **Outcome:** close the source-level connection between Game Understanding, bounded model task context, source-bound proof responses, canonical resolution admission, and the existing operator view. No extra proof engine, agent manager, database, graph, detector or report schema.

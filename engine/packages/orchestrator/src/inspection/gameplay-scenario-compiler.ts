@@ -25,6 +25,7 @@ import type {
   GameplaySourceFlowCandidate,
   GameplayMechanicReconstruction,
   GameplayJourneyCandidate,
+  GameplayJourneyInterpretation,
 } from "./gameplay-scenario-model.js";
 import {
   semanticIrExecutionTraces, type SemanticIr,
@@ -2274,24 +2275,40 @@ function reconstructClassifiedMechanics(
  * It does not assert that these relations are chronologically executable.
  * No genre-based start, inferred terminal, or synthetic objective is added.
  */
-function reconstructAuthoredJourneyCandidates(
+export function reconstructAuthoredJourneyCandidates(
   intent: GameplayIntentModel,
   reconstructions: readonly GameplayMechanicReconstruction[],
   maxPaths = 128,
   maxDepth = 12,
 ): { candidates: readonly GameplayJourneyCandidate[]; truncated: boolean } {
-  const ids = new Set(reconstructions.map(item => item.featureId));
-  const sourceIds = new Set(intent.evidence.filter(evidence =>
-    evidence.scope === "selected-artifact").map(evidence => evidence.id));
-  const map = new Map(reconstructions.map(item => [item.featureId, item]));
-  const traversable = new Set(["transitions-to", "recovers-to",
-    "produces", "wins-by", "loses-by"]);
+  const source = new Map(intent.evidence
+    .filter(evidence => evidence.scope === "selected-artifact")
+    .map(evidence => [evidence.id, evidence] as const));
+  const isCurrent = (ids: readonly string[]) =>
+    ids.some(id => source.has(id));
+  const featureById = new Map(reconstructions.map(item => [item.featureId, item]));
+  const featureIds = new Set(featureById.keys());
+  // The earlier path algorithm dropped intermediate scoreboard/state/resource
+  // subjects. Admit ONLY actual selected-artifact subjects as bridges: these
+  // are not newly inferred mechanics or proof that effects occurred.
+  const nodes = new Map(intent.nodes.filter(node =>
+    node.status !== "hypothesis" &&
+    isCurrent(node.evidenceIds) &&
+    (featureIds.has(node.id) ||
+      node.kind === "state" || node.kind === "resource"))
+    .map(node => [node.id, node] as const));
+  // Relation direction is SOURCE semantics, not elapsed game time.
+  // "requires"/"owns"/"valid-during" cannot safely act as traversal edges.
+  const traversable = new Set([
+    "transitions-to", "recovers-to", "produces", "consumes",
+    "wins-by", "loses-by", "resets",
+  ]);
   const links = intent.edges.filter(edge =>
     traversable.has(edge.kind) &&
     edge.status !== "hypothesis" &&
-    ids.has(edge.from) && ids.has(edge.to) &&
-    edge.evidenceIds.some(id => sourceIds.has(id)))
-    .sort((a,b) => a.id.localeCompare(b.id));
+    nodes.has(edge.from) && nodes.has(edge.to) &&
+    isCurrent(edge.evidenceIds))
+    .sort((a, b) => a.id.localeCompare(b.id));
   const outgoing = new Map<string, typeof links>();
   const incoming = new Set<string>();
   for (const edge of links) {
@@ -2301,9 +2318,8 @@ function reconstructAuthoredJourneyCandidates(
     incoming.add(edge.to);
   }
   const roots = [...outgoing.keys()].filter(id => !incoming.has(id)).sort();
-  // Reachability partitions may contain an isolated cycle even when other
-  // components have normal roots. Admit one start per still-uncovered
-  // component so such cycles do not disappear from the source projection.
+  // Preserve isolated cycles rather than dropping them merely because some
+  // other component of the map has a normal source root.
   const reachable = new Set<string>();
   const mark = (start: string) => {
     const pending = [start];
@@ -2320,63 +2336,139 @@ function reconstructAuthoredJourneyCandidates(
     roots.push(id);
     mark(id);
   }
+
+  const sorted = (ids: readonly string[]) => [...new Set(ids)].sort();
+  type Boundary = GameplayJourneyCandidate["boundary"];
   type Walk = { ids: string[]; edges: typeof links };
+  const describe = (
+    walk: Walk, boundary: Boundary,
+  ): GameplayJourneyCandidate | undefined => {
+    // A technical-only dependency chain is NOT a reconstructed game loop.
+    if (walk.edges.length === 0 ||
+        !walk.ids.some(id => featureIds.has(id))) return undefined;
+    const relationEvidence = sorted(walk.edges.flatMap(edge =>
+      edge.evidenceIds.filter(id => source.has(id))));
+    const flowIds = sorted(walk.ids.flatMap(id =>
+      featureById.get(id)?.exactSourceFlowIds ?? []));
+
+    const steps: GameplayJourneyInterpretation["steps"] =
+      walk.ids.map(subjectId => {
+        const node = nodes.get(subjectId)!;
+        const scopedEvidence = sorted(node.evidenceIds.filter(id => source.has(id)));
+        const origins = scopedEvidence.map(id => source.get(id)!.origin);
+        return {
+          subjectId,
+          label: node.label,
+          kind: node.kind,
+          meaningBasis: node.status === "authored" &&
+              origins.includes("game-design-spec")
+            ? "EMBEDDED_DESIGN_TEXT" as const
+            : origins.some(origin => origin === "dialogue" ||
+                origin === "translation")
+              ? "PLAYER_FACING_SOURCE_CUE" as const
+              : "TECHNICAL_SOURCE_ONLY" as const,
+          intentStatus: node.status === "authored" ? "authored" : "inferred",
+          sourceEvidenceIds: scopedEvidence.slice(0, 12),
+          omittedSourceEvidenceCount:
+            Math.max(0, scopedEvidence.length - 12),
+          exactSourceFlowIds:
+            featureById.get(subjectId)?.exactSourceFlowIds ?? [],
+        };
+      });
+    const relationships: GameplayJourneyInterpretation["relationships"] =
+      walk.edges.map(edge => ({
+        relationId: edge.id,
+        kind: edge.kind,
+        sourceStatus: edge.status === "authored"
+          ? "authored" as const : "inferred" as const,
+        semanticRole: (edge.kind === "transitions-to")
+          ? "STATE_TRANSITION_CANDIDATE" as const
+          : (edge.kind === "recovers-to" || edge.kind === "resets")
+            ? "RESET_OR_RECOVERY_CANDIDATE" as const
+            : (edge.kind === "wins-by" || edge.kind === "loses-by")
+              ? "OUTCOME_RELATION" as const
+              : "RESOURCE_OR_EFFECT_DEPENDENCY" as const,
+        sourceEvidenceIds: sorted(edge.evidenceIds.filter(id => source.has(id))),
+      }));
+    const win = walk.edges.some(edge => edge.kind === "wins-by");
+    const lose = walk.edges.some(edge => edge.kind === "loses-by");
+    const terminal = nodes.get(walk.ids[walk.ids.length - 1]!)?.kind === "outcome";
+    const missing: GameplayJourneyInterpretation["missingUnderstanding"][number][] = [
+      "PLAYER_ENTRY_NOT_PROVEN",
+    ];
+    if (!steps.some(step => step.kind === "objective" &&
+        step.meaningBasis !== "TECHNICAL_SOURCE_ONLY")) {
+      missing.push("PLAYER_GOAL_NOT_INDEPENDENTLY_GROUNDED");
+    }
+    if (!(win || lose)) missing.push("OUTCOME_RULE_UNRESOLVED");
+    if (flowIds.length === 0) missing.push("EXACT_SOURCE_EFFECT_PATH_MISSING");
+    // A directed data/effect relationship never certifies play chronology.
+    missing.push("SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER");
+    missing.push("MODE_ARENA_ROLE_SCOPE_UNRESOLVED");
+    missing.push("RUNTIME_NOT_OBSERVED");
+
+    return {
+      id: "authored-journey:" + walk.edges.map(edge =>
+        encodeURIComponent(edge.id)).join(":"),
+      subjectIds: [...walk.ids],
+      relationIds: walk.edges.map(edge => edge.id),
+      evidenceIds: relationEvidence,
+      exactSourceFlowIds: flowIds,
+      meaningStatus: walk.edges.every(edge => edge.status === "authored")
+        ? "SOURCE_AUTHORED" : "SOURCE_INFERRED",
+      boundary,
+      runtimeStatus: "NOT_OBSERVED",
+      interpretation: {
+        basis: "DIRECTED_SELECTED_SOURCE_RELATIONS_NOT_PLAYER_SEQUENCE",
+        scope: "MODE_ARENA_AND_ROLE_UNRESOLVED",
+        steps,
+        relationships,
+        sourceOutcome: win
+          ? "WIN_RELATION_CANDIDATE" : lose
+            ? "LOSE_RELATION_CANDIDATE" : terminal
+              ? "OUTCOME_NODE_WITHOUT_TERMINAL_RULE" : "NOT_ESTABLISHED",
+        missingUnderstanding: missing,
+      },
+    };
+  };
   const pending: Walk[] = roots.map(id => ({ ids: [id], edges: [] }));
   const candidates: GameplayJourneyCandidate[] = [];
   let cursor = 0;
+  let capacityReached = false;
   while (cursor < pending.length && candidates.length < maxPaths) {
     const walk = pending[cursor++]!;
     const last = walk.ids[walk.ids.length - 1]!;
-    const target = map.get(last);
+    const terminal = nodes.get(last)?.kind === "outcome";
     const next = outgoing.get(last) ?? [];
-    const terminal = target?.kind === "outcome";
     if (terminal || next.length === 0 || walk.ids.length >= maxDepth) {
-      if (walk.edges.length === 0) continue;
-      const evidenceIds = [...new Set(walk.edges.flatMap(edge =>
-        edge.evidenceIds.filter(id => sourceIds.has(id))))].sort();
-      const sourceFlowIds = [...new Set(walk.ids.flatMap(id =>
-        map.get(id)?.exactSourceFlowIds ?? []))].sort();
-      candidates.push({
-        id: "authored-journey:" + walk.edges.map(edge =>
-          encodeURIComponent(edge.id)).join(":"),
-        subjectIds: walk.ids,
-        relationIds: walk.edges.map(edge => edge.id),
-        evidenceIds,
-        exactSourceFlowIds: sourceFlowIds,
-        meaningStatus: walk.edges.every(edge => edge.status === "authored")
-          ? "SOURCE_AUTHORED" : "SOURCE_INFERRED",
-        boundary: terminal ? "OUTCOME_SUBJECT" :
-          next.length === 0 ? "SOURCE_SINK" : "DEPTH_LIMIT",
-        runtimeStatus: "NOT_OBSERVED",
-      });
+      const candidate = describe(walk, terminal
+        ? "OUTCOME_SUBJECT" : next.length === 0
+          ? "SOURCE_SINK" : "DEPTH_LIMIT");
+      if (candidate !== undefined) candidates.push(candidate);
       continue;
     }
     for (const edge of next) {
+      const nextWalk: Walk = {
+        ids: [...walk.ids, edge.to],
+        edges: [...walk.edges, edge],
+      };
       if (walk.ids.includes(edge.to)) {
-        candidates.push({
-          id: "authored-journey:" + [...walk.edges,edge].map(e =>
-            encodeURIComponent(e.id)).join(":"),
-          subjectIds: [...walk.ids, edge.to],
-          relationIds: [...walk.edges,edge].map(e => e.id),
-          evidenceIds: [...new Set([...walk.edges,edge].flatMap(e =>
-            e.evidenceIds.filter(id => sourceIds.has(id)))].sort(),
-          exactSourceFlowIds: [...new Set([...walk.ids,edge.to].flatMap(id =>
-            map.get(id)?.exactSourceFlowIds ?? []))].sort(),
-          meaningStatus: [...walk.edges,edge].every(e => e.status === "authored")
-            ? "SOURCE_AUTHORED" : "SOURCE_INFERRED",
-          boundary: "CYCLE", runtimeStatus: "NOT_OBSERVED",
-        });
+        const candidate = describe(nextWalk, "CYCLE");
+        if (candidate !== undefined) candidates.push(candidate);
       } else {
-        pending.push({ ids: [...walk.ids, edge.to], edges: [...walk.edges,edge] });
+        pending.push(nextWalk);
       }
-      if (pending.length > 2048 || candidates.length >= maxPaths) break;
+      if (pending.length > 2048 || candidates.length >= maxPaths) {
+        capacityReached = true;
+        break;
+      }
     }
-    if (pending.length > 2048) break;
+    if (capacityReached) break;
   }
   return {
-    candidates: candidates.slice(0,maxPaths).sort((a,b) => a.id.localeCompare(b.id)),
-    truncated: cursor < pending.length || pending.length > 2048 ||
-      candidates.length > maxPaths,
+    candidates: candidates.slice(0, maxPaths)
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    truncated: capacityReached || cursor < pending.length,
   };
 }
 

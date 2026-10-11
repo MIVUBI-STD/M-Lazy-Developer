@@ -8,6 +8,11 @@ describe("Map Audit Output V2 projection", () => {
     const inspection: any = {
       gameplayIntent: {
         model: {
+          evidence: [{
+            id: "e:objective", origin: "game-design-spec",
+            scope: "selected-artifact", locator: "embedded-design.json",
+            summary: "Selected artifact explicitly states the objective.",
+          }],
           nodes: [{
             id: "objective:1",
             kind: "objective",

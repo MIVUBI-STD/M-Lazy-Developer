@@ -265,6 +265,9 @@ export interface SelectedMapAuditModelHandoff {
       readonly sourceEffectCount: number;
     }[];
     readonly omittedFeatures: number;
+    /** Existing directed source paths, not chronological player sessions. */
+    readonly sourceDesignPaths: NonNullable<MapAuditOutputV2["gameplayStructure"]>["gameplayJourneyCandidates"];
+    readonly omittedSourceDesignPaths: number;
     readonly unresolved: MapAuditOutputV2["unresolved"];
   };
   readonly taskCount: number;
@@ -321,6 +324,10 @@ export function projectSelectedMapAuditModelHandoff(
           .map((path) => path.effectId)).size,
       })),
       omittedFeatures: Math.max(0, features.length - 16),
+      sourceDesignPaths: (audit.mapAuditReport.gameplayStructure?.gameplayJourneyCandidates ?? [])
+        .slice(0, 6),
+      omittedSourceDesignPaths: Math.max(0,
+        (audit.mapAuditReport.gameplayStructure?.gameplayJourneyCandidates.length ?? 0) - 6),
       unresolved: audit.mapAuditReport.unresolved,
     },
     taskCount: audit.modelTaskPackets.length,

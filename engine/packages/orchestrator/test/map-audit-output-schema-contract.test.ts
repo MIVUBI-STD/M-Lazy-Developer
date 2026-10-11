@@ -22,6 +22,13 @@ describe("Map Audit Output V2 naming contract", () => {
       .toBe("NOT_OBSERVED");
     expect(view.properties.gameplayJourneyCandidates.items.properties.runtimeStatus.const)
       .toBe("NOT_OBSERVED");
+    const interpretation =
+      view.properties.gameplayJourneyCandidates.items.properties.interpretation;
+    expect(interpretation.properties.basis.const)
+      .toBe("DIRECTED_SELECTED_SOURCE_RELATIONS_NOT_PLAYER_SEQUENCE");
+    expect(interpretation.additionalProperties).toBe(false);
+    expect(interpretation.properties.missingUnderstanding.items.enum)
+      .toContain("RUNTIME_NOT_OBSERVED");
     expect(view.properties.features.items.properties.sourceBehaviorPaths.items.properties.association.enum)
       .toEqual(["DIRECT_EFFECT_EVIDENCE", "CALL_PATH_CONTEXT"]);
     expect(view.properties.guardedSourceTransitions.items.$ref)

@@ -4505,6 +4505,177 @@
               },
               "runtimeStatus": {
                 "const": "NOT_OBSERVED"
+              },
+              "interpretation": {
+                "type": "object",
+                "description": "Read-only interpretation of the existing directed source path. No chronological or runtime proof.",
+                "additionalProperties": false,
+                "required": [
+                  "basis",
+                  "scope",
+                  "steps",
+                  "relationships",
+                  "sourceOutcome",
+                  "missingUnderstanding"
+                ],
+                "properties": {
+                  "basis": {
+                    "const": "DIRECTED_SELECTED_SOURCE_RELATIONS_NOT_PLAYER_SEQUENCE"
+                  },
+                  "scope": {
+                    "const": "MODE_ARENA_AND_ROLE_UNRESOLVED"
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "subjectId",
+                        "label",
+                        "kind",
+                        "meaningBasis",
+                        "intentStatus",
+                        "sourceEvidenceIds",
+                        "omittedSourceEvidenceCount",
+                        "exactSourceFlowIds"
+                      ],
+                      "properties": {
+                        "subjectId": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "enum": [
+                            "game",
+                            "mechanic",
+                            "actor",
+                            "role",
+                            "objective",
+                            "phase",
+                            "state",
+                            "resource",
+                            "lifecycle",
+                            "spatial-region",
+                            "policy",
+                            "outcome"
+                          ]
+                        },
+                        "meaningBasis": {
+                          "enum": [
+                            "EMBEDDED_DESIGN_TEXT",
+                            "PLAYER_FACING_SOURCE_CUE",
+                            "TECHNICAL_SOURCE_ONLY"
+                          ]
+                        },
+                        "intentStatus": {
+                          "enum": [
+                            "authored",
+                            "inferred"
+                          ]
+                        },
+                        "sourceEvidenceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "omittedSourceEvidenceCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "exactSourceFlowIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "relationships": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "relationId",
+                        "kind",
+                        "sourceStatus",
+                        "semanticRole",
+                        "sourceEvidenceIds"
+                      ],
+                      "properties": {
+                        "relationId": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "enum": [
+                            "owns",
+                            "participates-in",
+                            "produces",
+                            "consumes",
+                            "transitions-to",
+                            "valid-during",
+                            "scoped-to",
+                            "located-in",
+                            "resets",
+                            "persists",
+                            "requires",
+                            "excludes",
+                            "recovers-to",
+                            "wins-by",
+                            "loses-by"
+                          ]
+                        },
+                        "sourceStatus": {
+                          "enum": [
+                            "authored",
+                            "inferred"
+                          ]
+                        },
+                        "semanticRole": {
+                          "enum": [
+                            "STATE_TRANSITION_CANDIDATE",
+                            "RESOURCE_OR_EFFECT_DEPENDENCY",
+                            "OUTCOME_RELATION",
+                            "RESET_OR_RECOVERY_CANDIDATE"
+                          ]
+                        },
+                        "sourceEvidenceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "sourceOutcome": {
+                    "enum": [
+                      "WIN_RELATION_CANDIDATE",
+                      "LOSE_RELATION_CANDIDATE",
+                      "OUTCOME_NODE_WITHOUT_TERMINAL_RULE",
+                      "NOT_ESTABLISHED"
+                    ]
+                  },
+                  "missingUnderstanding": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "PLAYER_ENTRY_NOT_PROVEN",
+                        "PLAYER_GOAL_NOT_INDEPENDENTLY_GROUNDED",
+                        "OUTCOME_RULE_UNRESOLVED",
+                        "EXACT_SOURCE_EFFECT_PATH_MISSING",
+                        "SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER",
+                        "MODE_ARENA_ROLE_SCOPE_UNRESOLVED",
+                        "RUNTIME_NOT_OBSERVED"
+                      ]
+                    }
+                  }
+                }
               }
             }
           }

@@ -251,22 +251,50 @@ function nodeText(
   return value || undefined;
 }
 
-function preferredNode(
+function selectedSourceIds(model: GameplayIntentModel): Set<string> {
+  return new Set((model.evidence ?? []).filter(item =>
+    item.scope === "selected-artifact").map(item => item.id));
+}
+
+function independentlyAuthoredDesign(
   model: GameplayIntentModel,
-  kind: GameplayIntentNode["kind"],
-): GameplayIntentNode | undefined {
-  return model.nodes
-    .filter((node) => node.kind === kind)
-    .sort((a, b) => {
-      const rank = (value: GameplayIntentNode["status"]) =>
-        value === "authored"
-          ? 0
-          : value === "inferred"
-            ? 1
-            : 2;
-      return rank(a.status) - rank(b.status) ||
-        a.id.localeCompare(b.id);
-    })[0];
+  ids: readonly string[],
+): boolean {
+  const byId = new Map((model.evidence ?? []).map(item => [item.id, item]));
+  return ids.some(id => {
+    const source = byId.get(id);
+    return source?.scope === "selected-artifact" &&
+      source.origin === "game-design-spec";
+  });
+}
+
+function summarizeSourceObjectives(model: GameplayIntentModel): {
+  readonly text: string;
+  readonly grounding: "authored" | "inferred" | "unresolved";
+} {
+  const selected = selectedSourceIds(model);
+  const candidates = (model.nodes ?? []).filter(node =>
+    node.kind === "objective" && node.status !== "hypothesis" &&
+    node.evidenceIds.some(id => selected.has(id)))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  if (candidates.length === 0) return {
+    text: "Unresolved from selected artifact.",
+    grounding: "unresolved",
+  };
+  // No version-wide preferred objective: several maps/modes/levels may each
+  // have a separate goal, with no proved map-wide ordering or scope.
+  if (candidates.length > 1) return {
+    text: "Multiple source-backed objective candidates (" +
+      candidates.length + "); player/mode scope unresolved.",
+    grounding: "unresolved",
+  };
+  const node = candidates[0]!;
+  return {
+    text: nodeText(node) ?? "Unresolved from selected artifact.",
+    grounding: node.status === "authored" &&
+      independentlyAuthoredDesign(model, node.evidenceIds)
+      ? "authored" : "inferred",
+  };
 }
 
 function edgeStatement(
@@ -288,35 +316,31 @@ function outcomeFor(
   kind: "wins-by" | "loses-by",
 ): {
   readonly text: string;
-  readonly grounding:
-    | "authored"
-    | "inferred";
+  readonly grounding: "authored" | "inferred" | "unresolved";
 } | undefined {
-  const nodes = new Map(
-    model.nodes.map((node) => [node.id, node]),
-  );
-  const edge = model.edges
-    .filter((item) =>
-      item.kind === kind &&
-      item.status !== "hypothesis"
-    )
-    .sort((a, b) => {
-      const rank = (value: GameplayIntentEdge["status"]) =>
-        value === "authored"
-          ? 0
-          : 1;
-      return rank(a.status) - rank(b.status) ||
-        a.id.localeCompare(b.id);
-    })[0];
-  return edge === undefined
-    ? undefined
-    : {
-        text: edgeStatement(edge, nodes),
-        grounding:
-          edge.status === "authored"
-            ? "authored"
-            : "inferred",
-      };
+  const nodes = new Map((model.nodes ?? []).map(node => [node.id, node]));
+  const source = selectedSourceIds(model);
+  const current = (ids: readonly string[]) =>
+    ids.some(id => source.has(id));
+  const candidates = (model.edges ?? []).filter(edge =>
+    edge.kind === kind && edge.status !== "hypothesis" &&
+    current(edge.evidenceIds) &&
+    current(nodes.get(edge.from)?.evidenceIds ?? []) &&
+    current(nodes.get(edge.to)?.evidenceIds ?? []))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  if (candidates.length > 1) return {
+    text: "Multiple source-backed " + kind +
+      " relations (" + candidates.length + "); mode/player scope unresolved.",
+    grounding: "unresolved",
+  };
+  const edge = candidates[0];
+  if (edge === undefined) return undefined;
+  return {
+    text: edgeStatement(edge, nodes),
+    grounding: edge.status === "authored" &&
+      independentlyAuthoredDesign(model, edge.evidenceIds)
+      ? "authored" : "inferred",
+  };
 }
 
 function projectFinding(
@@ -408,39 +432,32 @@ export function projectMapAuditOutputV2(input: {
   const nodes = new Map(
     model.nodes.map((node) => [node.id, node]),
   );
-  const objectiveNode =
-    preferredNode(model, "objective");
-  const objective =
-    nodeText(objectiveNode) ??
-    "Unresolved from selected artifact.";
-  const objectiveGrounding =
-    objectiveNode === undefined
-      ? "unresolved" as const
-      : objectiveNode.status === "authored"
-        ? "authored" as const
-        : "inferred" as const;
-  const win =
-    outcomeFor(model, "wins-by");
-  const lose =
-    outcomeFor(model, "loses-by");
-  const winCondition =
-    win?.text ??
-    "Unresolved from selected artifact.";
-  const loseCondition =
-    lose?.text ??
-    "Unresolved from selected artifact.";
+  const sourceIds = selectedSourceIds(model);
+  const isCurrent = (ids: readonly string[]): boolean =>
+    ids.some(id => sourceIds.has(id));
+  const currentEdge = (edge: GameplayIntentEdge): boolean =>
+    isCurrent(edge.evidenceIds) &&
+    isCurrent(nodes.get(edge.from)?.evidenceIds ?? []) &&
+    isCurrent(nodes.get(edge.to)?.evidenceIds ?? []);
+  const objectiveSummary = summarizeSourceObjectives(model);
+  const objective = objectiveSummary.text;
+  const objectiveGrounding = objectiveSummary.grounding;
+  const win = outcomeFor(model, "wins-by");
+  const lose = outcomeFor(model, "loses-by");
+  const winCondition = win?.text ?? "Unresolved from selected artifact.";
+  const loseCondition = lose?.text ?? "Unresolved from selected artifact.";
 
   const resetRules = model.edges
     .filter((edge) =>
       edge.kind === "resets" &&
-      edge.status !== "hypothesis"
+      edge.status !== "hypothesis" && currentEdge(edge)
     )
     .map((edge) => edgeStatement(edge, nodes))
     .sort();
   const preserveRules = model.edges
     .filter((edge) =>
       edge.kind === "persists" &&
-      edge.status !== "hypothesis"
+      edge.status !== "hypothesis" && currentEdge(edge)
     )
     .map((edge) => edgeStatement(edge, nodes))
     .sort();
@@ -452,12 +469,16 @@ export function projectMapAuditOutputV2(input: {
           edge.kind === "produces" ||
           edge.kind === "consumes"
         ) &&
-        edge.status !== "hypothesis"
+        edge.status !== "hypothesis" &&
+        currentEdge(edge)
       )
       .map((edge) => edgeStatement(edge, nodes)),
     ...model.invariants
       .filter((item) =>
-        item.status !== "hypothesis"
+        item.status !== "hypothesis" &&
+        isCurrent(item.evidenceIds) &&
+        item.subjectIds.every(id =>
+          isCurrent(nodes.get(id)?.evidenceIds ?? []))
       )
       .map((item) => item.statement.trim())
       .filter(Boolean),
@@ -472,7 +493,7 @@ export function projectMapAuditOutputV2(input: {
         edge.kind === "transitions-to" ||
         edge.kind === "recovers-to"
       ) &&
-      edge.status !== "hypothesis"
+      edge.status !== "hypothesis" && currentEdge(edge)
     )
     .map((edge) => ({
       from:
@@ -791,13 +812,42 @@ export function formatSelectedMapAuditBrief(input: {
     out.push("Additional features omitted: " + (features.length - 12));
   }
   out.push("", "### Possible player journeys (NOT OBSERVED)");
+  out.push("A directed source relation does NOT prove chronological gameplay, player access or engine execution.");
   if (journeys.length === 0) {
-    out.push("No complete player journey is established.");
+    out.push("No connected source-design path could be grounded; game loop remains UNKNOWN.");
   }
   for (const journey of journeys.slice(0, 5)) {
-    out.push("- " + concise(journey.id) + " [" +
-      journey.meaningStatus + "; " + journey.boundary +
-      "] subjects: " + concise(journey.subjectIds.join(", ")));
+    const reading = journey.interpretation;
+    if (reading === undefined) {
+      out.push("- " + concise(journey.id) + " [" +
+        journey.meaningStatus + "; " + journey.boundary +
+        "] subjects: " + concise(journey.subjectIds.join(", ")));
+      continue;
+    }
+    const route = reading.steps.map((step, index) => {
+      const name = concise(step.label) + " [" + step.kind + ", " +
+        step.meaningBasis + "]";
+      return index === 0 ? name
+        : " --(" + (reading.relationships[index - 1]?.kind ?? "unknown") +
+          ")--> " + name;
+    }).join("");
+    const evidenceLocations = journey.evidenceIds.flatMap(id => {
+      const source = evidenceById.get(id);
+      return source?.scope === "selected-artifact"
+        ? [source.locator] : [];
+    });
+    out.push(
+      "- **Source-design candidate:** " + route,
+      "  Outcome: " + reading.sourceOutcome +
+        "; boundary: " + journey.boundary + "; runtime: NOT OBSERVED.",
+      "  Exact source-flow links: " + journey.exactSourceFlowIds.length +
+        "; selected source relation evidence: " + journey.evidenceIds.length + ".",
+      evidenceLocations.length > 0
+        ? "  Source: " + [...new Set(evidenceLocations)]
+          .slice(0, 3).map(concise).join("; ")
+        : "  Source locator: unresolved",
+      "  Still unknown: " + reading.missingUnderstanding.join(", "),
+    );
   }
   if (journeys.length > 5) {
     out.push("Additional candidates omitted: " + (journeys.length - 5));

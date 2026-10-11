@@ -1,3 +1,10 @@
+import { reconstructAuthoredJourneyCandidates } from
+  "../src/inspection/gameplay-scenario-compiler.js";
+import type {
+  GameplayMechanicReconstruction,
+} from "../src/inspection/gameplay-scenario-model.js";
+import type { GameplayIntentModel } from
+  "../../gameplay-intent/src/index.js";
 import { readFileSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -152,7 +159,13 @@ function expectReconstructionContract(
   expect(view!.mechanicReconstructions.every(item =>
     item.runtimeStatus === "NOT_OBSERVED")).toBe(true);
   expect(view!.gameplayJourneyCandidates.every(item =>
-    item.runtimeStatus === "NOT_OBSERVED")).toBe(true);
+    item.runtimeStatus === "NOT_OBSERVED" &&
+    item.interpretation?.basis ===
+      "DIRECTED_SELECTED_SOURCE_RELATIONS_NOT_PLAYER_SEQUENCE" &&
+    item.interpretation.steps.length === item.subjectIds.length &&
+    item.interpretation.relationships.length === item.relationIds.length &&
+    item.interpretation.missingUnderstanding.includes("RUNTIME_NOT_OBSERVED")
+  )).toBe(true);
   expect(result.mapAuditReport.gameplayFlowBasis)
     .toBe("AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY");
 }
@@ -500,3 +513,93 @@ describe("source-grounded Knowledge search hints", () => {
   });
 });
 
+
+
+describe("source-linked Game Design path bridges (bounded source-only)", () => {
+  it("retains an exact-source resource bridge without inventing play order or intent", () => {
+    const evidence = [
+      "e:action", "e:resource", "e:goal", "e:win",
+      "e:link-resource", "e:link-goal", "e:link-win",
+    ].map(id => ({
+      id, origin: "source-code" as const, scope: "selected-artifact" as const,
+      locator: "behavior_packs/a/scripts/game.js", summary: id,
+    }));
+    const nodes: GameplayIntentModel["nodes"] = [
+      { id: "mechanic:start", kind: "mechanic", label: "Start",
+        status: "inferred", evidenceIds: ["e:action"] },
+      { id: "resource:score", kind: "resource", label: "Scoreboard score",
+        status: "authored", evidenceIds: ["e:resource"] },
+      { id: "objective:goal", kind: "objective", label: "Capture flag",
+        status: "inferred", evidenceIds: ["e:goal"] },
+      { id: "outcome:win", kind: "outcome", label: "Win",
+        status: "inferred", evidenceIds: ["e:win"] },
+    ];
+    const model: GameplayIntentModel = {
+      schemaVersion: 1, id: "intent:source-chain", artifactId: "artifact:1",
+      evidence, nodes,
+      edges: [
+        { id: "link:resource", kind: "produces", from: "mechanic:start",
+          to: "resource:score", status: "inferred",
+          evidenceIds: ["e:link-resource"] },
+        { id: "link:goal", kind: "transitions-to", from: "resource:score",
+          to: "objective:goal", status: "inferred",
+          evidenceIds: ["e:link-goal"] },
+        { id: "link:win", kind: "wins-by", from: "objective:goal",
+          to: "outcome:win", status: "inferred",
+          evidenceIds: ["e:link-win"] },
+      ],
+      invariants: [], unknowns: [],
+    };
+    const reconstructions: GameplayMechanicReconstruction[] =
+      (["mechanic", "objective", "outcome"] as const).map(kind => {
+        const node = nodes.find(node => node.kind === kind)!;
+        return {
+          featureId: node.id, kind,
+          name: node.label, meaningStatus: "INFERRED",
+          declaredEvidenceIds: [...node.evidenceIds],
+          exactSourceFlowIds: kind === "mechanic" ? ["flow:start"] : [],
+          exactSourceStepIds: [], authoredBehaviorRelationIds: [],
+          sourceGuardedTransitionCandidateIds: [],
+          relations: [], unresolvedDimensions: [],
+          runtimeStatus: "NOT_OBSERVED",
+        };
+      });
+    const result = reconstructAuthoredJourneyCandidates(model, reconstructions);
+    expect(result.candidates).toHaveLength(1);
+    const path = result.candidates[0]!;
+    expect(path.subjectIds).toEqual([
+      "mechanic:start", "resource:score", "objective:goal", "outcome:win",
+    ]);
+    expect(path.interpretation?.sourceOutcome).toBe("WIN_RELATION_CANDIDATE");
+    expect(path.interpretation?.relationships.map(item => item.kind))
+      .toEqual(["produces", "transitions-to", "wins-by"]);
+    expect(path.interpretation?.steps[1]?.meaningBasis).toBe("TECHNICAL_SOURCE_ONLY");
+    expect(path.interpretation?.missingUnderstanding).toContain(
+      "PLAYER_GOAL_NOT_INDEPENDENTLY_GROUNDED");
+    expect(path.interpretation?.missingUnderstanding).toContain(
+      "SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER");
+    expect(path.interpretation?.missingUnderstanding).toContain(
+      "RUNTIME_NOT_OBSERVED");
+    // External text cannot bridge two current-artifact subjects. The partial
+    // local source segment can remain visible; the win link cannot be invented.
+    const foreign: GameplayIntentModel = {
+      ...model,
+      evidence: [...evidence, {
+        id: "e:foreign", origin: "official-documentation",
+        scope: "external-reference", locator: "external",
+        summary: "Not selected map authority.",
+      }],
+      edges: model.edges.map(edge => edge.id === "link:goal"
+        ? { ...edge, evidenceIds: ["e:foreign"] } : edge),
+    };
+    const rejected = reconstructAuthoredJourneyCandidates(foreign, reconstructions);
+    expect(rejected.candidates.some(item =>
+      item.subjectIds.includes("mechanic:start") &&
+      item.subjectIds.includes("objective:goal"))).toBe(false);
+    // Goal → outcome remains independently source-backed, and is retained.
+    expect(rejected.candidates.some(item =>
+      item.subjectIds.join(",") === "objective:goal,outcome:win")).toBe(true);
+    expect(rejected.candidates.some(item =>
+      item.subjectIds.join(",") === "mechanic:start,resource:score")).toBe(true);
+  });
+});

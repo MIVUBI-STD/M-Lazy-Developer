@@ -77,6 +77,12 @@ The canonical `deriveGameplayArchitectureNavigation()` projection exposes `gamep
 
 During BUILD, complete missing authored semantics at existing source/intent/behavior owners before inventing deeper feature taxonomies, test fixtures, or alternate graph stores. Integration acceptance remains deferred until the full path is ready.
 
+### Partial game-loop interpretation (source only)
+
+The existing Scenario Graph's `reconstructAuthoredJourneyCandidates()` now retains exact selected-artifact **state/resource bridge subjects** between classified mechanics, objectives and outcomes. It does not add invented gameplay subjects, infer transitions from nearby source, use historical design as authority, or traverse non-temporal `requires/owns` relationships as player actions. The same bounded graph traversal, not a new game-loop owner, derives `gameplayStructure.gameplayJourneyCandidates[].interpretation`. An interpretation identifies each known subject and relationship, whether a cue comes from embedded authored design, player-facing source text or only technical source naming, exact source evidence, known source-flow links, and explicit missing design/runtime proof.
+
+Production `runSelectedMapAudit()` exposes this in the canonical Map Audit Output V2, optional `--brief` and bounded `--handoff` through existing owners. Legacy one-line objective/win/lose summaries refuse arbitrary selection among conflicting/multi-mode candidates, ignore unscoped/foreign evidence, and reserve `authored` for current-artifact embedded design evidence. A source relation's direction does **not** prove game chronology, a configured source flow does not prove a player can enter or finish, and no interpretation upgrades BUG admission or report stage. A nonempty path is useful *partial* design context, not whole-map comprehension. Test the actual selected artifact and independent oracle before claiming recall, completeness or runtime correctness.
+
 ### Classified function and guarded-return provenance
 
 The existing `Gameplay Intent` producer now retains parser-observed named function regions on already classified subjects and links them to unique Semantic IR region identities using artifact, source module, region and owner. This supplies navigable execution traces without claiming that functions actually ran or that lexical labels prove game design.

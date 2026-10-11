@@ -177,6 +177,54 @@ export interface GameplayMechanicReconstruction {
 }
 
 /**
+ * Context for ONE existing directed Intent path. This is an interpretation
+ * of authored source relations, not proof of chronological player activity.
+ * Technical resource/state bridges are retained rather than silently dropped.
+ */
+export interface GameplayJourneyInterpretation {
+  readonly basis: "DIRECTED_SELECTED_SOURCE_RELATIONS_NOT_PLAYER_SEQUENCE";
+  readonly scope: "MODE_ARENA_AND_ROLE_UNRESOLVED";
+  readonly steps: readonly {
+    readonly subjectId: string;
+    readonly label: string;
+    readonly kind: GameplayIntentNodeKind;
+    readonly meaningBasis:
+      | "EMBEDDED_DESIGN_TEXT"
+      | "PLAYER_FACING_SOURCE_CUE"
+      | "TECHNICAL_SOURCE_ONLY";
+    readonly intentStatus: "authored" | "inferred";
+    readonly sourceEvidenceIds: readonly string[];
+    readonly omittedSourceEvidenceCount: number;
+    readonly exactSourceFlowIds: readonly string[];
+  }[];
+  readonly relationships: readonly {
+    readonly relationId: string;
+    readonly kind: import("../../../gameplay-intent/src/index.js").GameplayIntentEdgeKind;
+    readonly sourceStatus: "authored" | "inferred";
+    readonly semanticRole:
+      | "STATE_TRANSITION_CANDIDATE"
+      | "RESOURCE_OR_EFFECT_DEPENDENCY"
+      | "OUTCOME_RELATION"
+      | "RESET_OR_RECOVERY_CANDIDATE";
+    readonly sourceEvidenceIds: readonly string[];
+  }[];
+  readonly sourceOutcome:
+    | "WIN_RELATION_CANDIDATE"
+    | "LOSE_RELATION_CANDIDATE"
+    | "OUTCOME_NODE_WITHOUT_TERMINAL_RULE"
+    | "NOT_ESTABLISHED";
+  readonly missingUnderstanding: readonly (
+    | "PLAYER_ENTRY_NOT_PROVEN"
+    | "PLAYER_GOAL_NOT_INDEPENDENTLY_GROUNDED"
+    | "OUTCOME_RULE_UNRESOLVED"
+    | "EXACT_SOURCE_EFFECT_PATH_MISSING"
+    | "SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER"
+    | "MODE_ARENA_ROLE_SCOPE_UNRESOLVED"
+    | "RUNTIME_NOT_OBSERVED"
+  )[];
+}
+
+/**
  * Bounded directed authored/inferred relation chain; never a proven journey.
  */
 export interface GameplayJourneyCandidate {
@@ -186,6 +234,8 @@ export interface GameplayJourneyCandidate {
   readonly evidenceIds: readonly string[];
   readonly exactSourceFlowIds: readonly string[];
   readonly meaningStatus: "SOURCE_AUTHORED" | "SOURCE_INFERRED";
+  /** Optional for older readers/fixtures; canonical production emits it. */
+  readonly interpretation?: GameplayJourneyInterpretation;
   readonly boundary: "OUTCOME_SUBJECT" | "SOURCE_SINK" | "CYCLE" | "DEPTH_LIMIT";
   readonly runtimeStatus: "NOT_OBSERVED";
 }
