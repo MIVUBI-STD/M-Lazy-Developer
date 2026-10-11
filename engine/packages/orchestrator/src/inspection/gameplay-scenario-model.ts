@@ -230,7 +230,9 @@ export interface GameplayJourneyInterpretation {
     readonly nextRelationId: string;
     readonly previousSourceLocators: readonly string[];
     readonly nextSourceLocators: readonly string[];
-    readonly missingProof: "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS";
+    readonly missingProof:
+      | "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS"
+      | "OPPOSITE_AUTHORED_BRANCH_ARMS";
   };
   readonly sourceOutcome:
     | "WIN_RELATION_CANDIDATE"

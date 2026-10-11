@@ -937,7 +937,11 @@ export function formatSelectedMapAuditBrief(input: {
             .map(concise).join("; ") + " / " +
           reading.sourceJoinGap.nextSourceLocators.slice(0, 2)
             .map(concise).join("; ") +
-          ". Missing shared exact IR flow or same-source witness.",
+          (reading.sourceJoinGap.missingProof === "OPPOSITE_AUTHORED_BRANCH_ARMS"
+            ? ". Opposite exact authored true/false branch arms; " +
+              "no compatible source route demonstrated."
+            : ". Missing shared exact source evidence or compatible " +
+              "resolved IR flow; a common filename is insufficient."),
       ]),
     );
   }

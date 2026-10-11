@@ -42,8 +42,11 @@ describe("Map Audit Output V2 naming contract", () => {
     expect(view.properties.gameplayJourneyCandidates.items.properties.boundary.enum)
       .toContain("SOURCE_JOIN_UNPROVEN");
     expect(interpretation.properties.sourceJoinGap.additionalProperties).toBe(false);
-    expect(interpretation.properties.sourceJoinGap.properties.missingProof.const)
-      .toBe("SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS");
+    expect(interpretation.properties.sourceJoinGap.properties.missingProof.enum)
+      .toEqual([
+        "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS",
+        "OPPOSITE_AUTHORED_BRANCH_ARMS",
+      ]);
     expect(view.properties.features.items.properties.sourceBehaviorPaths.items.properties.association.enum)
       .toEqual(["DIRECT_EFFECT_EVIDENCE", "CALL_PATH_CONTEXT"]);
     expect(view.properties.guardedSourceTransitions.items.$ref)

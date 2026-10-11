@@ -4782,7 +4782,10 @@
                         }
                       },
                       "missingProof": {
-                        "const": "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS"
+                        "enum": [
+                          "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS",
+                          "OPPOSITE_AUTHORED_BRANCH_ARMS"
+                        ]
                       }
                     }
                   }

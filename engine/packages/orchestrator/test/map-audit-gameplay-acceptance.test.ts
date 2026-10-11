@@ -586,7 +586,33 @@ describe("source-linked Game Design path bridges (bounded source-only)", () => {
           runtimeStatus: "NOT_OBSERVED",
         };
       });
-    const result = reconstructAuthoredJourneyCandidates(model, reconstructions);
+    // Equal script filename is not a source-flow, branch or handoff witness.
+    const sameFileOnly = reconstructAuthoredJourneyCandidates(model, reconstructions);
+    expect(sameFileOnly.candidates.some(item =>
+      item.subjectIds.join(",") ===
+        "mechanic:start,resource:score,objective:goal,outcome:win")).toBe(false);
+    const unsupported = sameFileOnly.candidates.find(item =>
+      item.subjectIds.join(",") === "mechanic:start,resource:score");
+    expect(unsupported?.boundary).toBe("SOURCE_JOIN_UNPROVEN");
+    expect(unsupported?.interpretation?.sourceJoinGap?.previousSourceLocators)
+      .toEqual(["behavior_packs/a/scripts/game.js"]);
+    expect(unsupported?.interpretation?.sourceJoinGap?.nextSourceLocators)
+      .toEqual(["behavior_packs/a/scripts/game.js"]);
+
+    // Multiple relations carrying the SAME exact source witness may still
+    // form a partial SOURCE-ONLY interpretation, never a player chronology.
+    const sharedWitness = "e:exact-source-witness";
+    const joined: GameplayIntentModel = {
+      ...model,
+      evidence: [...evidence, { id: sharedWitness,
+        origin: "source-code" as const,
+        scope: "selected-artifact" as const,
+        locator: "behavior_packs/a/scripts/game.js", summary: "Exact source relation witness" }],
+      edges: model.edges.map(edge => ({
+        ...edge, evidenceIds: [...edge.evidenceIds, sharedWitness],
+      })),
+    };
+    const result = reconstructAuthoredJourneyCandidates(joined, reconstructions);
     expect(result.candidates).toHaveLength(1);
     const path = result.candidates[0]!;
     expect(path.subjectIds).toEqual([
@@ -631,6 +657,9 @@ describe("source-linked Game Design path bridges (bounded source-only)", () => {
     const locators: Record<string, string> = {
       "e:enter": a, "e:score": a, "e:goal": b,
       "e:done": b, "e:write": a, "e:read": b, "e:win": b,
+      // One independently shared exact source witness makes the DOWNSTREAM
+      // goal -> outcome segment admissible without file-name shortcuts.
+      "e:downstream-join": b,
       "ir:call": a, "ir:effect": b,
     };
     const evidence: GameplayIntentModel["evidence"] =
@@ -657,9 +686,11 @@ describe("source-linked Game Design path bridges (bounded source-only)", () => {
         { id: "rel:write", from: "mechanic:enter", to: "resource:shared",
           kind: "produces", status: "inferred", evidenceIds: ["e:write"] },
         { id: "rel:read", from: "resource:shared", to: "objective:goal",
-          kind: "transitions-to", status: "inferred", evidenceIds: ["e:read"] },
+          kind: "transitions-to", status: "inferred",
+          evidenceIds: ["e:read", "e:downstream-join"] },
         { id: "rel:win", from: "objective:goal", to: "outcome:done",
-          kind: "wins-by", status: "inferred", evidenceIds: ["e:win"] },
+          kind: "wins-by", status: "inferred",
+          evidenceIds: ["e:win", "e:downstream-join"] },
       ],
     };
     const reconstructions: GameplayMechanicReconstruction[] =
@@ -736,6 +767,105 @@ describe("source-linked Game Design path bridges (bounded source-only)", () => {
       path.runtimeStatus === "NOT_OBSERVED" &&
       path.interpretation?.missingUnderstanding.includes(
         "SOURCE_RELATION_DIRECTION_NOT_PLAY_ORDER"))).toBe(true);
+
+    // One IR trace is a UNION of syntactically reachable alternatives.
+    // It must not join a state/action on the TRUE arm to an outcome from
+    // the FALSE arm of the same precisely authored guard site.
+    const guardSource = { artifactId: "art:two-source-joins",
+      relativePath: a, range: {
+        lineStart: 10, lineEnd: 10, columnStart: 5, columnEnd: 21,
+      } };
+    const emptyArm = (branch: "true" | "false") => ({
+      branch, executionEdgeIds: [] as string[],
+      stateWriteOperationIds: [] as string[],
+      returnOutcomeIds: [] as string[],
+      resourceActionIds: [] as string[],
+      resourceReleaseActionIds: [] as string[],
+      worldEffectIds: [] as string[],
+      precedenceEvidenceIds: [] as string[],
+    });
+    const leftArm = { ...emptyArm("true"),
+      executionEdgeIds: ["ir:call"] };
+    const rightArm = { ...emptyArm("false"),
+      stateWriteOperationIds: ["ir:effect"] };
+    const opposed: GameplaySourceFlowCandidate = {
+      ...sharedFlow,
+      branchPoints: [{
+        expression: "phase === active", source: guardSource,
+        branches: [leftArm, rightArm],
+      }],
+    };
+    const sameFileEvidence: GameplayIntentModel = {
+      ...sourceBacked,
+      evidence: sourceBacked.evidence.map(item => ({
+        ...item, locator: a,
+      })),
+    };
+    const sameFileOpposed: GameplaySourceFlowCandidate = {
+      ...opposed,
+      sourceSteps: opposed.sourceSteps.map(step => ({
+        ...step, source: { ...step.source, relativePath: a },
+      })),
+    };
+    const contradictory = reconstructAuthoredJourneyCandidates(
+      sameFileEvidence, reconstructions, 128, 12, [sameFileOpposed]);
+    expect(contradictory.candidates.some(path =>
+      path.subjectIds.join(",") ===
+        "mechanic:enter,resource:shared,objective:goal,outcome:done")).toBe(false);
+    const stopped = contradictory.candidates.find(path =>
+      path.subjectIds.join(",") === "mechanic:enter,resource:shared");
+    expect(stopped?.boundary).toBe("SOURCE_JOIN_UNPROVEN");
+    expect(stopped?.interpretation?.sourceJoinGap?.missingProof)
+      .toBe("OPPOSITE_AUTHORED_BRANCH_ARMS");
+    expect(stopped?.interpretation?.sourceJoinGap?.previousSourceLocators)
+      .toEqual([a]);
+    expect(stopped?.interpretation?.sourceJoinGap?.nextSourceLocators)
+      .toEqual([a]);
+
+    // A coarse source trace cannot cancel the more precise opposite-arm
+    // source counterexample from a second observation of the same source.
+    const mixed = reconstructAuthoredJourneyCandidates(
+      sameFileEvidence, reconstructions, 128, 12,
+      [sharedFlow, sameFileOpposed]);
+    expect(mixed.candidates.some(path =>
+      path.subjectIds.join(",") ===
+        "mechanic:enter,resource:shared,objective:goal,outcome:done"))
+      .toBe(false);
+    expect(mixed.candidates.find(path =>
+      path.subjectIds.join(",") ===
+        "mechanic:enter,resource:shared")
+      ?.interpretation?.sourceJoinGap?.missingProof)
+      .toBe("OPPOSITE_AUTHORED_BRANCH_ARMS");
+
+    // Two exact IR facts in the SAME arm may remain a source candidate,
+    // even while live branch satisfaction and actual value-flow are UNKNOWN.
+    const sameArm: GameplaySourceFlowCandidate = {
+      ...sameFileOpposed,
+      branchPoints: [{
+        expression: "phase === active", source: guardSource,
+        branches: [{
+          ...leftArm, stateWriteOperationIds: ["ir:effect"],
+        }, { ...rightArm, stateWriteOperationIds: [] }],
+      }],
+    };
+    const compatible = reconstructAuthoredJourneyCandidates(
+      sameFileEvidence, reconstructions, 128, 12, [sameArm]);
+    expect(compatible.candidates.some(path =>
+      path.subjectIds.join(",") ===
+        "mechanic:enter,resource:shared,objective:goal,outcome:done")).toBe(true);
+    expect(compatible.candidates.every(path =>
+      path.runtimeStatus === "NOT_OBSERVED")).toBe(true);
+
+    // Without an explicitly selected artifact ID, an arbitrary trace from
+    // an otherwise matching external world is NOT a current-map join proof.
+    const unknownArtifact: GameplayIntentModel = {
+      ...sourceBacked, artifactId: undefined,
+    };
+    const missingArtifact = reconstructAuthoredJourneyCandidates(
+      unknownArtifact, reconstructions, 128, 12, [sharedFlow]);
+    expect(missingArtifact.candidates.some(path =>
+      path.subjectIds.join(",") ===
+        "mechanic:enter,resource:shared,objective:goal,outcome:done")).toBe(false);
 
     // Unresolved edges and foreign-artifact flows never bridge the source.
     for (const rejectedFlow of [

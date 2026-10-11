@@ -1,3 +1,17 @@
+## P3 bounded second integration — branch-aware same-file journey isolation (2026-10-12)
+
+**Source-rooted error:** `reconstructAuthoredJourneyCandidates()` still accepted adjacent relations simply for having the same `GameplayIntentEvidence.locator`. This locator is a source file address, NOT proof of the same execution region, condition or source operation. The existing Semantic IR trace also aggregates reachable alternative branch arms, so membership in the same trace does not prove two facts occur on one source branch.
+
+**Bounded production fix:** edit the existing Scenario Graph journey producer only. Remove the source-filename equality shortcut; retain candidate joins for a SHARED EXACT selected-source evidence ID or separately bound exact IR witness IDs on the same resolved, current-artifact source flow. Reuse that flow's **existing exact authored branch points**: when one relation's direct IR IDs live only under a `true` arm and the next relation's only under its opposite `false` arm (same authored condition site), fail the join even if a coarser trace contains both. This explicit counter-evidence takes precedence over broad flow membership. The existing `SOURCE_JOIN_UNPROVEN` boundary and optional `sourceJoinGap` preserve both segments and now distinguish `OPPOSITE_AUTHORED_BRANCH_ARMS` from missing exact join witness.
+
+**Consumer/tests:** extend existing strict Map Audit Output V2 schema union, bounded operator brief and current source-bridge acceptance test; preserve the original same-file synthetic example as a **negative** when it has only filename proximity, plus a source-shared-evidence positive, compatible exact branch source flow positive, opposite-arm negative, coarse-trace+opposite-arm counterexample, unresolved/foreign-edge negatives and bounded cycles. No dedicated map logic, second graph, new detector, new stage, new LLM authority, CI or extra test harness.
+
+**Proof ceiling:** source producer → existing report/schema/handoff and authored positive/negative tests reviewed statically only. This is NOT TypeScript/Vitest PASS, live Minecraft branch evaluation, real player/mode/arena scoping, direct dataflow or full-map generalization proof. P3 remains IN PROGRESS; actual selected `.mcworld` benchmark evidence is still unavailable.
+
+**Next:** independently test semantic scope (branch guards, actual aliased state ownership, role/arena instance) at the canonical Semantic IR and Behavior owners before claiming a complete game loop. Avoid upgrading source candidates to authored player requirements.
+
+---
+
 ## P3 bounded first integration — source-backed partial path joins (2026-10-12)
 
 **Observed failure in current source:** `reconstructAuthoredJourneyCandidates()` traversed every independently source-backed directed Intent relation. Its state/resource bridge feature could therefore concatenate an upstream operation in module A to a downstream objective/outcome in module B merely because both relations touch one technical scoreboard/state node. Distinct selected-source evidence for individual edges is NOT proof of cross-module dataflow, temporal sequence or same player/mode session.

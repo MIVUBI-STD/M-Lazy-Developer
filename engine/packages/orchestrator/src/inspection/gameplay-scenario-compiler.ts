@@ -2363,10 +2363,10 @@ export function reconstructAuthoredJourneyCandidates(
     .sort((a, b) => a.id.localeCompare(b.id));
 
   // Two individually source-backed relations can touch the SAME technical
-  // resource/state node without proving a data handoff between their source
-  // modules. Never infer that cross-module join from the label or graph
-  // adjacency. A bounded EXACT IR source flow can preserve a candidate join,
-  // but it still does NOT prove runtime dataflow, causality or player order.
+  // resource/state node without proving a data handoff. Equal file paths
+  // cannot bind two different execution regions or opposite source branches.
+  // Even a shared exact IR witness is only source context: no source trace
+  // proves the live value, timing or player/mode/arena identity.
   const sorted = (ids: readonly string[]) => [...new Set(ids)].sort();
   const sourceLocators = (edge: typeof links[number]) => sorted(
     edge.evidenceIds.flatMap(id => {
@@ -2375,13 +2375,16 @@ export function reconstructAuthoredJourneyCandidates(
         ? [path] : [];
     }),
   );
+  const selectedArtifactId = intent.artifactId;
   const usableSourceFlows = sourceFlows
-    .filter(flow => flow.sourceSteps.length > 0 &&
+    .filter(flow => selectedArtifactId !== undefined &&
+      flow.sourceSteps.length > 0 &&
       flow.executionEdgeIds.some(id =>
         !flow.unresolvedExecutionEdgeIds.includes(id)) &&
-      (intent.artifactId === undefined ||
-        flow.sourceSteps.every(step =>
-          step.source.artifactId === intent.artifactId)))
+      flow.sourceSteps.every(step =>
+        step.source.artifactId === selectedArtifactId) &&
+      flow.branchPoints.every(point =>
+        point.source.artifactId === selectedArtifactId))
     .map(flow => ({
       evidenceIds: new Set([
         ...flow.executionEdgeIds.filter(id =>
@@ -2389,23 +2392,78 @@ export function reconstructAuthoredJourneyCandidates(
         ...flow.sourceSteps.map(step => step.id),
         ...flow.authoredBehaviorRelationIds,
       ]),
+      // The canonical Semantic IR branch points are keyed by exact
+      // authored condition source site, not matched expression text.
+      // Only DIRECT evidence is used: precedence is not a runtime path.
+      oppositeArms: flow.branchPoints.flatMap(point => {
+        const byArm = (arm: "true" | "false") => {
+          const selected = point.branches.find(branch => branch.branch === arm);
+          return selected === undefined ? undefined : new Set([
+            ...selected.executionEdgeIds,
+            ...selected.stateWriteOperationIds,
+            ...selected.returnOutcomeIds,
+            ...selected.resourceActionIds,
+            ...(selected.worldEffectIds ?? []),
+          ]);
+        };
+        const trueArm = byArm("true");
+        const falseArm = byArm("false");
+        return trueArm && falseArm ? [{ trueArm, falseArm }] : [];
+      }),
     }));
-  const canFollowAcrossSources = (
+  type SourceJoinProof = NonNullable<
+    GameplayJourneyInterpretation["sourceJoinGap"]
+  >["missingProof"];
+  const sourceJoinProof = (
     previous: typeof links[number], next: typeof links[number],
-  ): boolean => {
+  ): { admitted: boolean; missingProof: SourceJoinProof } => {
+    const previousIds = new Set(previous.evidenceIds.filter(id => source.has(id)));
     const nextIds = new Set(next.evidenceIds.filter(id => source.has(id)));
-    if (previous.evidenceIds.some(id => source.has(id) && nextIds.has(id)))
-      return true;
-    const nextLocators = new Set(sourceLocators(next));
-    if (sourceLocators(previous).some(path => nextLocators.has(path)))
-      return true;
-    // Same IR flow must carry an EXACT witness belonging to EACH edge;
-    // mere feature co-placement in a source flow is not a handoff.
-    return usableSourceFlows.some(flow =>
-      previous.evidenceIds.some(id => source.has(id) &&
-        flow.evidenceIds.has(id)) &&
-      next.evidenceIds.some(id => source.has(id) &&
-        flow.evidenceIds.has(id)));
+    let foundOppositeArms = false;
+    let foundCompatibleFlow = false;
+    for (const flow of usableSourceFlows) {
+      const previousInFlow = [...previousIds].filter(id =>
+        flow.evidenceIds.has(id));
+      const nextInFlow = [...nextIds].filter(id =>
+        flow.evidenceIds.has(id));
+      if (previousInFlow.length === 0 || nextInFlow.length === 0) continue;
+      const opposite = flow.oppositeArms.some(({ trueArm, falseArm }) => {
+        const previousTrue = previousInFlow.some(id => trueArm.has(id));
+        const previousFalse = previousInFlow.some(id => falseArm.has(id));
+        const nextTrue = nextInFlow.some(id => trueArm.has(id));
+        const nextFalse = nextInFlow.some(id => falseArm.has(id));
+        // Only an EXCLUSIVE opposite authored arm establishes this conflict.
+        // A fact appearing in both arms is unresolved, never an exclusive arm.
+        return (previousTrue && !previousFalse && nextFalse && !nextTrue) ||
+          (previousFalse && !previousTrue && nextTrue && !nextFalse);
+      });
+      if (opposite) foundOppositeArms = true;
+      else foundCompatibleFlow = true;
+    }
+    // A conflicting EXACT authored branch site is a counter-witness even
+    // if another broad trace includes both facts without branch detail.
+    // A coarse trace cannot cancel more precise opposite-arm evidence.
+    if (foundOppositeArms) {
+      return { admitted: false,
+        missingProof: "OPPOSITE_AUTHORED_BRANCH_ARMS" };
+    }
+    if (foundCompatibleFlow) {
+      return { admitted: true,
+        missingProof: "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS" };
+    }
+    // A single exact selected-artifact witness shared by BOTH relations
+    // may preserve a SOURCE-ONLY candidate when no flow contradicts it.
+    // The same filename alone is NOT such a witness.
+    if ([...previousIds].some(id => nextIds.has(id))) {
+      return {
+        admitted: true,
+        missingProof: "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS",
+      };
+    }
+    return {
+      admitted: false,
+      missingProof: "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS",
+    };
   };
   const outgoing = new Map<string, typeof links>();
   const incoming = new Set<string>();
@@ -2569,15 +2627,16 @@ export function reconstructAuthoredJourneyCandidates(
     }
     for (const edge of next) {
       const previous = walk.edges[walk.edges.length - 1];
-      if (previous !== undefined &&
-          !canFollowAcrossSources(previous, edge)) {
+      const join = previous === undefined
+        ? undefined : sourceJoinProof(previous, edge);
+      if (join !== undefined && !join.admitted) {
         append(walk, "SOURCE_JOIN_UNPROVEN", {
           viaSubjectId: last,
-          previousRelationId: previous.id,
+          previousRelationId: previous!.id,
           nextRelationId: edge.id,
-          previousSourceLocators: sourceLocators(previous),
+          previousSourceLocators: sourceLocators(previous!),
           nextSourceLocators: sourceLocators(edge),
-          missingProof: "SHARED_EXACT_SOURCE_FLOW_OR_SAME_SOURCE_WITNESS",
+          missingProof: join.missingProof,
         });
         // Preserve the independently source-backed downstream segment;
         // it starts at the shared node but never inherits upstream proof.
