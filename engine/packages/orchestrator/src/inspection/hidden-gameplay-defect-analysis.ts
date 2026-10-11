@@ -1098,6 +1098,8 @@ export function refreshHiddenGameplayDefectsForWorld(
           preset: auditScenarioPreset,
           existingSourceFlowCandidates:
             existing.scenarioAudit.graph.sourceFlowCandidates,
+          existingGuardedSourceTransitions:
+            existing.scenarioAudit.graph.guardedSourceTransitions,
         });
   const scenarioClosure =
     intent === undefined

@@ -219,6 +219,8 @@ export interface AuthoredBehaviorRelation {
   readonly interactionLabel?: string;
   /** Semantic IR world effects grounded in this exact command source site. */
   readonly worldEffectIds?: readonly string[];
+  /** Exact authored command scoreboard/tag operation IDs. Not live state. */
+  readonly stateOperationIds?: readonly string[];
   readonly reason: string;
 }
 

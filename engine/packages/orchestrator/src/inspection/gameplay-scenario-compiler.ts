@@ -29,6 +29,10 @@ import type {
 import {
   semanticIrExecutionTraces, type SemanticIr,
 } from "../../../semantic-ir/src/index.js";
+import {
+  reconcileSourceGuardedStateTransitions,
+  type SourceGuardedStateTransitionCandidate,
+} from "../../../behavior-model/src/index.js";
 
 const SCENARIO_NODE_KINDS = new Set([
   "mechanic",
@@ -2203,6 +2207,7 @@ function sourceFlowCandidates(ir: SemanticIr): readonly GameplaySourceFlowCandid
 function reconstructClassifiedMechanics(
   intent: GameplayIntentModel,
   flows: readonly GameplaySourceFlowCandidate[],
+  guardedTransitions: readonly SourceGuardedStateTransitionCandidate[],
 ): readonly GameplayMechanicReconstruction[] {
   const featureKinds = new Set(["mechanic", "objective", "phase", "lifecycle", "outcome"]);
   const scopedEvidence = new Set(intent.evidence.filter(evidence =>
@@ -2236,6 +2241,10 @@ function reconstructClassifiedMechanics(
           .map(step => step.id)))].sort();
       const authoredBehaviorRelationIds = [...new Set(witnessed.flatMap(flow =>
         flow.authoredBehaviorRelationIds.filter(id => evidenceIds.has(id))))].sort();
+      const sourceGuardedTransitionCandidateIds = guardedTransitions
+        .filter(candidate => evidenceIds.has(candidate.writeOperationId))
+        .map(candidate => candidate.readOperationId + ":" +
+          candidate.writeOperationId).sort();
       const unresolvedDimensions: GameplayMechanicReconstruction["unresolvedDimensions"][number][] = [];
       if (exactSourceFlowIds.length === 0) unresolvedDimensions.push("NO_EXACT_IR_LINK");
       // Role-specific dimensions: a terminal outcome is not a mechanic
@@ -2266,6 +2275,7 @@ function reconstructClassifiedMechanics(
         exactSourceFlowIds,
         exactSourceStepIds,
         authoredBehaviorRelationIds,
+        sourceGuardedTransitionCandidateIds,
         relations,
         unresolvedDimensions,
         runtimeStatus: "NOT_OBSERVED" as const,
@@ -2393,13 +2403,18 @@ export function compileGameplayScenarioGraph(
     readonly semanticIr?: SemanticIr;
     /** Preserve source facts across world-only scenario refreshes. */
     readonly existingSourceFlowCandidates?: readonly GameplaySourceFlowCandidate[];
+    /** World-only recompilation has no new source IR to recompute. */
+    readonly existingGuardedSourceTransitions?: readonly SourceGuardedStateTransitionCandidate[];
   },
 ): GameplayScenarioGraph {
   const observedSourceFlows = input.semanticIr
     ? sourceFlowCandidates(input.semanticIr)
     : input.existingSourceFlowCandidates ?? [];
+  const guardedSourceTransitions = input.semanticIr
+    ? reconcileSourceGuardedStateTransitions(input.semanticIr)
+    : input.existingGuardedSourceTransitions ?? [];
   const mechanicReconstructions = reconstructClassifiedMechanics(
-    input.intent, observedSourceFlows);
+    input.intent, observedSourceFlows, guardedSourceTransitions);
   const journey = reconstructAuthoredJourneyCandidates(
     input.intent, mechanicReconstructions);
   const sourceEvidenceIds = new Set(input.intent.evidence
@@ -2991,5 +3006,6 @@ export function compileGameplayScenarioGraph(
     mechanicReconstructions,
     gameplayJourneyCandidates: journey.candidates,
     gameplayJourneyTruncated: journey.truncated,
+    guardedSourceTransitions,
   };
 }

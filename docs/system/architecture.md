@@ -97,6 +97,27 @@ For each authored effect/return the owner traverses *only uniquely identified re
 
 The existing `deriveGameplayArchitectureNavigation()` consumes these behavior-model slices once, connects effects to graph components only by exact evidence ID and separately labels feature associations encountered on a source-call path. It publishes them through the already-established `MapAuditOutputV2.gameplayStructure` view. Static path association is not player-facing gameplay meaning or PROVEN causality; unowned effect IDs remain explicit. Testing/CI are deferred until the integrated BUILD acceptance boundary.
 
+### Authored command state and guarded source transitions
+
+The canonical Semantic IR now processes scoreboard and tag reads/writes from
+NPC dialogue button/open/close commands and BP animation/controller commands
+with the same command analyzer and state operation authority already used by
+mcfunction and script sources. Exact JSON-pointer command source identity
+links each state operation to the authored dialogue/animation relation; both
+the state operation and any world effect IDs are carried to Gameplay Intent
+before inferred NPC interaction nodes are reconciled. State writes are authored
+attempts, not actual score, progression or phase outcomes.
+
+The existing Behavior Model owns direct literal dynamic-property
+guarded-transition reconstruction. The Scenario Compiler now reuses its exact
+read/write candidate records in the existing Scenario Graph and links them
+to classified mechanic profiles *only* by the write operation's IR ID. The
+operator-facing gameplayStructure exposes those same guarded source
+candidates and their unresolved continuations. World-only graph refreshes
+retain the original read/write evidence without fabricating new observations.
+No source-local comparison or raw scoreboard operation is automatically
+promoted into a proven game-rule, terminal condition or runtime state.
+
 ### Authored NPC dialogue interaction → exact command → IR source effects
 
 The canonical dialogue parser retains JSON-pointer identities for scene

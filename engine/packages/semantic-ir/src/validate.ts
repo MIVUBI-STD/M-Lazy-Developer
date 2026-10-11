@@ -53,6 +53,24 @@ export function validateSemanticIr(ir: SemanticIr): string[] {
     errors.push("Duplicate authored behavior relation id: " + duplicate);
   }
   for (const relation of ir.execution.authoredBehaviorRelations ?? []) {
+    for (const effectId of relation.worldEffectIds ?? []) {
+      const effect = (ir.execution.worldEffects ?? []).find(item => item.id === effectId);
+      if (!effect ||
+          effect.source.artifactId !== relation.source.artifactId ||
+          effect.source.relativePath !== relation.source.relativePath ||
+          effect.source.jsonPointer !== relation.source.jsonPointer) {
+        errors.push("Authored behavior relation has nonmatching world effect: " + relation.id);
+      }
+    }
+    for (const operationId of relation.stateOperationIds ?? []) {
+      const operation = ir.state.operations.find(item => item.id === operationId);
+      if (!operation ||
+          operation.source.artifactId !== relation.source.artifactId ||
+          operation.source.relativePath !== relation.source.relativePath ||
+          operation.source.jsonPointer !== relation.source.jsonPointer) {
+        errors.push("Authored behavior relation has nonmatching state operation: " + relation.id);
+      }
+    }
     if (!relation.source.artifactId || !relation.source.relativePath ||
         !relation.from || !relation.to || !relation.ownerId) {
       errors.push("Incomplete authored behavior relation: " + relation.id);

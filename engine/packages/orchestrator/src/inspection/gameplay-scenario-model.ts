@@ -19,6 +19,7 @@ import {
   deriveSourceEffectSlices,
   type SourceEffectSlice,
   type SourceStateValueHandoff,
+  type SourceGuardedStateTransitionCandidate,
   type SourceWorldEffectOutcomeCandidate,
   type SourceStateOutcomeCandidate,
   type SourceResourceOutcomeCandidate,
@@ -157,6 +158,8 @@ export interface GameplayMechanicReconstruction {
   readonly exactSourceFlowIds: readonly string[];
   readonly exactSourceStepIds: readonly string[];
   readonly authoredBehaviorRelationIds: readonly string[];
+  /** Only source candidates whose exact write IR ID belongs to this feature. */
+  readonly sourceGuardedTransitionCandidateIds: readonly string[];
   /** Original direction and kinds are preserved; no inferred execution order. */
   readonly relations: readonly {
     readonly id: string;
@@ -206,6 +209,7 @@ export interface GameplayScenarioGraph {
   /** Directed Intent relations, not an inferred chronological game session. */
   readonly gameplayJourneyCandidates?: readonly GameplayJourneyCandidate[];
   readonly gameplayJourneyTruncated?: boolean;
+  readonly guardedSourceTransitions?: readonly SourceGuardedStateTransitionCandidate[];
 }
 
 export type GameplayScenarioClosureStatus =
@@ -312,6 +316,8 @@ export interface GameplayArchitectureNavigation {
     readonly mechanicReconstructions: readonly GameplayMechanicReconstruction[];
     readonly gameplayJourneyCandidates: readonly GameplayJourneyCandidate[];
     readonly gameplayJourneyTruncated: boolean;
+    /** State read literal guard -> write literal; NEVER a verified stage change. */
+    readonly guardedSourceTransitions: readonly SourceGuardedStateTransitionCandidate[];
     readonly sourceFlowCandidates: readonly (GameplaySourceFlowCandidate & {
       readonly exactFeatureIds: readonly string[];
       readonly candidateScenarioContextIds: readonly string[];
@@ -1505,6 +1511,7 @@ export function deriveGameplayArchitectureNavigation(
     mechanicReconstructions: graph.mechanicReconstructions ?? [],
     gameplayJourneyCandidates: graph.gameplayJourneyCandidates ?? [],
     gameplayJourneyTruncated: graph.gameplayJourneyTruncated ?? false,
+    guardedSourceTransitions: graph.guardedSourceTransitions ?? [],
     sourceFlowCandidates: (graph.sourceFlowCandidates ?? []).map(flow => {
       const evidenceIds = new Set([
         flow.entryRegionId, ...flow.regionIds, ...flow.executionEdgeIds,

@@ -916,6 +916,23 @@ export function buildInspectionSemanticIr(
         ? "behavior-animation-command" : "behavior-controller-command",
       undefined, undefined, relation.timingSeconds,
     );
+    // Use exactly the same state-access normalization as mcfunction/script.
+    // Dialogue and animation commands often drive progression via scoreboard
+    // or tags even when they have NO player-visible world-effect primitive.
+    for (const access of scoreboardAccesses(effects)) {
+      addStateOperation(
+        regionId,
+        { kind: "scoreboard", key: access.objective },
+        access.access, access.source ?? relation.source, access.target,
+      );
+    }
+    for (const access of tagAccesses(effects)) {
+      addStateOperation(
+        regionId,
+        { kind: "tag", key: access.tag },
+        access.access, access.source ?? relation.source, access.target,
+      );
+    }
   }
   const behaviorRelationships = (input.authoredBehaviorRelations ?? [])
     .map(relation => {
@@ -935,8 +952,18 @@ export function buildInspectionSemanticIr(
           (relation.timingSeconds === undefined ||
             effect.authoredTimingSeconds === relation.timingSeconds))
         .map(effect => effect.id).sort();
-      return worldEffectIds.length
-        ? { ...relation, worldEffectIds } : relation;
+      const stateOperationIds = [...operations.values()]
+        .filter(op => op.executionRegionId === regionId &&
+          op.source.artifactId === relation.source.artifactId &&
+          op.source.relativePath === relation.source.relativePath &&
+          op.source.jsonPointer === relation.source.jsonPointer)
+        .map(op => op.id).sort();
+      return worldEffectIds.length || stateOperationIds.length
+        ? {
+            ...relation,
+            ...(worldEffectIds.length ? { worldEffectIds } : {}),
+            ...(stateOperationIds.length ? { stateOperationIds } : {}),
+          } : relation;
     });
   const ir: SemanticIr = {
     schemaVersion: 1,

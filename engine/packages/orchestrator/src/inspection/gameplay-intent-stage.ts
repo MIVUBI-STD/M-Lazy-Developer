@@ -845,6 +845,21 @@ export function buildGameplayIntentModel(
         summary: "Parsed authored command world-effect attempt; UI activation and runtime success remain unverified.",
       });
     }
+    for (const operationId of relation.stateOperationIds ?? []) {
+      const operation = input.semanticIr?.state.operations.find(item =>
+        item.id === operationId &&
+        item.source.artifactId === relation.source.artifactId &&
+        item.source.relativePath === relation.source.relativePath &&
+        item.source.jsonPointer === relation.source.jsonPointer);
+      if (!operation) continue;
+      evidenceIds.push(operation.id);
+      evidence.set(operation.id, {
+        id: operation.id, origin: "source-code",
+        locator: operation.source.relativePath, scope: "selected-artifact",
+        summary: "Parsed authored command scoreboard/tag " + operation.operation +
+          " operation; gameplay phase, score meaning and runtime value remain unproven.",
+      });
+    }
     const owned = authoredByOwner.get(relation.ownerId) ?? [];
     owned.push(...evidenceIds);
     authoredByOwner.set(relation.ownerId, owned);
