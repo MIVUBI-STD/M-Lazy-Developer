@@ -112,7 +112,12 @@ selected-artifact evidence on authored/inferred directed transitions,
 recoveries, effects and terminal relations. Chain order is **authored relation
 order**, not runtime chronology. Cycles, sink nodes and depth/path truncation
 are explicit, and an outcome label is not proof of successful gameplay
-completion. These profiles and candidate routes appear in the existing
+completion. Disconnected authored relation cycles remain represented separately from rooted
+chains. Missing activation/state/outcome dimensions apply only to appropriate
+feature roles; a declared outcome does not require a separate win relation
+to itself. Path/depth caps remain explicit and do not imply closure.
+
+These profiles and candidate routes appear in the existing
 Gameplay Architecture Navigation / Map Audit V2 gameplayStructure only.
 They do not create new mechanic/phase nodes, playable scenarios, causal
 PROVEN edges, audit closure or a replacement map-agnostic game-flow checklist.

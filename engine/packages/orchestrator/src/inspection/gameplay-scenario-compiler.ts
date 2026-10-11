@@ -2238,14 +2238,23 @@ function reconstructClassifiedMechanics(
         flow.authoredBehaviorRelationIds.filter(id => evidenceIds.has(id))))].sort();
       const unresolvedDimensions: GameplayMechanicReconstruction["unresolvedDimensions"][number][] = [];
       if (exactSourceFlowIds.length === 0) unresolvedDimensions.push("NO_EXACT_IR_LINK");
-      if (!relations.some(edge => ["requires","valid-during","scoped-to"].includes(edge.kind)))
+      // Role-specific dimensions: a terminal outcome is not a mechanic
+      // needing another outcome or activation edge of its own.
+      const needsBehavior = node.kind === "mechanic" ||
+        node.kind === "phase" || node.kind === "lifecycle";
+      if (needsBehavior &&
+          !relations.some(edge =>
+            ["requires","valid-during","scoped-to"].includes(edge.kind)))
         unresolvedDimensions.push("NO_ACTIVATION_RELATION");
-      if (!relations.some(edge => ["transitions-to","produces","consumes",
-          "resets","persists","recovers-to"].includes(edge.kind)))
+      if (needsBehavior &&
+          !relations.some(edge => ["transitions-to","produces","consumes",
+              "resets","persists","recovers-to"].includes(edge.kind)))
         unresolvedDimensions.push("NO_STATE_OR_EFFECT_RELATION");
-      if (!relations.some(edge => ["wins-by","loses-by","produces"].includes(edge.kind) &&
-          intent.nodes.some(target => target.id === edge.to &&
-          (target.kind === "outcome" || target.kind === "objective"))))
+      if (node.kind !== "outcome" &&
+          !relations.some(edge =>
+            ["wins-by","loses-by","produces"].includes(edge.kind) &&
+            intent.nodes.some(target => target.id === edge.to &&
+              (target.kind === "outcome" || target.kind === "objective"))))
         unresolvedDimensions.push("NO_OUTCOME_RELATION");
       return {
         featureId: node.id,
@@ -2296,9 +2305,26 @@ function reconstructAuthoredJourneyCandidates(
     incoming.add(edge.to);
   }
   const roots = [...outgoing.keys()].filter(id => !incoming.has(id)).sort();
-  // A cycle can lack entry nodes; surface it as a bounded cycle candidate.
-  if (roots.length === 0 && links.length > 0) roots.push(...[...outgoing.keys()].sort());
-  type Walk = { ids: string[]; edges: typeof links; boundary?: GameplayJourneyCandidate["boundary"] };
+  // Reachability partitions may contain an isolated cycle even when other
+  // components have normal roots. Admit one start per still-uncovered
+  // component so such cycles do not disappear from the source projection.
+  const reachable = new Set<string>();
+  const mark = (start: string) => {
+    const pending = [start];
+    for (let index = 0; index < pending.length; index++) {
+      const node = pending[index]!;
+      if (reachable.has(node)) continue;
+      reachable.add(node);
+      for (const edge of outgoing.get(node) ?? []) pending.push(edge.to);
+    }
+  };
+  for (const root of roots) mark(root);
+  for (const id of [...outgoing.keys()].sort()) {
+    if (reachable.has(id)) continue;
+    roots.push(id);
+    mark(id);
+  }
+  type Walk = { ids: string[]; edges: typeof links };
   const pending: Walk[] = roots.map(id => ({ ids: [id], edges: [] }));
   const candidates: GameplayJourneyCandidate[] = [];
   let cursor = 0;
