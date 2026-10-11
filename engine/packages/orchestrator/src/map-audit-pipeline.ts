@@ -50,6 +50,7 @@ import {
   SELECTED_MAP_AUDIT_STAGE_ORDER,
   assessSelectedMapAuditAdmission,
   canProjectIndependentAuditEvidence,
+  canAdmitAuditIssueLanes,
   type SelectedMapAuditAdmission,
   type SelectedMapAuditStage,
 } from "./map-audit-admission.js";
@@ -285,14 +286,18 @@ function deriveSelectedMapAuditControl(input: {
   // blocked checkpoints) still blocks publication, not independent analysis.
   const evidenceProjectionAuthorized =
     canProjectIndependentAuditEvidence(input.procedure);
-  const provenIssues = evidenceProjectionAuthorized
+  const issueLanesAuthorized = canAdmitAuditIssueLanes(
+    input.admission,
+    input.procedure,
+  );
+  const provenIssues = issueLanesAuthorized
     ? projectReadyAuditIssues(
         input.scenario.graph,
         input.scenario.defectResolution,
         input.capabilityDelivery,
       )
     : [];
-  const needValidationIssues = evidenceProjectionAuthorized
+  const needValidationIssues = issueLanesAuthorized
     ? projectNeedValidationAuditIssues(
         input.scenario.graph,
         input.scenario.defectResolution,
@@ -393,7 +398,7 @@ function deriveSelectedMapAuditControl(input: {
         item.issueType === "DESIGN_MISMATCH",
     ),
   } as const;
-  const candidateGroups = evidenceProjectionAuthorized
+  const candidateGroups = issueLanesAuthorized
     ? groupReadyAuditIssuesForCandidateCoverage(
         input.scenario.graph,
         issueLanes.BUG.filter(

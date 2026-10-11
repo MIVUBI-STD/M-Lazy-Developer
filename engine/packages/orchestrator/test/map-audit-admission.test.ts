@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assessSelectedMapAuditAdmission,
   canProjectIndependentAuditEvidence,
+  canAdmitAuditIssueLanes,
 } from "../src/map-audit-admission.js";
 import type {
   MandatoryAuditProcedureReceipt,
@@ -25,6 +26,16 @@ function procedure(
       id: "A7",
       block: "UNDERSTAND" as const,
       label: "Gameplay Model Closure",
+    },
+    {
+      id: "C1",
+      block: "STRESS" as const,
+      label: "Cross-system gameplay checks",
+    },
+    {
+      id: "D1",
+      block: "PROVE" as const,
+      label: "Causal contradiction proof",
     },
   ].map((item) => ({
     ...item,
@@ -114,6 +125,41 @@ describe("selected-map audit admission", () => {
     });
     expect(admission.status).toBe("BLOCKED");
     expect(admission.firstBlockingStage).toBe("DISCOVERY");
+  });
+
+  it("keeps early evidence but withholds issues until causal proof stage", () => {
+    const beforeUnderstanding = procedure(["A7"]);
+    const earlyAdmission = assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: beforeUnderstanding,
+    });
+    expect(canProjectIndependentAuditEvidence(beforeUnderstanding)).toBe(true);
+    expect(earlyAdmission.firstBlockingStage).toBe("UNDERSTAND");
+    expect(canAdmitAuditIssueLanes(earlyAdmission, beforeUnderstanding)).toBe(false);
+
+    const beforeStress = procedure(["C1"]);
+    const stressAdmission = assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: beforeStress,
+    });
+    expect(stressAdmission.firstBlockingStage).toBe("STRESS");
+    expect(canAdmitAuditIssueLanes(stressAdmission, beforeStress)).toBe(false);
+
+    const proving = procedure(["D1"]);
+    const proofAdmission = assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: proving,
+    });
+    expect(proofAdmission.firstBlockingStage).toBe("PROVE");
+    expect(canAdmitAuditIssueLanes(proofAdmission, proving)).toBe(true);
+
+    const completed = procedure([]);
+    const completedAdmission = assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: completed,
+    });
+    expect(canAdmitAuditIssueLanes(completedAdmission, completed)).toBe(true);
+    expect(canAdmitAuditIssueLanes(completedAdmission, undefined)).toBe(false);
+    expect(canAdmitAuditIssueLanes({
+      ...completedAdmission,
+      status: "BLOCKED",
+    }, completed)).toBe(false);
   });
 
   it("never projects evidence without verified TARGET or accounted Discovery", () => {

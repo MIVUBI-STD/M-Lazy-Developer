@@ -74,6 +74,17 @@ export function canProjectIndependentAuditEvidence(
       discovery[0]?.status === "PARTIAL");
 }
 
+/** Issue lanes are proof-stage conclusions, not early discovery hints. */
+export function canAdmitAuditIssueLanes(
+  admission: SelectedMapAuditAdmission,
+  procedure: MandatoryAuditProcedureReceipt | undefined,
+): boolean {
+  if (!canProjectIndependentAuditEvidence(procedure)) return false;
+  return admission.status === "READY" ||
+    admission.firstBlockingStage === "PROVE" ||
+    admission.firstBlockingStage === "REPORT";
+}
+
 export function assessSelectedMapAuditAdmission(
   input: SelectedMapAuditAdmissionInput,
 ): SelectedMapAuditAdmission {
