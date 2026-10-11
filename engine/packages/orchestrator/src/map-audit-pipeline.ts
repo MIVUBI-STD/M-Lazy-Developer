@@ -283,6 +283,9 @@ export interface SelectedMapAuditModelHandoff {
       readonly evidenceIds: readonly string[];
     }[];
     readonly omittedSourceReturnPolicyQuestions: number;
+    /** Bounded source-only arena/player partition questions, not runtime proof. */
+    readonly sourceArenaPartitionQuestions: readonly string[];
+    readonly omittedSourceArenaPartitionQuestions: number;
     /** Existing directed source paths, not chronological player sessions. */
     readonly sourceDesignPaths: NonNullable<MapAuditOutputV2["gameplayStructure"]>["gameplayJourneyCandidates"];
     readonly omittedSourceDesignPaths: number;
@@ -331,6 +334,10 @@ export function projectSelectedMapAuditModelHandoff(
     audit.inspection.gameplayIntent.model.unknowns
       .filter(item => item.id.startsWith("unknown:outcome-policy-coverage:"))
       .sort((a, b) => a.id.localeCompare(b.id));
+  const sourceArenaPartitionQuestions =
+    audit.mapAuditReport.multiArena.isolationRules.filter(rule =>
+      rule.includes("=partition-proof-required") ||
+      rule.includes("=unknown"));
   const selected = audit.modelTaskPackets.slice(offset, offset + limit);
   return {
     schemaVersion: 1,
@@ -376,6 +383,9 @@ export function projectSelectedMapAuditModelHandoff(
       omittedSourceReturnPolicyQuestions: Math.max(
         0, sourceReturnPolicyQuestions.length - 8,
       ),
+      sourceArenaPartitionQuestions: sourceArenaPartitionQuestions.slice(0, 8),
+      omittedSourceArenaPartitionQuestions: Math.max(0,
+        sourceArenaPartitionQuestions.length - 8),
       sourceDesignPaths: (audit.mapAuditReport.gameplayStructure?.gameplayJourneyCandidates ?? [])
         .slice(0, 6),
       omittedSourceDesignPaths: Math.max(0,

@@ -216,6 +216,10 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
       expect(handoff.gameUnderstanding.sourceReturnPolicyQuestions).toEqual([]);
       expect(handoff.gameUnderstanding.omittedSourceReturnPolicyQuestions)
         .toBe(0);
+      expect(handoff.gameUnderstanding.sourceArenaPartitionQuestions)
+        .toEqual([]);
+      expect(handoff.gameUnderstanding.omittedSourceArenaPartitionQuestions)
+        .toBe(0);
       expect(handoff.policy).toBe("selected-map-audit-model-handoff");
       expect(handoff.artifactId).toBe(result.identity.artifactId);
       expect(handoff.artifactFingerprint).toBe(result.identity.artifactFingerprint);

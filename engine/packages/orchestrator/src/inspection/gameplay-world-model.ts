@@ -246,11 +246,15 @@ export interface GameplayWorldModel {
         scriptId: string;
         region: string;
         key: string;
+        surface: ArenaStateIsolationAnalysis["observations"][number]["surface"];
+        scope: ArenaStateIsolationAnalysis["observations"][number]["scope"];
         status:
           | "isolated"
           | "partition-proof-required"
           | "shared-global"
           | "unknown";
+        reason: string;
+        sourcePath: string | null;
       }[];
     };
     globalState: {
@@ -2000,7 +2004,11 @@ export function deriveGameplayWorldModel(
             scriptId: item.scriptId,
             region: item.region,
             key: item.key,
+            surface: item.surface,
+            scope: item.scope,
             status: item.status,
+            reason: item.reason,
+            sourcePath: item.source?.relativePath ?? null,
           })) ?? [],
       },
       globalState: {

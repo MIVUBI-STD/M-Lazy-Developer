@@ -680,8 +680,11 @@ export function projectMapAuditOutputV2(input: {
           : "not-applicable",
       isolationRules:
         world.arenas.isolation.observations
-          .map((item) =>
-            item.key + "=" + item.status
+          .map(item =>
+            item.key + "=" + item.status +
+            " [source-scope:" + item.scope + "]" +
+            " [source:" + (item.sourcePath ?? "UNRESOLVED") + "]" +
+            " " + item.reason
           )
           .sort(),
     },
@@ -762,6 +765,10 @@ export function formatSelectedMapAuditBrief(input: {
     .filter(item => item.id.startsWith("unknown:outcome-policy-coverage:"))
     .sort((a, b) => a.id.localeCompare(b.id));
   const findings = [...report.bugs, ...report.designMismatches];
+  const sourceIsolationRules = report.multiArena.isolationRules;
+  const unresolvedSourceIsolation = sourceIsolationRules.filter(rule =>
+    rule.includes("=partition-proof-required") ||
+    rule.includes("=unknown"));
   const unresolvedSurfaces = report.gameplayClosure.surfaceInventory.filter(
     (item) => item.status === "blocked" || item.status === "unknown",
   );
@@ -786,6 +793,21 @@ export function formatSelectedMapAuditBrief(input: {
   ];
   if (features.length === 0) {
     out.push("No recognized gameplay features in this view; the map may still contain unclassified gameplay.");
+  }
+  if (sourceIsolationRules.length > 0) {
+    out.push("", "### State ownership (SOURCE ONLY; NOT RUNTIME)");
+    out.push("State isolation is not established by variable names or parser " +
+      "receiver hints; even an authored arena-keyed source partition is " +
+      "not proof of a distinct live player/arena instance.");
+    out.push("Source observations: " + sourceIsolationRules.length +
+      "; unresolved partition proof: " + unresolvedSourceIsolation.length + ".");
+    for (const item of unresolvedSourceIsolation.slice(0, 5)) {
+      out.push("- " + concise(item));
+    }
+    if (unresolvedSourceIsolation.length > 5) {
+      out.push("Additional source isolation gaps omitted: " +
+        (unresolvedSourceIsolation.length - 5));
+    }
   }
   for (const feature of features.slice(0, 12)) {
     const references = feature.sourceEvidenceIds.flatMap((id) => {

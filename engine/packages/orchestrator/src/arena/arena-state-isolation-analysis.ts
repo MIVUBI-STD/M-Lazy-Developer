@@ -3,6 +3,7 @@ import type {
   ScriptMethodCall,
 } from "../../../../analyzers/scripts/src/index.js";
 import type {
+  SourceRef,
   StateAuthorityContract,
   StateSurfaceKind,
 } from "../../../project-model/src/index.js";
@@ -36,6 +37,8 @@ export interface ArenaStateIsolationObservation {
   scope: ArenaStateScope;
   status: ArenaStateIsolationStatus;
   reason: string;
+  /** Exact owning artifact/module, never inferred from a script identifier. */
+  source?: SourceRef;
   authorityContractIds?: readonly string[];
 }
 
@@ -94,39 +97,12 @@ function arenaRegions(
 function receiverScope(
   receiver: string | undefined,
 ): ArenaStateScope {
-  const value = receiver?.trim() ?? "";
-  if (/^(?:world|serverWorld)$/i.test(value)) {
-    return "world-global";
-  }
-  if (/(?:^|\.)(?:player|participant|member)$/i.test(value)) {
-    return "player-local";
-  }
-  if (/(?:^|\.)(?:entity|mob|npc)$/i.test(value)) {
-    return "entity-local";
-  }
-  if (/(?:arena|session|round)/i.test(value)) {
-    return "arena-local";
-  }
-  return "unknown";
-}
-
-function statusForScope(
-  scope: ArenaStateScope,
-): ArenaStateIsolationStatus {
-  if (
-    scope === "arena-local" ||
-    scope === "player-local" ||
-    scope === "entity-local"
-  ) {
-    return "isolated";
-  }
-  if (scope === "world-global") {
-    return "shared-global";
-  }
-  if (scope === "module-shared") {
-    return "partition-proof-required";
-  }
-  return "unknown";
+  // The parser records a dynamic-property receiver EXPRESSION, not a
+  // resolved Minecraft Player/Entity/world instance type. Names containing
+  // player, arena, round or session cannot prove per-instance isolation.
+  // The direct Minecraft 'world' root is a known global source surface;
+  // aliases, member expressions and custom objects remain unresolved here.
+  return receiver?.trim() === "world" ? "world-global" : "unknown";
 }
 
 function normalizedExpression(
@@ -159,22 +135,16 @@ function expressionUsesAuthority(
       normalizedExpression(authority);
     if (!candidate) return false;
 
-    if (
-      /^[a-z_$][a-z0-9_$]*$/i.test(
-        candidate,
-      )
-    ) {
-      const token =
-        new RegExp(
-          "(^|[^a-z0-9_$])" +
-            escapedRegex(candidate) +
-            "(?=$|[^a-z0-9_$])",
-          "i",
-        );
-      return token.test(normalized);
-    }
-
-    return normalized.includes(candidate);
+    // A qualified receiver such as "arena.id" must not match the tail
+    // of "otherarena.id"; this would silently promote an unrelated world's
+    // dynamic property / scoreboard owner to isolated. Match complete
+    // authored expression tokens for both simple and dotted identifiers.
+    const token = new RegExp(
+      "(^|[^a-z0-9_$])" + escapedRegex(candidate) +
+        "(?=$|[^a-z0-9_$])",
+      "i",
+    );
+    return token.test(normalized);
   });
 }
 function scoreboardObservation(
@@ -460,18 +430,13 @@ function analyzeScript(
           "*"
         ),
       scope,
-      status:
-        authorityPartitioned
-          ? "isolated"
-          : scope === "world-global"
-            ? "partition-proof-required"
-            : statusForScope(scope),
-      reason:
-        authorityPartitioned
-          ? "World dynamic-property key expression is explicitly partitioned by the authored arena authority expression."
-          : scope === "world-global"
-              ? "World dynamic properties are shared by all arenas; the property key must prove arena/session partitioning."
-              : "Dynamic-property receiver scope inferred from the static receiver expression.",
+      status: authorityPartitioned
+        ? "isolated" : "partition-proof-required",
+      reason: authorityPartitioned
+        ? "World dynamic-property key expression is explicitly partitioned by the authored arena authority expression. Static source claim only; uniqueness and runtime isolation remain unverified."
+        : scope === "world-global"
+          ? "World dynamic properties are shared by all arenas; the property key must prove arena/session partitioning."
+          : "Dynamic-property receiver text does not resolve a Player, Entity, arena instance or session owner; independent type/alias/authority proof is required.",
     });
   }
 
@@ -566,7 +531,11 @@ function analyzeScript(
     });
   }
 
-  return { regions, observations };
+  return {
+    regions,
+    observations: observations.map(item => script.source === undefined
+      ? item : { ...item, source: script.source }),
+  };
 }
 
 
@@ -617,11 +586,9 @@ function contractSurfaceMatches(
 function applyAuthorityContracts(
   observations: readonly ArenaStateIsolationObservation[],
   contracts: readonly StateAuthorityContract[],
-  scripts: readonly ParsedScriptFile[],
 ): ArenaStateIsolationObservation[] {
-  const sourceByScriptId = new Map(
-    scripts.map((script) => [script.identifier, script.source]),
-  );
+  // Each observed operation carries its own authoring owner. A scriptId
+  // reused across packs/revisions cannot assign another file's contracts.
   return observations.map((observation) => {
     const matches = contracts.filter((contract) => {
       if (
@@ -665,10 +632,10 @@ function applyAuthorityContracts(
     if (matches.some((item) =>
       !item.sourceRefs?.length ||
       !item.sourceRefs.some((source) => {
-        const scriptSource = sourceByScriptId.get(observation.scriptId);
-        return scriptSource !== undefined &&
-          source.artifactId === scriptSource.artifactId &&
-          source.relativePath === scriptSource.relativePath;
+        const owner = observation.source;
+        return owner !== undefined &&
+          source.artifactId === owner.artifactId &&
+          source.relativePath === owner.relativePath;
       })
     )) {
       return {
@@ -737,7 +704,6 @@ export function analyzeArenaStateIsolation(
       (item) => item.observations,
     ),
     contracts,
-    scripts,
   ).sort((a, b) =>
       a.scriptId.localeCompare(b.scriptId) ||
       a.region.localeCompare(b.region) ||

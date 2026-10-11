@@ -775,6 +775,14 @@ export interface GameplayArchitectureNavigation {
         readonly region: string;
         readonly key: string;
         readonly status: "isolated" | "partition-proof-required" | "shared-global" | "unknown";
+      /** Source-only: none of these scopes proves a live player/arena ID. */
+      readonly scope?: "arena-local" | "player-local" | "entity-local" |
+        "world-global" | "module-shared" | "unknown";
+      readonly surface?: "dynamic-property" | "scoreboard" |
+        "world-property" | "world-command" | "world-player-enumeration" |
+        "entity-tag" | "module-state";
+      readonly reason?: string;
+      readonly sourcePath?: string | null;
       }[];
       readonly chunkLeases: readonly {
         readonly scriptId: string;
@@ -1000,6 +1008,14 @@ export function deriveGameplayArchitectureNavigation(
       readonly region: string;
       readonly key: string;
       readonly status: "isolated" | "partition-proof-required" | "shared-global" | "unknown";
+      /** Source-only: none of these scopes proves a live player/arena ID. */
+      readonly scope?: "arena-local" | "player-local" | "entity-local" |
+        "world-global" | "module-shared" | "unknown";
+      readonly surface?: "dynamic-property" | "scoreboard" |
+        "world-property" | "world-command" | "world-player-enumeration" |
+        "entity-tag" | "module-state";
+      readonly reason?: string;
+      readonly sourcePath?: string | null;
     }[];
     readonly chunkLeases?: readonly {
       readonly scriptId: string;

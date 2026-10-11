@@ -566,3 +566,108 @@ describe("arena state isolation analysis", () => {
       status: "isolated",
     });
   });
+
+
+describe("source-owned arena state isolation evidence", () => {
+  const arenaScript = (artifactId: string, relativePath: string) =>
+    parseScriptFile("main", [
+      "function join(arena, player) {",
+      "  arena.players.add(player);",
+      "  world.setDynamicProperty('arenaState', 1);",
+      "}",
+    ].join("\n"), { artifactId, relativePath });
+
+  it("never treats player, entity, session or arena receiver NAMES as live instance proof", () => {
+    const parsed = arenaScript("art:one", "scripts/round.js");
+    const expressions = ["player", "group.player", "entity",
+      "mob", "session", "arena", "round", "serverWorld"];
+    const script = {
+      ...parsed,
+      dynamicProperties: expressions.map(receiverHint => ({
+        operation: "set" as const,
+        executionRegion: "function:join",
+        receiverHint,
+        propertyId: "status",
+        source: parsed.source,
+      })),
+    };
+    const observations = analyzeArenaStateIsolation([script]).observations
+      .filter(obs => obs.surface === "dynamic-property");
+    expect(observations).toHaveLength(expressions.length);
+    for (const item of observations) {
+      expect(item.scope).toBe("unknown");
+      expect(item.status).toBe("partition-proof-required");
+      expect(item.reason).toContain("independent type/alias/authority proof");
+      expect(item.source?.artifactId).toBe("art:one");
+      expect(item.source?.relativePath).toBe("scripts/round.js");
+    }
+    expect(analyzeArenaStateIsolation([script]).isolated).toBe(0);
+  });
+
+  it("requires exact authored authority tokens for qualified arena ownership", () => {
+    const parsed = arenaScript("art:scope", "scripts/game.js");
+    const region = "function:join";
+    const scripted = {
+      ...parsed,
+      arenaAuthorityPaths: [{ executionRegion: region,
+        arenaExpression: "arena.id",
+        capacityAuthorityProven: false,
+        startAuthorityProven: false,
+        startGuardProven: false }],
+      dynamicProperties: [
+        { operation: "set" as const, executionRegion: region,
+          receiverHint: "world",
+          propertyExpression: "'arena:' + arena.id",
+          source: parsed.source },
+        { operation: "set" as const, executionRegion: region,
+          receiverHint: "world",
+          propertyExpression: "'arena:' + otherarena.id",
+          source: parsed.source },
+      ],
+    };
+    const observed = analyzeArenaStateIsolation([scripted]).observations
+      .filter(item => item.surface === "dynamic-property");
+    expect(observed).toHaveLength(2);
+    expect(observed[0]).toMatchObject({
+      scope: "arena-local", status: "isolated",
+    });
+    expect(observed[1]).toMatchObject({
+      scope: "world-global", status: "partition-proof-required",
+    });
+    expect(observed[0]?.reason).toContain("runtime isolation remain unverified");
+    expect(observed[1]?.source?.artifactId).toBe("art:scope");
+  });
+
+  it("does not borrow another package's contract when both use the same script identifier", () => {
+    const selected = arenaScript("art:selected", "scripts/a.js");
+    const foreign = arenaScript("art:foreign", "scripts/b.js");
+    const contracts = [{
+      id: "selected-state",
+      authority: { kind: "dynamic-property" as const, key: "arenaState" },
+      mirrors: [],
+      scope: "arena" as const,
+      sourceRefs: [selected.source],
+    }];
+    for (const ordered of [[selected, foreign], [foreign, selected]]) {
+      const result = analyzeArenaStateIsolation(ordered, contracts);
+      const selectedObs = result.observations.find(item =>
+        item.surface === "dynamic-property" &&
+        item.source?.artifactId === "art:selected");
+      const foreignObs = result.observations.find(item =>
+        item.surface === "dynamic-property" &&
+        item.source?.artifactId === "art:foreign");
+      expect(selectedObs).toMatchObject({
+        scriptId: "main", scope: "arena-local",
+        status: "isolated", authorityContractIds: ["selected-state"],
+      });
+      expect(foreignObs).toMatchObject({
+        scriptId: "main", scope: "unknown",
+        status: "partition-proof-required",
+        authorityContractIds: ["selected-state"],
+      });
+      expect(foreignObs?.reason).toContain("matching source file");
+      expect(result.isolated).toBe(1);
+      expect(result.partitionProofRequired).toBe(1);
+    }
+  });
+});
