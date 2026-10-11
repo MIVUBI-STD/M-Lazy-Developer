@@ -1,3 +1,15 @@
+## Active batch — Selected-map audit operator integration (2026-10-11)
+
+**User outcome:** stop micro-patches. One selected-map production audit should yield immediately usable Game Understanding, Findings and Next Investigations without introducing a second report, model, graph, database or workflow. Canonical Map Audit Output V2 remains unchanged.
+
+**Implementation batch:** (1) keep `runSelectedMapAudit()` as the only production audit, (2) expose `formatSelectedMapAuditBrief()` as a bounded read-only Markdown view of existing game design, source-grounded feature/possible journey navigation, evidence-backed findings, unresolved surfaces and existing `modelTaskPackets`, (3) surface via optional `npm run audit -- <selected.mcworld> --brief` while leaving default canonical JSON unchanged, (4) correct misleading engineering CLI help; it does not own `audit`, (5) extend existing synthetic production acceptance with a brief truthfulness assertion and update canonical routing docs. No new storage, schema, detector or tests/fixtures infrastructure.
+
+**Completion:** exact-ref GitHub source/consumer validation and commit on `Local`. Executable TypeScript/CLI, actual map gameplay, quality of issue detection across real maps remain NOT EXECUTED / UNKNOWN until obtainable evidence exists. Never claim `--brief` proves a reconstructed player journey or that a blocked audit with no issues is bug-free.
+
+**Next product decision:** after this integrated operator path is stable, prioritize independent evidence on an accessible real map and assess whether Game Understanding actually explains the game; do not respond to every missing fact with a new registry or detector.
+
+---
+
 ## Active implementation direction — Knowledge retrieval utility (2026-10-11)
 
 **Goal:** use the existing catalogs, graph and retrieval owners to deliver relevant, attributable knowledge to selected-map reasoning. No new database, graph owner, agent, or second audit workflow.

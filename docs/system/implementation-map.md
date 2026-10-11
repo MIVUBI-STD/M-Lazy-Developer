@@ -140,7 +140,7 @@ These exact source entrypoints are intentionally listed because they define prod
 | Production selected-map audit entry / continuation | `engine/packages/orchestrator/src/map-audit-pipeline.ts` |
 | User intent / pre-audit confirmation | `engine/packages/orchestrator/src/map-audit-user-intent.ts` |
 | Ordered stage admission | `engine/packages/orchestrator/src/map-audit-admission.ts` |
-| Operator-facing Map Audit Output V2 | `engine/packages/orchestrator/src/map-audit-output-v2.ts` |
+| Operator-facing Map Audit Output V2 and optional read-only brief | `engine/packages/orchestrator/src/map-audit-output-v2.ts` |
 | Audit obligations | `engine/packages/orchestrator/src/map-audit-obligations.ts` |
 | Model-facing bounded task context | `engine/packages/orchestrator/src/map-audit-model-task.ts` |
 | Work Session audit projection | `engine/packages/orchestrator/src/workflow/map-audit-work-session.ts` |
@@ -171,7 +171,7 @@ The following root `map-audit-*.ts` files are **current implementation owners**,
 | `map-audit-obligations.ts` | Derivation of unfinished audit/model/proof obligations |
 | `map-audit-model-task.ts` | Bounded model-facing task and evidence context packets |
 | `map-audit-revision.ts` | Revision identity derived from audit inputs |
-| `map-audit-output-v2.ts` | One operator-facing Map Audit output projection |
+| `map-audit-output-v2.ts` | One operator-facing Map Audit output projection, plus bounded `formatSelectedMapAuditBrief()` view over the same authority |
 
 These responsibilities may compose each other but must not become independent production entrypoints or separate sources of gameplay truth. Their ownership is backed by current exports/source; this table is navigation guidance, not a new machine registry. Rename, merge or move only if overlapping *behavior* (not similar words or file size) is proven and all consumers can be migrated.
 

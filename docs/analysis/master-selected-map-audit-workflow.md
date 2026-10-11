@@ -121,10 +121,10 @@ Do not introduce alternate names for these states in operator or tester-facing o
 
 ~~~
 confirmed Pre-Audit Plan
-→ audit <selected.mcworld>
+→ npm run audit -- <selected.mcworld> [--brief]
 ~~~
 
-Only one selected artifact/version is authoritative.
+Only one selected artifact/version is authoritative. The optional `--brief` flag on the existing production audit CLI renders a bounded **Game Understanding / Findings / Next Investigations** view, sourced from the same `runSelectedMapAudit()` output. Without it, the CLI preserves the canonical Map Audit Output V2 JSON. The brief does not create another audit entrypoint, publish issues, change proof gates, or equate possible source-backed journeys with observed player behavior.
 
 Do not mix:
 - old map versions;

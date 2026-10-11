@@ -119,7 +119,7 @@ Architecture and ownership:
 Production map audit has one operator flow:
 
 ```text
-audit <selected.mcworld>
+npm run audit -- <selected.mcworld> [--brief]
 → TARGET
 → DISCOVERY
 → UNDERSTAND
@@ -133,6 +133,8 @@ Canonical owners:
 - [Master Selected-Map Audit Workflow](docs/analysis/master-selected-map-audit-workflow.md)
 - [Mandatory Gameplay Audit Procedure](docs/analysis/mandatory-audit-procedure.md)
 - [Bug-Finding Coverage System](docs/analysis/bug-finding-coverage.md)
+
+The default `npm run audit -- <selected.mcworld>` emits the existing authoritative Map Audit V2 JSON. The optional `--brief` view renders **Game Understanding → Findings → Next Investigations** from the exact same audit output and model task packets. It is a bounded human-facing projection, not a second audit run/report contract. Source-derived journey candidates are **not observed gameplay**, and a blocked/zero-finding audit never proves the absence of bugs. The engineering CLI `npm run cli --` is a separate development utility and does not implement an `audit` command.
 
 The exact selected map artifact is current gameplay authority. Historical evidence and user/client symptoms may guide search but never replace current-artifact proof.
 

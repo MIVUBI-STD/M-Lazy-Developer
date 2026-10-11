@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { packageDirectoryDeterministically } from "../../archive/src/index.js";
 import { runSelectedMapAudit } from "../src/map-audit-pipeline.js";
 import { deriveAuditModelKnowledgeLookup } from "../src/map-audit-model-task.js";
+import { formatSelectedMapAuditBrief } from "../src/map-audit-output-v2.js";
 
 /**
  * Synthetic authoring styles, not production game maps or runtime evidence.
@@ -179,6 +180,17 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
         node.kind === "mechanic" &&
         node.label === "NPC interaction: Start Challenge" &&
         node.status === "inferred")).toBe(true);
+      const brief = formatSelectedMapAuditBrief({
+        report: result.mapAuditReport,
+        intent: result.inspection.gameplayIntent.model,
+        modelTaskPackets: result.modelTaskPackets,
+      });
+      expect(brief).toContain("# Selected Map Audit");
+      expect(brief).toContain("NPC interaction: Start Challenge");
+      expect(brief).toContain("Possible player journeys (NOT OBSERVED)");
+      expect(brief).toContain("Source associations and knowledge lookup hints are not Minecraft runtime proof.");
+      expect(result.mapAuditReport.gameplayFlowBasis)
+        .toBe("AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY");
       const interaction = result.mapAuditReport.gameplayStructure?.features
         .find(item => item.label === "NPC interaction: Start Challenge");
       expect(interaction?.purpose).toContain("Gameplay purpose UNKNOWN");

@@ -7,6 +7,7 @@ import type {
   InspectTargetProfile,
 } from "../../../engine/packages/orchestrator/src/core/types.js";
 import { loadKnowledgeDirectory } from "../../../engine/packages/knowledge/src/index.js";
+import { formatSelectedMapAuditBrief } from "../../../engine/packages/orchestrator/src/map-audit-output-v2.js";
 import { parseCliTargetOptions } from "./target-options.js";
 
 function runtimeTarget(
@@ -24,7 +25,13 @@ function runtimeTarget(
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+  const rawArgs = process.argv.slice(2);
+  const briefCount = rawArgs.filter((arg) => arg === "--brief").length;
+  if (briefCount > 1) {
+    throw new Error("--brief may only be supplied once");
+  }
+  const brief = briefCount === 1;
+  const args = rawArgs.filter((arg) => arg !== "--brief");
   const fingerprintFlags = args.flatMap((arg, index) =>
     arg === "--expected-sha256" ? [index] : []
   );
@@ -48,7 +55,7 @@ async function main(): Promise<void> {
     parseCliTargetOptions(auditArgs);
   const [input] = positionals;
   if (!input) {
-    throw new Error("Usage: audit <selected.mcworld> [target options]");
+    throw new Error("Usage: npm run audit -- <selected.mcworld> [--brief] [target options]");
   }
   if (telemetryPath !== undefined || arenaRegionContractsPath !== undefined) {
     throw new Error(
@@ -71,7 +78,15 @@ async function main(): Promise<void> {
     knowledgeCatalog: knowledge,
     telemetry: [],
   });
-  process.stdout.write(JSON.stringify(audit.mapAuditReport, null, 2) + "\n");
+  process.stdout.write(
+    brief
+      ? formatSelectedMapAuditBrief({
+          report: audit.mapAuditReport,
+          intent: audit.inspection.gameplayIntent.model,
+          modelTaskPackets: audit.modelTaskPackets,
+        })
+      : JSON.stringify(audit.mapAuditReport, null, 2) + "\n",
+  );
   if (audit.mapAuditReport.control.status === "BLOCKED") {
     process.exitCode = 1;
   }

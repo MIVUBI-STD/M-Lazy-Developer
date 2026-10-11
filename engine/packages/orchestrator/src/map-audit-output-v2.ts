@@ -34,6 +34,7 @@ import type {
 import type {
   AuditUserIntentEnvelope,
 } from "./map-audit-user-intent.js";
+import type { AuditModelTaskPacket } from "./map-audit-model-task.js";
 import {
   deriveMapAuditQualityGates,
   type MapAuditQualityGates,
@@ -709,4 +710,152 @@ export function projectMapAuditOutputV2(input: {
             input.fullMapReplica,
         }),
   };
+}
+
+
+/**
+ * Human-facing read-only view of the canonical MapAuditOutputV2.
+ * No new report schema, audit authority, or inferred Minecraft runtime proof.
+ */
+export function formatSelectedMapAuditBrief(input: {
+  readonly report: MapAuditOutputV2;
+  readonly intent: GameplayIntentModel;
+  readonly modelTaskPackets: readonly AuditModelTaskPacket[];
+}): string {
+  const { report, intent, modelTaskPackets } = input;
+  const concise = (value: string): string =>
+    value.replace(/\s+/g, " ").trim().slice(0, 300) || "unresolved";
+  const evidenceById = new Map(
+    intent.evidence.map((item) => [item.id, item]),
+  );
+  const features = report.gameplayStructure?.features ?? [];
+  const journeys = report.gameplayStructure?.gameplayJourneyCandidates ?? [];
+  const findings = [...report.bugs, ...report.designMismatches];
+  const unresolvedSurfaces = report.gameplayClosure.surfaceInventory.filter(
+    (item) => item.status === "blocked" || item.status === "unknown",
+  );
+  const out: string[] = [
+    "# Selected Map Audit",
+    "",
+    "**Map:** " + concise(report.evidenceScope.selectedArtifact),
+    "**Version:** " + concise(report.mapVersion),
+    "**Status:** " + report.control.status + " / " +
+      report.control.currentStage,
+    "**Next action:** " + report.control.allowedNextAction,
+    "",
+    "## Game Understanding",
+    "**Objective (" + report.gameDesign.objectiveGrounding + "):** " +
+      concise(report.gameDesign.objective),
+    "**Win (" + report.gameDesign.winConditionGrounding + "):** " +
+      concise(report.gameDesign.winCondition),
+    "**Lose (" + report.gameDesign.loseConditionGrounding + "):** " +
+      concise(report.gameDesign.loseCondition),
+    "",
+    "### Mechanics (source inspection; not gameplay execution)",
+  ];
+  if (features.length === 0) {
+    out.push("No recognized gameplay features in this view; the map may still contain unclassified gameplay.");
+  }
+  for (const feature of features.slice(0, 12)) {
+    const references = feature.sourceEvidenceIds.flatMap((id) => {
+      const e = evidenceById.get(id);
+      return e === undefined || e.scope === "external-reference" ||
+        e.scope === "runtime" ? [] : [concise(e.locator)];
+    });
+    const directEffects = new Set(feature.sourceBehaviorPaths
+      .filter((path) => path.association === "DIRECT_EFFECT_EVIDENCE")
+      .map((path) => path.effectId)).size;
+    out.push(
+      "- **" + concise(feature.label) + "** [" + feature.grounding +
+        "; source effects: " + directEffects + "] — " +
+        concise(feature.purpose),
+      references.length > 0
+        ? "  Source: " + references.slice(0, 3).join("; ")
+        : "  Source locator: unresolved",
+    );
+  }
+  if (features.length > 12) {
+    out.push("Additional features omitted: " + (features.length - 12));
+  }
+  out.push("", "### Possible player journeys (NOT OBSERVED)");
+  if (journeys.length === 0) {
+    out.push("No complete player journey is established.");
+  }
+  for (const journey of journeys.slice(0, 5)) {
+    out.push("- " + concise(journey.id) + " [" +
+      journey.meaningStatus + "; " + journey.boundary +
+      "] subjects: " + concise(journey.subjectIds.join(", ")));
+  }
+  if (journeys.length > 5) {
+    out.push("Additional candidates omitted: " + (journeys.length - 5));
+  }
+  out.push("", "## Findings");
+  if (findings.length === 0) {
+    out.push("No published finding; **this does not mean the map is free of bugs**.");
+  }
+  for (const finding of findings.slice(0, 12)) {
+    out.push(
+      "- [" + finding.status + "] " + finding.issueType + ": " +
+        concise(finding.issue),
+      "  Impact: " + concise(finding.playerImpact),
+      "  Expected / actual: " + concise(finding.expected) + " / " +
+        concise(finding.actual),
+      ...(finding.missingProof === undefined ? [] :
+        ["  Missing proof: " + concise(finding.missingProof)]),
+    );
+  }
+  if (findings.length > 12) {
+    out.push("Additional findings omitted: " + (findings.length - 12));
+  }
+  out.push(
+    "",
+    "## Next Investigations",
+    "Unresolved material: " + report.unresolved.total +
+      " / Gameplay closure: " + report.gameplayClosure.status,
+  );
+  if (modelTaskPackets.length === 0 && unresolvedSurfaces.length === 0) {
+    out.push("No specific investigation task in the current audit view.");
+  }
+  for (const task of modelTaskPackets.slice(0, 8)) {
+    const locations = [...new Set([
+      ...(task.knowledgeLookup?.sourceLocators ?? []),
+      ...task.evidenceContext.flatMap((e) =>
+        e.kind === "selected-artifact-evidence" &&
+        e.locator !== undefined ? [e.locator] : []),
+    ])];
+    out.push(
+      "- " + task.kind + ": " + concise(task.decisionNeeded),
+      ...(locations.length === 0 ? [] :
+        ["  Source: " + locations.slice(0, 4).map(concise).join("; ")]),
+      ...(task.knowledgeLookup === undefined ? [] :
+        ["  Search hint (not proof): " +
+          concise(task.knowledgeLookup.query)]),
+    );
+  }
+  if (modelTaskPackets.length > 8) {
+    out.push("Additional model tasks omitted: " +
+      (modelTaskPackets.length - 8));
+  }
+  for (const surface of unresolvedSurfaces.slice(0, 6)) {
+    out.push("- Unresolved: " + concise(surface.label) +
+      (surface.reason === undefined ? "" :
+        " — " + concise(surface.reason)));
+  }
+  if (unresolvedSurfaces.length > 6) {
+    out.push("Additional unresolved surfaces omitted: " +
+      (unresolvedSurfaces.length - 6));
+  }
+  out.push(
+    "",
+    "## Evidence Boundary",
+    "Gameplay flow labels are audit checklist stages, not an observed player route.",
+    "Source associations and knowledge lookup hints are not Minecraft runtime proof.",
+    ...(report.control.status === "BLOCKED"
+      ? ["Audit is BLOCKED. Missing findings cannot be read as bug absence."]
+      : []),
+    ...(report.unresolved.total > 0
+      ? ["Unresolved evidence remains; this is not a complete defect inventory."]
+      : []),
+  );
+  return out.join("\n") + "\n";
 }
