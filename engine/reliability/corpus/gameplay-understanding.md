@@ -37,6 +37,12 @@ A map may teach the engine that a semantic pattern exists, but the engine must r
 | Orb of the Illusioner L1 | bundled/minified | party state, hologram status, puzzle/stage flow, waves, player session lifecycle |
 | Five Nights Defense L2 | bundled/minified | multi-arena defense, shop/upgrade, revive, route/spawn, score/economy, reset |
 
+## Baseline proof limit (do not convert counts to comprehension)
+
+The numbers below belong to the **historical source revision explicitly cited above**, not automatically to current `Local`. In particular, **0 recorded unknown intent across eight maps does not imply that all game mechanics, player objectives or temporal relationships were understood**. Unknowns are affected by what the old model could recognize and whether gaps were tracked. Node/invariant counts, source-style labels and the number of inferred nodes are inventory statistics; they are neither semantic precision/recall nor a player-reachability result.
+
+Use the frozen, independently reviewed scoped claims—not total nodes—as the ground truth for assessing a new engine revision. If an improvement decreases incidental inferred nodes while preserving actual mechanic relations, this may be positive. Conversely, more nodes or more declared bindings may worsen confidence without increasing understanding. When no canonical real-map audit output or independently validated expectation is available, mark the case NOT_EXECUTED/UNSCORABLE and do not report whole-map PASS.
+
 ## Observed baseline
 
 The following values are observations from one engine revision. They are not pass/fail thresholds.

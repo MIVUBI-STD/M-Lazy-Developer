@@ -26,6 +26,14 @@ npm run cli -- corpus-calibrate fixtures/calibration/gameplay-understanding-samp
 
 The result is a normalized understanding fingerprint per map plus aggregate corpus coverage.
 
+## How samples may inform engine development
+
+The eight source-style sample entries are **calibration questions**, not authored game rules or a verified complete design for those worlds. Reuse one canonical source→IR→Intent→Scenario path for all of them. A source-shape label (`explicit-source`, `modular-compiled`, `bundled-minified`) may stratify evaluation but must never select prewritten mechanic meaning. New/unknown source authoring styles must be retained as evidence gaps rather than rejected for not matching a listed genre.
+
+For a proposed fix, write down the generic relation that failed, exact source/subject/effect IDs that should prove it, a source-backed negative with no such relation, and a contrasting source style where the change must remain safe. Never optimize directly for the map-specific `assertions` numbers; they are historical regression review signals, not quality targets. Fingerprint drift, node counts and `unknown intent = 0` cannot establish that the model understood the actual game.
+
+Scoring is owned by `engine/reliability/corpus/`; full external maps require an independently frozen, schema-valid expectation and an authentic canonical audit output before any product-quality claim. Do not store proprietary client map binaries here or import benchmark expectations into production source.
+
 ## Baselines
 
 `baselines/` contains normalized reports from known engine revisions. They contain metrics only, not world content.

@@ -10,6 +10,30 @@ audit-detection-cases.json   frozen historical detection/recall pressure; never 
 gameplay-understanding.md    human-readable calibration corpus context and semantic baselines
 ```
 
+## Generalization-first evaluation boundary
+
+**Sample ≠ rule:** full maps in this corpus may illustrate a missing *general* mechanic (interaction → state → resource → outcome, scope, recovery), never define the production answer for that map name. Frozen SHA-256, title and case ID are selectors for the **evaluation artifact** only. Do not put case-specific rules, coordinates, old client bugs or expected fixture answers into `gameplay-intent`, `semantic-ir`, `behavior-model`, Scenario Graph, the proof gate or the model task prompt.
+
+**Three independent concepts:**
+1. **Declared case readiness** is a manifest statement and fields such as `artifactFingerprint` and `frozenExpectation`. It neither proves availability of a byte-identical full map nor that an expectation validates.
+2. **Executed observation** requires the genuine canonical engine result tied to exact artifact SHA, code commit, target edition/version and proof tier. Reduced source fixture execution is not a full-map audit or Minecraft runtime observation.
+3. **Scored understanding/detection** requires an expectation independently reviewed and frozen *before* observing the engine output, one explicit scope and a comparable proof tier. Static source calibration is not runtime concurrency/success evidence.
+
+**Existing form separation:** the existing `corpus-status.mjs` exposes declared map-artifact, reduced-fixture and reference/unknown case forms without changing case scores. The classification comes from manifest shape, not verified runtime availability. `candidate`, `ready` and `blocked` remain corpus lifecycle metadata; their totals must not be described as engine PASS. The reduced-fixture blind acceptance cases currently in `acceptance.json` cannot prove generalization to unfamiliar complete worlds. A genuine full-map blind holdout requires independently accepted artifact identity/expectation and no development exposure before the candidate output is frozen.
+
+**Generic evaluation dimensions:** 
+- Source-grounded claim validity: claim IDs, exact selected-map source locators and whether each cited edge independently supports its asserted relation.
+- Player-facing semantics: distinguish authored design, presented UI/dialogue hints, technical implementation and unsupported conjecture; unknown is acceptable and must be truthful.
+- Relational completeness in verified scope: actor, trigger, guard, action, state/resource, outcome and recovery; count missing supported relations only against an independent oracle with a known denominator.
+- Isolation: objective, outcome and state must not leak across mode/level/arena/role/session or historic version. Different scoped objectives are not a contradiction until scopes overlap.
+- Counterexamples: no inferred winning condition from a debug return or name; no assumption that `scoreboard` implies score, that six configured arenas ran concurrently, or that last-version prices remain the contract.
+- Metamorphic checks where valid: irrelevant file/variable renaming, archive member ordering, duplicated labels in different pack/namespace scopes and coherent spatial offset. If renaming removes the only genuine semantic signal, output should degrade to UNKNOWN rather than invent meaning.
+- Cost: measured audit time, memory, source re-inspection and model/token usage *only when actually executed*.
+
+**Score/report discipline:** report raw TP/FP/FN/TN and denominators only for independently adjudicated scoped expectations; distinguish semantic precision/recall from defect precision/recall and from completeness of source indexing. Include abstention/unknown behavior and unscorable cases separately. Show per-style results (explicit, modular/compiled, bundled/minified, spatial) and worst-case regressions before weighted aggregate. An improvement must preserve negative examples and not substitute noisy additional candidate nodes for meaningful design understanding. See existing `gameplay-understanding.md` for the historical, non-authoritative node-count baseline.
+
+**Current static snapshot on 2026-10-11, GitHub `Local` at `9408782d5130`:** calibration 13 `candidate` / 0 `ready`; acceptance 8 `ready` reduced-source fixtures / 0 confirmed full-map runs; regressions 46 cases, 19 declared `ready` and 27 `candidate`. These are manifest readings, NOT benchmark execution. The Defense v1.1.5 frozen multi-claim static oracle has a pinned SHA but does not match the standard single-disposition expectation schema and has no observed `runSelectedMapAudit()` output: remains `candidate` and NOT SCORABLE. Do not silently rewrite its oracle or promote it to ready.
+
 ## Rules
 
 - Map binaries remain outside Git unless they are explicitly safe, minimized fixtures.
