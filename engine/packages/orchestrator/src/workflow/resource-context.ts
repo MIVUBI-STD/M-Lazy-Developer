@@ -70,25 +70,27 @@ export function compileResourceContext(
 
   const limit = positiveMaximum(maximum);
   const selected = selection.slice(0, limit);
-  const items = selected.map((result) => ({
-    id: result.resource.id,
-    class: result.resource.class,
-    domain: result.resource.domain,
-    ...(result.resource.role === undefined
-      ? {}
-      : { role: result.resource.role }),
-    authority: result.resource.authority,
-    path: result.resource.path,
-    ...(result.resource.locator === undefined
-      ? {}
-      : { locator: result.resource.locator }),
-    score: result.score.total,
-    reasons: [...result.reasons],
-    ...(result.resource.class === "KNOWLEDGE" &&
-        knowledgeByResourceId?.[result.resource.id] !== undefined
-      ? { knowledge: knowledgeByResourceId[result.resource.id] }
-      : {}),
-  }));
+  const items = selected.map((result) => {
+    const knowledge = result.resource.class === "KNOWLEDGE"
+      ? knowledgeByResourceId?.[result.resource.id]
+      : undefined;
+    return {
+      id: result.resource.id,
+      class: result.resource.class,
+      domain: result.resource.domain,
+      ...(result.resource.role === undefined
+        ? {}
+        : { role: result.resource.role }),
+      authority: result.resource.authority,
+      path: result.resource.path,
+      ...(result.resource.locator === undefined
+        ? {}
+        : { locator: result.resource.locator }),
+      score: result.score.total,
+      reasons: [...result.reasons],
+      ...(knowledge === undefined ? {} : { knowledge }),
+    };
+  });
   const missingKnowledgeIds = knowledgeByResourceId === undefined
     ? []
     : selected
