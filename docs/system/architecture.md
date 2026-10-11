@@ -97,6 +97,32 @@ For each authored effect/return the owner traverses *only uniquely identified re
 
 The existing `deriveGameplayArchitectureNavigation()` consumes these behavior-model slices once, connects effects to graph components only by exact evidence ID and separately labels feature associations encountered on a source-call path. It publishes them through the already-established `MapAuditOutputV2.gameplayStructure` view. Static path association is not player-facing gameplay meaning or PROVEN causality; unowned effect IDs remain explicit. Testing/CI are deferred until the integrated BUILD acceptance boundary.
 
+### Authored UI/animation command-to-function causal continuity
+
+The previously disconnected command-to-function path is now wired through
+the existing Semantic IR: an NPC dialogue button/scene command or behavior
+animation/controller command containing an authored `/function` call records
+a uniquely resolved (or explicit unresolved) synchronous source reference
+to the existing mcfunction execution region. The execution-edge and temporal
+inventories are finalized **after** these authored command sites are examined;
+otherwise the newly discovered edges would have been omitted from both.
+An `execute ... run function` nested command is kept as a conditional
+source reference without evaluating its execution predicates.
+
+Semantic IR's canonical source-entry query includes isolated NPC/animation
+command regions as AUTHORED, activation-unknown source candidates, allowing
+the same source-flow traversal to display target mcfunction state/world
+effects while retaining source evidence identity. The authored behavior
+relation carries exact execution-edge IDs; Gameplay Intent and the
+existing Scenario Graph project those relationships alongside world-effect
+and scoreboard/tag operation evidence. No inferred active game session,
+NPC selection, animation playback, successful function invocation or
+win/loss outcome is admitted by a resolved command reference.
+
+This is a correction to the first missing causal owner, not another
+parallel flow processor. There is no additional runtime dependency or
+selected-map data mutation.
+
 ### Authored command state and guarded source transitions
 
 The canonical Semantic IR now processes scoreboard and tag reads/writes from

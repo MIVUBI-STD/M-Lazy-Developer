@@ -221,6 +221,11 @@ export interface AuthoredBehaviorRelation {
   readonly worldEffectIds?: readonly string[];
   /** Exact authored command scoreboard/tag operation IDs. Not live state. */
   readonly stateOperationIds?: readonly string[];
+  /**
+   * Exact command-to-mcfunction edges. Resolved means unique target SOURCE,
+   * never activation, successful command execution, or a proven game rule.
+   */
+  readonly executionEdgeIds?: readonly string[];
   readonly reason: string;
 }
 

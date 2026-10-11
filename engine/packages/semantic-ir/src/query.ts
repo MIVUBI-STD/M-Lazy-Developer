@@ -56,10 +56,12 @@ export interface ObservedExecutionTrace {
 }
 
 /**
- * Traverse exact, resolved IR edges from authored event sources, modules and
- * unreferenced mcfunctions. This is a source-observed execution topology, not
- * a predicted player journey or a runtime trace. Unresolved targets are never
- * traversed and unreachable callbacks remain explicitly outside traces.
+ * Traverse exact, resolved IR edges from authored event sources, modules,
+ * unreferenced mcfunctions, and command-bearing dialogue/BP animation sites.
+ * Those authored command sites are activation-UNKNOWN roots; a resolved
+ * function reference does NOT establish that the button was clicked, the
+ * animation played, or the command succeeded. Unresolved targets are never
+ * traversed and unreachable callbacks remain outside traces.
  */
 export function semanticIrExecutionTraces(ir: SemanticIr): {
   readonly traces: readonly ObservedExecutionTrace[];
@@ -110,6 +112,8 @@ export function semanticIrExecutionTraces(ir: SemanticIr): {
   const entryRegions = [...regions.values()].filter(region =>
     region.kind === "event-source" ||
     region.kind === "script-module" ||
+    region.kind === "dialogue-command" ||
+    region.kind === "behavior-animation" ||
     (region.kind === "mcfunction" && !incoming.has(region.id))
   ).sort((a, b) => a.id.localeCompare(b.id));
   const coveredRegions = new Set<string>();

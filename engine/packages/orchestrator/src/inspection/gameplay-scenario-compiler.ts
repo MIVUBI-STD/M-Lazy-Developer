@@ -2167,7 +2167,11 @@ function sourceFlowCandidates(ir: SemanticIr): readonly GameplaySourceFlowCandid
       ...input,
       sourceSteps: steps,
       authoredBehaviorRelationIds: relations
-        .filter(relation => relation.worldEffectIds?.some(id => ids.has(id)))
+        .filter(relation =>
+          relation.worldEffectIds?.some(id => ids.has(id)) ||
+          relation.stateOperationIds?.some(id => ids.has(id)) ||
+          relation.executionEdgeIds?.some(id =>
+            input.executionEdgeIds.includes(id)))
         .map(relation => relation.id).sort(),
       sourceOrderScope: "PER_EXECUTION_REGION_ONLY",
       runtimeStatus: "NOT_OBSERVED",

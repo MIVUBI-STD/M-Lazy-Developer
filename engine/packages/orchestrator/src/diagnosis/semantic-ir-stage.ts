@@ -265,7 +265,7 @@ export function buildInspectionSemanticIr(
   const addEdge = (
     edge: Omit<ExecutionEdge, "id">,
     occurrence?: number,
-  ): void => {
+  ): string => {
     const id = [
       "exec-edge",
       token(edge.from),
@@ -275,6 +275,7 @@ export function buildInspectionSemanticIr(
       ...(occurrence === undefined ? [] : [String(occurrence)]),
     ].join(":");
     edges.set(id, { ...edge, id });
+    return id;
   };
 
   // Source identity and command identifier are separate: multiple packs may
@@ -862,29 +863,11 @@ export function buildInspectionSemanticIr(
     }))
     .sort((a, b) => a.contract.id.localeCompare(b.contract.id));
 
-  const executionEdges = [...edges.values()]
-    .sort((a, b) => a.id.localeCompare(b.id));
-  const temporalRelations: TemporalRelation[] =
-    executionEdges.map((edge) => ({
-      id: "time:" + edge.id,
-      from: edge.from,
-      targetLabel: edge.targetLabel,
-      resolution: edge.resolution,
-      ...(edge.to === undefined ? {} : { to: edge.to }),
-      kind: temporalKind(edge),
-      source: edge.source,
-      ...(edge.guardEvidence === undefined
-        ? {}
-        : { guardEvidence: edge.guardEvidence }),
-      ...(edge.guardIdentifiers === undefined
-        ? {}
-        : { guardIdentifiers: edge.guardIdentifiers }),
-    }));
-
-  // Static behavior-pack commands share the canonical command analyzer with
-  // scripts/mcfunctions. These isolated authored regions are NOT execution
-  // edges, and therefore cannot prove controller/animation activation.
+  // Authored button and animation command sites have unknown activation.
+  // A literal /function invocation can still name a unique executable target
+  // source. Reuse canonical IR edges; never fabricate an activation edge.
   const seenBehaviorCommandSites = new Set<string>();
+  const behaviorCommandCallIds = new Map<string, string[]>();
   for (const relation of input.authoredBehaviorRelations ?? []) {
     if (relation.kind !== "animation-timeline-command" &&
         relation.kind !== "controller-state-command" &&
@@ -916,6 +899,25 @@ export function buildInspectionSemanticIr(
         ? "behavior-animation-command" : "behavior-controller-command",
       undefined, undefined, relation.timingSeconds,
     );
+    for (const effect of effects) {
+      if (effect.kind !== "function-call") continue;
+      const targetRegion = resolveFunction(effect.target);
+      // A resolved target is the authored function source only, not proof
+      // of player action, Molang evaluation, command permissions or success.
+      const edgeId = addEdge({
+        from: regionId,
+        kind: "synchronous-call",
+        targetLabel: effect.target,
+        resolution: targetRegion ? "resolved" : "unresolved",
+        ...(targetRegion ? { to: targetRegion } : {}),
+        source: effect.source,
+        controlFlow: /^\\?execute\s/i.test(relation.to.trim())
+          ? "conditional" : "unconditional",
+      });
+      const existing = behaviorCommandCallIds.get(relation.id) ?? [];
+      existing.push(edgeId);
+      behaviorCommandCallIds.set(relation.id, existing);
+    }
     // Use exactly the same state-access normalization as mcfunction/script.
     // Dialogue and animation commands often drive progression via scoreboard
     // or tags even when they have NO player-visible world-effect primitive.
@@ -958,13 +960,40 @@ export function buildInspectionSemanticIr(
           op.source.relativePath === relation.source.relativePath &&
           op.source.jsonPointer === relation.source.jsonPointer)
         .map(op => op.id).sort();
-      return worldEffectIds.length || stateOperationIds.length
+      const executionEdgeIds = [...new Set(
+        behaviorCommandCallIds.get(relation.id) ?? [],
+      )].sort();
+      return worldEffectIds.length || stateOperationIds.length ||
+        executionEdgeIds.length
         ? {
             ...relation,
             ...(worldEffectIds.length ? { worldEffectIds } : {}),
             ...(stateOperationIds.length ? { stateOperationIds } : {}),
+            ...(executionEdgeIds.length ? { executionEdgeIds } : {}),
           } : relation;
     });
+  // Materialize all edges only AFTER authored UI and animation commands
+  // contribute their uniquely resolved or explicitly unresolved /function
+  // call sites. Temporal evidence must use the same complete edge set.
+  const executionEdges = [...edges.values()]
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const temporalRelations: TemporalRelation[] =
+    executionEdges.map((edge) => ({
+      id: "time:" + edge.id,
+      from: edge.from,
+      targetLabel: edge.targetLabel,
+      resolution: edge.resolution,
+      ...(edge.to === undefined ? {} : { to: edge.to }),
+      kind: temporalKind(edge),
+      source: edge.source,
+      ...(edge.guardEvidence === undefined
+        ? {}
+        : { guardEvidence: edge.guardEvidence }),
+      ...(edge.guardIdentifiers === undefined
+        ? {}
+        : { guardIdentifiers: edge.guardIdentifiers }),
+    }));
+
   const ir: SemanticIr = {
     schemaVersion: 1,
     execution: {

@@ -860,6 +860,23 @@ export function buildGameplayIntentModel(
           " operation; gameplay phase, score meaning and runtime value remain unproven.",
       });
     }
+    for (const edgeId of relation.executionEdgeIds ?? []) {
+      const edge = input.semanticIr?.execution.edges.find(item =>
+        item.id === edgeId &&
+        item.kind === "synchronous-call" &&
+        item.source.artifactId === relation.source.artifactId &&
+        item.source.relativePath === relation.source.relativePath &&
+        item.source.jsonPointer === relation.source.jsonPointer);
+      if (!edge) continue;
+      evidenceIds.push(edge.id);
+      evidence.set(edge.id, {
+        id: edge.id, origin: "source-code",
+        locator: edge.source.relativePath, scope: "selected-artifact",
+        summary: "Exact authored command-to-function reference (" +
+          edge.resolution +
+          "); activation, conditions and downstream gameplay outcomes are unproven.",
+      });
+    }
     const owned = authoredByOwner.get(relation.ownerId) ?? [];
     owned.push(...evidenceIds);
     authoredByOwner.set(relation.ownerId, owned);

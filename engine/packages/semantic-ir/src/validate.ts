@@ -62,6 +62,16 @@ export function validateSemanticIr(ir: SemanticIr): string[] {
         errors.push("Authored behavior relation has nonmatching world effect: " + relation.id);
       }
     }
+    for (const edgeId of relation.executionEdgeIds ?? []) {
+      const edge = ir.execution.edges.find(item => item.id === edgeId);
+      if (!edge ||
+          edge.kind !== "synchronous-call" ||
+          edge.source.artifactId !== relation.source.artifactId ||
+          edge.source.relativePath !== relation.source.relativePath ||
+          edge.source.jsonPointer !== relation.source.jsonPointer) {
+        errors.push("Authored behavior relation has nonmatching execution edge: " + relation.id);
+      }
+    }
     for (const operationId of relation.stateOperationIds ?? []) {
       const operation = ir.state.operations.find(item => item.id === operationId);
       if (!operation ||
