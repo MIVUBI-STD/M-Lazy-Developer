@@ -4,6 +4,36 @@ import {
 } from "../../src/inspection/gameplay-discovery-closure.js";
 
 describe("gameplay discovery closure", () => {
+  it("recognizes physical inventory even before a mechanic can be interpreted", () => {
+    const result = assessGameplayDiscoveryClosure({
+      inventoriedFileCount: 3,
+      sourceFileAccountingComplete: true,
+      discoveredSurfaceIds: [],
+      sourceRelevantFiles: 1, sourceIndexedFiles: 1,
+      sourceCoverageComplete: true, sourceParseFailures: 0,
+      unsupportedRelevantSourcePaths: [], semanticUnderstandingGapPaths: [],
+      unresolvedReferences: 0,
+    });
+    expect(result.status).toBe("COMPLETE");
+    expect(result.inventoriedFileCount).toBe(3);
+    expect(result.discoveredSurfaceIds).toEqual([]);
+    expect(result.reasons.join(" ")).toContain("A7 UNDERSTAND");
+  });
+
+  it("cannot use interpreted mechanics to conceal missing physical sources", () => {
+    const result = assessGameplayDiscoveryClosure({
+      inventoriedFileCount: 2,
+      sourceFileAccountingComplete: false,
+      discoveredSurfaceIds: ["mechanic:join"],
+      sourceRelevantFiles: 1, sourceIndexedFiles: 1,
+      sourceCoverageComplete: true, sourceParseFailures: 0,
+      unsupportedRelevantSourcePaths: [], semanticUnderstandingGapPaths: [],
+      unresolvedReferences: 0,
+    });
+    expect(result.status).toBe("OPEN");
+    expect(result.sourceFileAccountingComplete).toBe(false);
+  });
+
   it("retains unlisted source-bearing packs as Discovery uncertainty", () => {
     const result = assessGameplayDiscoveryClosure({
       discoveredSurfaceIds: ["runtime:state"], sourceRelevantFiles: 1,
@@ -160,7 +190,7 @@ describe("gameplay discovery closure", () => {
     ).toBe(1);
   });
 
-  it("does not claim Discovery COMPLETE while gameplay intent has explicit unknowns", () => {
+  it("keeps A2 source completeness independent from A7 gameplay-intent unknowns", () => {
     const result = assessGameplayDiscoveryClosure({
       discoveredSurfaceIds: ["runtime:state"],
       sourceRelevantFiles: 1, sourceIndexedFiles: 1,
@@ -168,7 +198,7 @@ describe("gameplay discovery closure", () => {
       unsupportedRelevantSourcePaths: [], semanticUnderstandingGapPaths: [],
       unresolvedReferences: 0, gameplayIntentUnknownIds: ["unknown:outcome-guard"],
     });
-    expect(result.status).toBe("PARTIAL");
+    expect(result.status).toBe("COMPLETE");
     expect(result.gameplayIntentUnknownIds).toEqual(["unknown:outcome-guard"]);
   });
 
@@ -200,7 +230,7 @@ describe("gameplay discovery closure", () => {
     };
     const accepted = assessGameplayDiscoveryClosure(complete);
     expect(accepted.status).toBe("COMPLETE");
-    expect(accepted.reasons.join(" ")).toContain("does not prove runtime behavior");
+    expect(accepted.reasons.join(" ")).toContain("not gameplay/runtime proof");
     const partiallyResolved = assessGameplayDiscoveryClosure({
       ...complete, unresolvedReferences: 1,
     });
@@ -220,7 +250,7 @@ describe("gameplay discovery closure", () => {
     expect(blocked.nativeWorldScanIncomplete).toBe(true);
   });
 
-  it("does not claim COMPLETE while raw operations remain unowned", () => {
+  it("retains unowned raw operations as A7 challenges without corrupting A2", () => {
     const input = {
       discoveredSurfaceIds: ["runtime:state"],
       sourceRelevantFiles: 1,
@@ -236,7 +266,7 @@ describe("gameplay discovery closure", () => {
       ...input,
       discoveryChallengeIds: ["discovery-challenge:state:unknown-mutation"],
     });
-    expect(challenged.status).toBe("PARTIAL");
+    expect(challenged.status).toBe("COMPLETE");
     expect(challenged.discoveryChallengeIds).toEqual([
       "discovery-challenge:state:unknown-mutation",
     ]);

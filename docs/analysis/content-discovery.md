@@ -13,6 +13,19 @@ The first Bedrock-aware analysis pass is intentionally cheap and selective.
 
 ## Discovery
 
+Every file in the selected map is inventoried before interpreting gameplay,
+including non-source resources, database assets and unknown formats.
+The Source Index separately assigns one outcome to **each** relevant
+gameplay-sensitive source: `indexed`, `semantic-gap`, `parse-failure`,
+or `unsupported`. These records are reconciled with the complete physical
+inventory before A2 source recognition may close.
+
+A parsed/indexed source is *not* proof that its mechanic purpose, activation,
+execution or game outcome is understood. UNDERSTAND and MODEL consume the
+same source evidence later within one Game Reconstruction operator workflow.
+No content may be treated as absent solely because a specialized parser or
+semantic consumer is missing.
+
 Physical files are first classified by path/extension hints:
 
 - `manifest.json` → manifest candidate;

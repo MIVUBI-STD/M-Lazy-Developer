@@ -588,6 +588,9 @@ export function buildInspectionResult(
     });
   const gameplayDiscoveryClosure =
     assessGameplayDiscoveryClosure({
+      inventoriedFileCount: input.sourceIndex.coverage.physicalFiles,
+      sourceFileAccountingComplete:
+        input.sourceIndex.coverage.physicalInventoryAccounted,
       discoveredSurfaceIds:
         gameplayWorld.surfaceDiscovery
           .surfaceIds,

@@ -977,6 +977,10 @@ export async function inspectArtifact(
     };
     const finalGameplayDiscoveryClosure =
       assessGameplayDiscoveryClosure({
+        inventoriedFileCount:
+          result.gameplayDiscoveryClosure.inventoriedFileCount,
+        sourceFileAccountingComplete:
+          result.gameplayDiscoveryClosure.sourceFileAccountingComplete,
         discoveredSurfaceIds:
           finalGameplayWorld.surfaceDiscovery
             .surfaceIds,

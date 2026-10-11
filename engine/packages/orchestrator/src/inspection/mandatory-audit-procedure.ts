@@ -171,15 +171,15 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   checkpoint.push(receipt(
     "A2",
     "DISCOVERY",
-    "Gameplay Surface Discovery",
+    "Source Recognition and Discovery",
     discovery.status === "OPEN"
       ? "OPEN"
       : discovery.status === "PARTIAL"
         ? "PARTIAL"
         : "CLOSED",
-    "Gameplay Discovery source/surface accounting is " + discovery.status +
+    "Source Recognition (physical inventory and relevant file dispositions) is " + discovery.status +
       "; gameplay interpretation remains an UNDERSTAND responsibility.",
-    world.surfaceDiscovery.surfaceIds,
+    discovery.discoveredSurfaceIds,
     ["GameplaySurfaceInventory"],
   ));
 

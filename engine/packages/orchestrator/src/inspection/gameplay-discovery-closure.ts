@@ -4,6 +4,10 @@ export type GameplayDiscoveryClosureStatus =
   | "OPEN";
 
 export interface GameplayDiscoveryClosureInput {
+  /** Recognition evidence from Source Index, before Gameplay Intent/Model. */
+  readonly inventoriedFileCount?: number;
+  readonly sourceFileAccountingComplete?: boolean;
+  /** Interpretive surfaces are A7 context, not source-inventory proof. */
   readonly discoveredSurfaceIds:
     readonly string[];
   readonly sourceRelevantFiles: number;
@@ -25,6 +29,8 @@ export interface GameplayDiscoveryClosureInput {
 export interface GameplayDiscoveryClosure {
   readonly status:
     GameplayDiscoveryClosureStatus;
+  readonly inventoriedFileCount: number;
+  readonly sourceFileAccountingComplete: boolean;
   readonly discoveredSurfaceIds:
     readonly string[];
   /**
@@ -92,15 +98,29 @@ export function assessGameplayDiscoveryClosure(
       sourceAccountedFiles &&
     input.sourceIndexedFiles <=
       input.sourceRelevantFiles;
+  const inventoryEvidenceProvided =
+    input.inventoriedFileCount !== undefined ||
+    input.sourceFileAccountingComplete !== undefined;
+  const inventoriedFileCount = input.inventoriedFileCount ?? 0;
+  const sourceFileAccountingComplete =
+    input.sourceFileAccountingComplete === true &&
+    Number.isSafeInteger(inventoriedFileCount) &&
+    inventoriedFileCount > 0 &&
+    inventoriedFileCount >= input.sourceRelevantFiles;
 
   if (!countsValid) {
     reasons.push(
       "Selected-artifact discovery counts must be non-negative safe integers.",
     );
   }
+  if (inventoryEvidenceProvided && !sourceFileAccountingComplete) {
+    reasons.push(
+      "The complete physical file inventory and per-source dispositions do not reconcile; source recognition is incomplete.",
+    );
+  }
   if (surfaceIds.length === 0) {
     reasons.push(
-      "No gameplay surface was discovered from the selected artifact.",
+      "No interpreted gameplay surface is identified yet; gameplay meaning remains an A7 UNDERSTAND question, not evidence that the map is empty.",
     );
   }
   if (!sourceInventoryBalanced) {
@@ -175,7 +195,7 @@ export function assessGameplayDiscoveryClosure(
   // A2 accounts discovered sources and execution targets; A7 accounts
   // the gameplay meaning of already indexed Semantic IR facts.
   const status: GameplayDiscoveryClosureStatus =
-    surfaceIds.length === 0 ||
+    (inventoryEvidenceProvided ? !sourceFileAccountingComplete : surfaceIds.length === 0) ||
     !sourceInventoryBalanced ||
     input.sourceParseFailures > 0 ||
     (!input.sourceCoverageComplete && unsupportedRelevantSources === 0)
@@ -190,12 +210,14 @@ export function assessGameplayDiscoveryClosure(
 
   if (status === "COMPLETE") {
     reasons.push(
-      "Observed source inventory, executable targets, references and surface accounting satisfy A2. Indexed semantic gaps, unowned evidence and gameplay intent unknowns remain A7 UNDERSTAND obligations, not gameplay/runtime proof.",
+      "Physical source inventory, executable targets and reference accounting satisfy A2; interpreted surface inventory is independent. Indexed semantic gaps, unowned evidence and gameplay intent unknowns remain A7 UNDERSTAND obligations, not gameplay/runtime proof.",
     );
   }
 
   return {
     status,
+    inventoriedFileCount,
+    sourceFileAccountingComplete,
     discoveredSurfaceIds: surfaceIds,
     sourceRelevantFiles:
       input.sourceRelevantFiles,

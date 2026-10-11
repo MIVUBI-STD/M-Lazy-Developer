@@ -89,6 +89,25 @@ implementation detail
 
 ## Discovery independence rule
 
+Game Reconstruction is one operator process with the ordered internal responsibilities
+**RECOGNIZE → UNDERSTAND → MODEL**. First record the entire physical selected-map
+inventory and one outcome for every gameplay-relevant source, before admitting
+any gameplay-purpose claim. Non-source or unfamiliar assets remain in the full
+physical inventory; parser failures and unsupported source types remain visible.
+
+A2 Discovery Closure is decided by the physical inventory and Source Index
+accounting plus unresolved executable/native references. Gameplay surfaces
+created by Intent or Scenario Graph are supporting context only, never a
+substitute for source records. A2 may be COMPLETE before any gameplay purpose
+has been established: that uncertainty belongs to A7, not an assertion that
+the map is empty. Likewise, an inferred game model cannot close A2 when
+source files are unaccounted.
+
+UNDERSTAND assigns evidence-grounded meaning or a specific unknown. MODEL
+composes state and causal/scenario relationships without promoting source
+execution candidates into observed player actions. The inventory remains
+the source of truth for *what was present* throughout the process.
+
 Surface discovery and gameplay understanding must be independent operations.
 
 A source/surface is discovered from the selected artifact. A2 accounts its source disposition; A7 separately determines whether the gameplay model understands it or is blocked/unknown/not-applicable. A2 COMPLETE is not proof of indexed domain semantics. Every indexed semantic gap, unowned execution relationship and gameplay intent unknown remains an explicit A7 UNDERSTAND obligation.

@@ -68,6 +68,10 @@ export interface InspectionSourceParseFailure {
 }
 
 export interface InspectionSourceCoverage {
+  /** Every file in the physical selected-map inventory, not just gameplay sources. */
+  physicalFiles: number;
+  /** Physical paths and relevant source dispositions form a complete census. */
+  physicalInventoryAccounted: boolean;
   relevantFiles: number;
   indexedFiles: number;
   parseFailures: readonly InspectionSourceParseFailure[];
@@ -777,6 +781,25 @@ export async function indexInspectionSources(
       : "indexed" as const,
   })).sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 
+  // Recognize every physical asset before gameplay interpretation. Parsers
+  // must account for all gameplay-sensitive files; unrelated/unknown assets
+  // remain in the physical inventory rather than vanishing from accounting.
+  const physicalPaths = files.map(file => file.relativePath);
+  const physicalPathSet = new Set(physicalPaths);
+  const outcomePaths = fileOutcomes.map(item => item.relativePath);
+  const physicalInventoryAccounted =
+    physicalPaths.length > 0 &&
+    physicalPathSet.size === physicalPaths.length &&
+    physicalPaths.every(path => path.length > 0) &&
+    new Set(outcomePaths).size === outcomePaths.length &&
+    fileOutcomes.length === relevantFiles &&
+    fileOutcomes.every(item => physicalPathSet.has(item.relativePath)) &&
+    fileOutcomes.filter(item =>
+      item.status === "indexed" || item.status === "semantic-gap").length === indexedFiles &&
+    fileOutcomes.filter(item => item.status === "parse-failure").length === parseFailures.length &&
+    fileOutcomes.filter(item => item.status === "unsupported").length === unsupportedRelevantFiles.length &&
+    relevantFiles === indexedFiles + parseFailures.length + unsupportedRelevantFiles.length;
+
   return {
     graph,
     nodes,
@@ -789,6 +812,8 @@ export async function indexInspectionSources(
     tickFunctionRegistrations,
     diagnostics,
     coverage: {
+      physicalFiles: physicalPaths.length,
+      physicalInventoryAccounted,
       relevantFiles,
       indexedFiles,
       parseFailures: [...parseFailures]
@@ -802,6 +827,7 @@ export async function indexInspectionSources(
         [...semanticUnderstandingGaps].sort(),
       fileOutcomes,
       complete:
+        physicalInventoryAccounted &&
         parseFailures.length === 0 &&
         unsupportedRelevantFiles.length === 0 &&
         indexedFiles === relevantFiles,

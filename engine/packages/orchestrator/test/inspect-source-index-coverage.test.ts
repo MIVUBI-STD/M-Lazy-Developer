@@ -68,6 +68,8 @@ describe("inspection source index coverage", () => {
         { relativePath: paths[0], status: "indexed" },
       ]);
       expect(index.coverage.fileOutcomes).toHaveLength(index.coverage.relevantFiles);
+      expect(index.coverage.physicalFiles).toBe(paths.length);
+      expect(index.coverage.physicalInventoryAccounted).toBe(true);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
@@ -182,7 +184,9 @@ describe("inspection source index coverage", () => {
           }],
         );
 
-      expect(result.coverage).toEqual({
+      expect(result.coverage).toMatchObject({
+        physicalFiles: 2,
+        physicalInventoryAccounted: true,
         relevantFiles: 2,
         indexedFiles: 2,
         parseFailures: [],
