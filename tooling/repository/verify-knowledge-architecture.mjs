@@ -3,6 +3,7 @@ import { buildResourceCatalog } from "./resource-catalog.mjs";
 import { buildGraph, documentGraphRootId } from "./graph.mjs";
 import { buildDocumentSectionIndex } from "./document-sections.mjs";
 import {
+  readKnowledgeResourceContext,
   scoreResourcesLexically,
   scoreSectionsLexically,
 } from "./lexical-retrieval.mjs";
@@ -418,6 +419,48 @@ try {
     );
     if (!(relationScores[relationId] > 0)) {
       failures.push("Lexical retrieval cannot search a Knowledge relation by its content.");
+    }
+  }
+
+  // Selected facts and relations must reach the model with exact content,
+  // catalog provenance and declared applicability, without a runtime assertion.
+  if (relationResource) {
+    const content = readKnowledgeResourceContext(relationResource);
+    if (
+      content?.kind !== "relation" ||
+      content.relation?.kind !== "gates" ||
+      content.relation.object !== "durable-state-reconciliation" ||
+      content.applicabilityStatus !== "NOT_EVALUATED" ||
+      content.sources.length === 0 ||
+      !content.sources.every((source) => source.id && source.url)
+    ) {
+      failures.push("Knowledge relation context lost semantics or provenance.");
+    }
+    try {
+      readKnowledgeResourceContext({
+        ...relationResource,
+        locator: "persistence.nonexistent-relation",
+      });
+      failures.push("Missing Knowledge locator was silently hydrated.");
+    } catch {
+      // Missing canonical content must remain an error, never a fabricated claim.
+    }
+  }
+  const factResource = byId.get(
+    "knowledge.persistence.dynamic-properties-survive-restart",
+  );
+  if (!factResource) {
+    failures.push("Canonical persistence fact resource is missing.");
+  } else {
+    const content = readKnowledgeResourceContext(factResource);
+    if (
+      content?.kind !== "fact" ||
+      !content.summary.includes("Dynamic properties") ||
+      !content.applicability?.editions.includes("bedrock") ||
+      content.applicabilityStatus !== "NOT_EVALUATED" ||
+      content.sources.length === 0
+    ) {
+      failures.push("Knowledge fact context lost content, source or applicability.");
     }
   }
 

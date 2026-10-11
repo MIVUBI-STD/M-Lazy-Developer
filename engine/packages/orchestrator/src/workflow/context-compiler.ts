@@ -27,6 +27,7 @@ import {
   compileSectionContext,
   type CompiledResourceContext,
   type CompiledSectionContext,
+  type RetrievedKnowledgeContext,
 } from "./resource-context.js";
 
 export interface ContextCompilerBudget {
@@ -52,6 +53,7 @@ export interface ContextCompilerRequest {
   dataFlowSlice?: CompiledDataFlowContextSlice;
   resourceSelection?: readonly RetrievalResult[];
   resourceLimit?: number;
+  resourceKnowledge?: Readonly<Record<string, RetrievedKnowledgeContext>>;
   sectionSelection?: readonly SectionRetrievalResult[];
   sectionLimit?: number;
   budget?: Partial<ContextCompilerBudget>;
@@ -313,6 +315,7 @@ export function compileContextPack(
     compileResourceContext(
       input.resourceSelection,
       input.resourceLimit,
+      input.resourceKnowledge,
     );
   const sections =
     compileSectionContext(
@@ -807,6 +810,7 @@ export function compileContextPack(
     missingRequestedCount === 0 &&
     (input.dataFlowSlice?.complete ?? true) &&
     (resources?.omitted ?? 0) === 0 &&
+    resources?.knowledgeContent?.status !== "PARTIAL" &&
     (sections?.omitted ?? 0) === 0 &&
     (
       semanticScopeExplicit ||
@@ -1211,6 +1215,9 @@ export function compileContextPack(
           String(resources?.omitted ?? 0) +
           " ranked resource(s); narrow Retrieval or raise resourceLimit."
         : "Resource Context did not omit ranked resources.",
+      ...(resources?.knowledgeContent?.status === "PARTIAL"
+        ? ["Some selected Knowledge records were not hydrated; context is incomplete."]
+        : []),
       sectionSelectionTruncated
         ? "Section Context omitted " +
           String(sections?.omitted ?? 0) +

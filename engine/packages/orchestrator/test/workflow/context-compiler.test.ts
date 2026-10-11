@@ -659,4 +659,63 @@ describe("context compiler", () => {
       });
   });
 
+  it("passes selected knowledge contents to the model-facing context and blocks incomplete hydration", () => {
+    const selectedResource = {
+      resource: {
+        id: "knowledge.persistence.relation-worldload-gates-reconcile",
+        class: "KNOWLEDGE" as const,
+        domain: "persistence",
+        authority: "REFERENCE" as const,
+        path: "engine/knowledge/world-engine/persistence-bedrock.json",
+        locator: "persistence.relation-worldload-gates-reconcile",
+        lifecycle: "ACTIVE" as const,
+      },
+      score: {
+        routing: 30, graph: 0, structural: 16,
+        lexical: 25, semantic: 0, authority: 10, total: 81,
+      },
+      reasons: ["domain-route", "lexical-rank"],
+    };
+    const knowledge = {
+      kind: "relation" as const,
+      subject: "worldLoad",
+      summary: "worldLoad gates durable-state-reconciliation",
+      classification: "derived-rule" as const,
+      applicability: { editions: ["bedrock" as const] },
+      applicabilityStatus: "NOT_EVALUATED" as const,
+      sourceIds: ["ms-persist-v2"],
+      sources: [{
+        id: "ms-persist-v2",
+        title: "Official reference",
+        url: "https://learn.microsoft.com/en-us/minecraft/creator/",
+        authority: "official" as const,
+        confidence: "documented" as const,
+        retrievedDate: "2026-09-23",
+      }],
+      relation: { kind: "gates" as const, object: "durable-state-reconciliation" },
+    };
+    const core = {
+      goal: "why is reconnect state stale?",
+      graph: fixtureGraph(),
+      intent,
+      resourceSelection: [selectedResource],
+    };
+    const filled = compileContextPack({
+      ...core,
+      resourceKnowledge: { [selectedResource.resource.id]: knowledge },
+    });
+    expect(filled.resources?.items[0]?.knowledge?.summary)
+      .toBe("worldLoad gates durable-state-reconciliation");
+    expect(filled.resources?.knowledgeContent?.status).toBe("COMPLETE");
+
+    const missing = compileContextPack({
+      ...core,
+      resourceKnowledge: {},
+    });
+    expect(missing.resources?.knowledgeContent?.status).toBe("PARTIAL");
+    expect(missing.complete).toBe(false);
+    expect(missing.reasons.some((reason) => reason.includes("not hydrated")))
+      .toBe(true);
+  });
+
 });

@@ -199,6 +199,33 @@ Context
 
 Catalog and Graph are derived navigation structures. They never replace the source/data owners listed above.
 
+## Bounded Knowledge context delivery (ChatGPT + GitHub)
+
+The repository retrieval entrypoint returns ranked Resource IDs and, for each selected
+Knowledge fact/relation, an optional **resourceContext** with the exact statement
+or subject/relation/object, original catalog applicability, source references,
+and provenance. Exact ID lookup also returns the selected Knowledge record.
+Only ranked records are hydrated; no duplicate Knowledge store or persistent
+search index is created. Other resource classes keep their existing locator
+presentation.
+
+The model-facing `compileContextPack()` accepts `resourceSelection` and
+`resourceKnowledge` keyed by the **same selected Resource Catalog IDs**.
+Unknown/missing contents are visible as `knowledgeContent.status=PARTIAL`;
+they cannot silently constitute complete context. Version/edition applicability
+is `NOT_EVALUATED` without a selected runtime profile and is not Minecraft
+runtime proof. A historical record is a search hint, never gameplay truth.
+
+The GitHub connector in ChatGPT **cannot execute this repository CLI**.
+In GitHub-only conversations, use the same source authority directly:
+pin the exact `Local` commit, route via
+`engine/knowledge/ownership.json` or engineering ownership, fetch the
+selected JSON catalog from that commit, locate the exact fact/relation ID,
+and read its `sourceIds`, `sources` and `applicability`. Do not infer that
+a GitHub code-search hit from the default branch represents `Local`.
+The CLI's enriched output is a production/source contract for callers that
+can actually execute it; it is not a new ChatGPT remote execution capability.
+
 ## Exact lookup rule
 
 Do not expand this document back into a per-symbol or per-file database.

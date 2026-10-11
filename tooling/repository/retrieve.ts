@@ -5,9 +5,14 @@ import {
 import { buildDocumentSectionIndex } from "./document-sections.mjs";
 import { buildGraph } from "./graph.mjs";
 import {
+  readKnowledgeResourceContext,
   scoreResourcesLexically,
   scoreSectionsLexically,
 } from "./lexical-retrieval.mjs";
+import {
+  compileResourceContext,
+  type RetrievedKnowledgeContext,
+} from "../../engine/packages/orchestrator/src/workflow/resource-context.js";
 import { buildResourceCatalog } from "./resource-catalog.mjs";
 
 interface RetrievalCliOptions {
@@ -225,6 +230,12 @@ function main(): void {
           )
         : [];
 
+    const knowledge = resource.class === "KNOWLEDGE"
+      ? readKnowledgeResourceContext(resource)
+      : undefined;
+    if (resource.class === "KNOWLEDGE" && knowledge === undefined) {
+      throw new Error("Knowledge content could not be resolved: " + resource.id);
+    }
     process.stdout.write(
       JSON.stringify(
         {
@@ -233,6 +244,7 @@ function main(): void {
           incoming,
           outgoing,
           sections,
+          ...(knowledge === undefined ? {} : { knowledge }),
         },
         null,
         2,
@@ -259,6 +271,22 @@ function main(): void {
       graphDepth: 2,
       limit: options.limit,
     },
+  );
+
+  const knowledgeByResourceId: Record<string, RetrievedKnowledgeContext> = {};
+  const knowledgeCache = new Map();
+  for (const result of resources) {
+    if (result.resource.class !== "KNOWLEDGE") continue;
+    const knowledge = readKnowledgeResourceContext(result.resource, knowledgeCache);
+    if (knowledge === undefined) {
+      throw new Error("Knowledge content could not be resolved: " + result.resource.id);
+    }
+    knowledgeByResourceId[result.resource.id] = knowledge;
+  }
+  const resourceContext = compileResourceContext(
+    resources,
+    options.limit,
+    knowledgeByResourceId,
   );
 
   const selectedDocumentIds = resources
@@ -292,6 +320,7 @@ function main(): void {
         includeHistorical: options.includeHistorical,
         broadDiagnostic: options.allowAllDomains,
         resources,
+        resourceContext,
         sections,
       },
       null,

@@ -103,6 +103,33 @@ function readableFile(path) {
   }
 }
 
+function catalogForResource(resource, jsonCache) {
+  let data = jsonCache.get(resource.path);
+  if (data === undefined) {
+    data = JSON.parse(readFileSync(resource.path, "utf8"));
+    jsonCache.set(resource.path, data);
+  }
+  return data;
+}
+
+function knowledgeRecord(resource, jsonCache) {
+  const data = catalogForResource(resource, jsonCache);
+  const fact = (data.facts ?? []).find(
+    (item) => item?.id === resource.locator,
+  );
+  const relation = (data.relations ?? []).find(
+    (item) => item?.id === resource.locator,
+  );
+  if (fact !== undefined && relation !== undefined) {
+    throw new Error("Ambiguous Knowledge locator: " + resource.locator);
+  }
+  return {
+    data,
+    entry: fact ?? relation,
+    kind: fact !== undefined ? "fact" : "relation",
+  };
+}
+
 function resourceText(resource, jsonCache) {
   if (!readableFile(resource.path)) return undefined;
 
@@ -111,19 +138,7 @@ function resourceText(resource, jsonCache) {
     resource.locator !== undefined &&
     resource.path.endsWith(".json")
   ) {
-    let data = jsonCache.get(resource.path);
-    if (data === undefined) {
-      data = JSON.parse(readFileSync(resource.path, "utf8"));
-      jsonCache.set(resource.path, data);
-    }
-
-    // Facts and relations share Resource Catalog identities; both must be
-    // searchable by content rather than only by locator/filename.
-    const entry = (data.facts ?? []).find(
-      (item) => item?.id === resource.locator,
-    ) ?? (data.relations ?? []).find(
-      (item) => item?.id === resource.locator,
-    );
+    const { entry } = knowledgeRecord(resource, jsonCache);
     if (entry === undefined) return undefined;
 
     return [
@@ -143,6 +158,69 @@ function resourceText(resource, jsonCache) {
   }
 
   return readFileSync(resource.path, "utf8");
+}
+
+// Read a selected Knowledge record only after retrieval has ranked resource IDs.
+// The original catalog remains authoritative; no second knowledge store is made.
+export function readKnowledgeResourceContext(resource, jsonCache = new Map()) {
+  if (
+    resource.class !== "KNOWLEDGE" ||
+    typeof resource.locator !== "string" ||
+    !resource.path.endsWith(".json")
+  ) return undefined;
+  if (!readableFile(resource.path)) {
+    throw new Error("Selected Knowledge catalog is unavailable: " + resource.path);
+  }
+
+  const { data, entry, kind } = knowledgeRecord(resource, jsonCache);
+  if (entry === undefined) {
+    throw new Error("Selected Knowledge locator is missing: " + resource.id);
+  }
+  if (!Array.isArray(entry.sourceIds) || entry.sourceIds.length === 0) {
+    throw new Error("Selected Knowledge has no provenance: " + resource.id);
+  }
+  const sourcesById = new Map(
+    (data.sources ?? []).map((source) => [source.id, source]),
+  );
+  const sources = entry.sourceIds.map((id) => {
+    const source = sourcesById.get(id);
+    if (source === undefined) {
+      throw new Error("Knowledge provenance is unresolved: " + resource.id + " -> " + id);
+    }
+    return { ...source };
+  });
+
+  return {
+    kind,
+    subject: entry.subject,
+    summary: kind === "fact"
+      ? entry.statement
+      : entry.subject + " " + entry.kind + " " + entry.object,
+    classification: entry.classification ?? "unspecified",
+    applicability: entry.applicability,
+    // Only the current map/profile may decide whether a fact applies.
+    applicabilityStatus: "NOT_EVALUATED",
+    sourceIds: [...entry.sourceIds],
+    sources,
+    ...(kind === "fact"
+      ? {
+          capabilityTags: [...(entry.capabilityTags ?? [])],
+          riskSurfaces: [...(entry.riskSurfaces ?? [])],
+          diagnosticHints: [...(entry.diagnosticHints ?? [])],
+        }
+      : {
+          relation: {
+            kind: entry.kind,
+            object: entry.object,
+            ...(entry.diagnosticHint === undefined
+              ? {}
+              : { diagnosticHint: entry.diagnosticHint }),
+            ...(entry.causalConsequences === undefined
+              ? {}
+              : { causalConsequences: [...entry.causalConsequences] }),
+          },
+        }),
+  };
 }
 
 export function scoreResourcesLexically(resources, query) {

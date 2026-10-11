@@ -3,7 +3,7 @@
 **Goal:** use the existing catalogs, graph and retrieval owners to deliver relevant, attributable knowledge to selected-map reasoning. No new database, graph owner, agent, or second audit workflow.
 
 - **Phase A — Retrieval integrity:** index relation content through the existing lexical owner, correct stale binding paths, and label binding verification as declaration integrity instead of actual consumption proof. Source/static evidence only; tests and Minecraft runtime not executed.
-- **Phase B — Context delivery:** fetch the bounded contents, provenance and applicability of chosen resources through existing retrieval/context owners. Preserve unknown version/profile matches instead of claiming applicability.
+- **Phase B — Context delivery:** source-wired selected fact/relation contents, catalog provenance and unevaluated applicability through existing repository retrieval and model Context Compiler. GitHub-only ChatGPT uses exact-ref source reads; repository CLI execution and end-to-end map acceptance remain NOT EXECUTED. Preserve unknown version/profile matches until Phase C rather than claiming applicability.
 - **Phase C — Gameplay-driven retrieval:** map real gameplay questions to scoped source/knowledge lookup, retaining mechanics that do not appear in a global catalog.
 - **Phase D — Binding rationalization:** distinguish declared from actually consumed relations, consolidate or retire obsolete administrative links only after dependency review.
 - **Phase E — End-to-end acceptance:** compare independent real-map understanding, retrieval misses, and supported issue quality against baseline across contrasting game genres. No release/runtime claims without matching evidence.
