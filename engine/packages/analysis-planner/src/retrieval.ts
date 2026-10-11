@@ -354,3 +354,62 @@ export function retrieveResources(
     )
     .slice(0, limit);
 }
+/** BM25-style scoring for in-memory or repository-selected text; one canonical scorer. */
+export function scoreTextDocuments(
+  documents: readonly { readonly id: string; readonly text: string }[],
+  query: string,
+): Readonly<Record<string, number>> {
+  const tokenize = (value: string): string[] =>
+    value.toLowerCase().match(/[\p{L}\p{N}]+/gu)
+      ?.filter((token) => token.length >= 2) ?? [];
+  const terms = [...new Set(tokenize(query))];
+  if (terms.length === 0 || documents.length === 0) return {};
+
+  const documentFrequency = new Map<string, number>();
+  const prepared = documents.map((document) => {
+    const words = tokenize(document.text);
+    const frequency = new Map<string, number>();
+    for (const word of words) {
+      frequency.set(word, (frequency.get(word) ?? 0) + 1);
+    }
+    for (const word of new Set(words)) {
+      if (!terms.includes(word)) continue;
+      documentFrequency.set(word, (documentFrequency.get(word) ?? 0) + 1);
+    }
+    return {
+      id: document.id,
+      frequency,
+      length: Math.max(1, words.length),
+    };
+  });
+
+  const averageLength =
+    prepared.reduce((sum, item) => sum + item.length, 0) /
+    Math.max(1, prepared.length);
+  const raw = new Map<string, number>();
+  let maximum = 0;
+  for (const document of prepared) {
+    let score = 0;
+    for (const term of terms) {
+      const tf = document.frequency.get(term) ?? 0;
+      if (tf === 0) continue;
+      const df = documentFrequency.get(term) ?? 0;
+      const idf = Math.log(1 + (prepared.length - df + 0.5) / (df + 0.5));
+      const k1 = 1.2;
+      const b = 0.75;
+      const normalizedTf =
+        (tf * (k1 + 1)) /
+        (tf + k1 * (1 - b + b * (document.length / averageLength)));
+      score += idf * normalizedTf;
+    }
+    if (score <= 0) continue;
+    raw.set(document.id, score);
+    maximum = Math.max(maximum, score);
+  }
+  if (maximum <= 0) return {};
+  return Object.fromEntries(
+    [...raw.entries()]
+      .map(([id, score]) => [id, score / maximum])
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+}

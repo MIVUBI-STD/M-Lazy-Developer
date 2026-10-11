@@ -830,6 +830,21 @@ export function formatSelectedMapAuditBrief(input: {
       ...(task.knowledgeLookup === undefined ? [] :
         ["  Search hint (not proof): " +
           concise(task.knowledgeLookup.query)]),
+      ...(task.retrievedKnowledge?.references ?? []).flatMap((reference) => [
+        "  Knowledge reference (NOT bug or detector proof): " +
+          concise(reference.knowledgeId) + " — " +
+          concise(reference.statement),
+        "  Source: " + reference.sources
+          .map((source) => concise(source.title) + " (" + concise(source.url) + ")")
+          .join("; "),
+        "  Applicability: " + reference.editionCheck +
+          "; declared editions: " + reference.applicability.editions.join(", ") +
+          "; version, experiments and runtime behavior NOT VERIFIED.",
+      ]),
+      ...((task.retrievedKnowledge?.omitted ?? 0) > 0
+        ? ["  Additional scoped references omitted: " +
+          task.retrievedKnowledge!.omitted]
+        : []),
     );
   }
   if (modelTaskPackets.length > 8) {

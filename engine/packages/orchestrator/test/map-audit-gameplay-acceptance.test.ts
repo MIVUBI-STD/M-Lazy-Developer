@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { packageDirectoryDeterministically } from "../../archive/src/index.js";
 import { runSelectedMapAudit } from "../src/map-audit-pipeline.js";
-import { deriveAuditModelKnowledgeLookup } from "../src/map-audit-model-task.js";
+import {
+  deriveAuditModelKnowledgeLookup,
+  retrieveAuditTaskKnowledge,
+} from "../src/map-audit-model-task.js";
 import { formatSelectedMapAuditBrief } from "../src/map-audit-output-v2.js";
 
 /**
@@ -282,6 +285,125 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
     } finally {
       await fixture.cleanup();
     }
+  });
+});
+
+describe("selected-map Knowledge consumption (read-only)", () => {
+  const intent = {
+    schemaVersion: 1 as const,
+    id: "selected-map",
+    evidence: [{
+      id: "src:arena",
+      origin: "source-code" as const,
+      locator: "scripts/arena.ts:20",
+      summary: "Arena cleanup source",
+      scope: "selected-artifact" as const,
+    }],
+    nodes: [{
+      id: "mechanic:arena-cleanup",
+      kind: "mechanic" as const,
+      label: "Arena cleanup",
+      status: "inferred" as const,
+      evidenceIds: ["src:arena"],
+    }],
+    edges: [], invariants: [], unknowns: [],
+  };
+  const catalog = {
+    schemaVersion: 1 as const,
+    sources: [{
+      id: "source:official",
+      title: "Minecraft Creator reference",
+      url: "https://learn.microsoft.com/en-us/minecraft/creator/",
+      authority: "official" as const,
+      confidence: "documented" as const,
+      retrievedDate: "2026-10-11",
+    }],
+    facts: [{
+      id: "cleanup.arena-state-reset",
+      domain: "arena-cleanup" as const,
+      subject: "arena cleanup",
+      statement: "Arena cleanup must reset old scoreboard and inventory surfaces.",
+      classification: "derived-rule" as const,
+      applicability: { editions: ["bedrock" as const] },
+      sourceIds: ["source:official"],
+      capabilityTags: ["arena-cleanup"],
+      riskSurfaces: ["inventory-reset"],
+    }, {
+      id: "cleanup.education-reset",
+      domain: "arena-cleanup" as const,
+      subject: "arena cleanup",
+      statement: "Arena cleanup Education-mode reset example.",
+      classification: "engine-fact" as const,
+      applicability: { editions: ["education" as const] },
+      sourceIds: ["source:official"],
+      capabilityTags: ["arena-cleanup"],
+      riskSurfaces: [],
+    }, {
+      id: "chunks.unrelated",
+      domain: "chunks" as const,
+      subject: "remote chunk residency",
+      statement: "Remote chunk residency has different runtime requirements.",
+      applicability: { editions: ["bedrock" as const] },
+      sourceIds: ["source:official"],
+      capabilityTags: ["chunks"],
+      riskSurfaces: [],
+    }],
+    relations: [],
+  };
+
+  it("selects only scoped knowledge with source and declared edition; does not treat a retrieved fact as bug proof", () => {
+    const lookup = deriveAuditModelKnowledgeLookup(
+      intent,
+      "Why is arena cleanup missing inventory reset?",
+      ["mechanic:arena-cleanup"],
+    )!;
+    const result = retrieveAuditTaskKnowledge({
+      catalog,
+      lookup,
+      intent,
+      edition: "bedrock",
+    });
+    expect(result.status).toBe("MATCHED");
+    expect(result.references.map((item) => item.knowledgeId))
+      .toEqual(["cleanup.arena-state-reset"]);
+    expect(result.references[0]?.sourceIds).toEqual(["source:official"]);
+    expect(result.references[0]?.editionCheck).toBe("MATCHED_EDITION_ONLY");
+    expect(result.references[0]?.authority)
+      .toBe("RETRIEVED_REFERENCE_NOT_BUG_PROOF");
+    expect(result.references.some((item) =>
+      item.knowledgeId === "chunks.unrelated")).toBe(false);
+
+    const edu = retrieveAuditTaskKnowledge({
+      catalog, lookup, intent, edition: "education",
+    });
+    expect(edu.references.map((item) => item.knowledgeId))
+      .toEqual(["cleanup.education-reset"]);
+
+    const noEdition = retrieveAuditTaskKnowledge({
+      catalog, lookup, intent,
+    });
+    expect(noEdition.references.every((item) =>
+      item.editionCheck === "NOT_EVALUATED")).toBe(true);
+  });
+
+  it("does not retrieve from goal-only/historical-looking prompts without selected artifact grounding", () => {
+    const lookup = deriveAuditModelKnowledgeLookup(
+      intent, "Maybe a historical arena was faulty.", ["mechanic:missing"],
+    )!;
+    const result = retrieveAuditTaskKnowledge({ catalog, lookup, intent });
+    expect(result.status).toBe("NO_SCOPED_MATCH");
+    expect(result.references).toEqual([]);
+
+    const spoof = retrieveAuditTaskKnowledge({
+      catalog, intent,
+      lookup: {
+        ...lookup,
+        grounding: "SELECTED_ARTIFACT",
+        matchedSubjectIds: ["mechanic:arena-cleanup"],
+        sourceEvidenceIds: ["nonexistent-source-evidence"],
+      },
+    });
+    expect(spoof.references).toEqual([]);
   });
 });
 

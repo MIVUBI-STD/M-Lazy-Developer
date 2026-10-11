@@ -1,6 +1,13 @@
 import type {
   GameplayIntentModel,
 } from "../../gameplay-intent/src/index.js";
+import { scoreTextDocuments } from "../../analysis-planner/src/index.js";
+import type {
+  KnowledgeApplicability,
+  KnowledgeCatalog,
+  KnowledgeEdition,
+  KnowledgeSource,
+} from "../../knowledge/src/index.js";
 import type {
   GameplayWorldModel,
 } from "./inspection/gameplay-world-model.js";
@@ -61,6 +68,28 @@ export interface AuditModelTaskKnowledgeLookup {
   readonly authority: "SEARCH_HINT_NOT_GAMEPLAY_PROOF";
 }
 
+export interface AuditModelTaskKnowledgeReference {
+  readonly knowledgeId: string;
+  readonly kind: "fact" | "relation";
+  readonly domain: string;
+  readonly statement: string;
+  readonly classification: string;
+  /** Claim scope from Knowledge source, not a validated gameplay claim. */
+  readonly applicability: KnowledgeApplicability;
+  readonly editionCheck: "MATCHED_EDITION_ONLY" | "NOT_EVALUATED";
+  readonly sourceIds: readonly string[];
+  readonly sources: readonly KnowledgeSource[];
+  readonly matchedMechanicTerms: readonly string[];
+  readonly authority: "RETRIEVED_REFERENCE_NOT_BUG_PROOF";
+}
+
+export interface AuditModelTaskKnowledgeSelection {
+  readonly status: "MATCHED" | "NO_SCOPED_MATCH";
+  readonly references: readonly AuditModelTaskKnowledgeReference[];
+  readonly omitted: number;
+  readonly basis: "CURRENT_MAP_SOURCE_GROUNDED_MECHANICS";
+}
+
 export interface AuditModelTaskPacket {
   readonly schemaVersion: 1;
   readonly policy: "bounded-audit-model-task";
@@ -82,6 +111,8 @@ export interface AuditModelTaskPacket {
   readonly knowledgeContext: readonly AuditModelTaskKnowledgeContext[];
   /** Route ChatGPT/source lookup from the current map, not from a generic bug taxonomy. */
   readonly knowledgeLookup?: AuditModelTaskKnowledgeLookup;
+  /** Bounded, source-grounded Knowledge references; never a detector proof. */
+  readonly retrievedKnowledge?: AuditModelTaskKnowledgeSelection;
   readonly unresolvedObligationIds: readonly string[];
   readonly userSearchContext?: {
     readonly authorityNote: string;
@@ -150,6 +181,18 @@ function unique(values: readonly string[]): string[] {
   )].sort();
 }
 
+const SOURCE_EVIDENCE_ORIGINS = new Set([
+  "game-design-spec", "source-code", "manifest", "command",
+  "scoreboard", "tag", "dialogue", "translation", "structure", "world-db",
+]);
+function isCurrentArtifactSourceEvidence(
+  evidence: GameplayIntentModel["evidence"][number] | undefined,
+): boolean {
+  return evidence !== undefined &&
+    (evidence.scope === undefined || evidence.scope === "selected-artifact") &&
+    SOURCE_EVIDENCE_ORIGINS.has(evidence.origin);
+}
+
 // A lookup suggestion uses only source-grounded selected-map mechanics.
 // Unknown/hypothetical subjects remain visible and never become a reason to
 // invent a mechanic or force an unrelated global knowledge domain.
@@ -164,10 +207,6 @@ export function deriveAuditModelKnowledgeLookup(
   const evidenceById = new Map(
     intent.evidence.map((evidence) => [evidence.id, evidence]),
   );
-  const sourceOrigins = new Set([
-    "game-design-spec", "source-code", "manifest", "command",
-    "scoreboard", "tag", "dialogue", "translation", "structure", "world-db",
-  ]);
   const bySubject = new Map(
     intent.nodes.map((node) => [node.id, node]),
   );
@@ -175,10 +214,7 @@ export function deriveAuditModelKnowledgeLookup(
     const node = bySubject.get(id);
     if (node === undefined || node.status === "hypothesis") return [];
     const sourceEvidenceIds = node.evidenceIds.filter((evidenceId) => {
-      const evidence = evidenceById.get(evidenceId);
-      if (evidence === undefined) return false;
-      return evidence.scope === "selected-artifact" ||
-        (evidence.scope === undefined && sourceOrigins.has(evidence.origin));
+      return isCurrentArtifactSourceEvidence(evidenceById.get(evidenceId));
     });
     return sourceEvidenceIds.length === 0
       ? []
@@ -207,6 +243,169 @@ export function deriveAuditModelKnowledgeLookup(
     omittedSupportedSubjectIds: supported.slice(4).map(({ node }) => node.id),
     grounding: bounded.length > 0 ? "SELECTED_ARTIFACT" : "GOAL_ONLY",
     authority: "SEARCH_HINT_NOT_GAMEPLAY_PROOF",
+  };
+}
+
+
+// This is a read-only retrieval projection of the already-loaded Knowledge
+// Catalog. The index and scores are ephemeral; source files retain authority.
+// No Knowledge entry can create a gameplay subject or a report finding.
+export function retrieveAuditTaskKnowledge(input: {
+  readonly catalog: KnowledgeCatalog;
+  readonly lookup: AuditModelTaskKnowledgeLookup;
+  readonly intent: GameplayIntentModel;
+  readonly edition?: KnowledgeEdition;
+}): AuditModelTaskKnowledgeSelection {
+  const empty = (): AuditModelTaskKnowledgeSelection => ({
+    status: "NO_SCOPED_MATCH",
+    references: [],
+    omitted: 0,
+    basis: "CURRENT_MAP_SOURCE_GROUNDED_MECHANICS",
+  });
+  if (
+    input.lookup.grounding !== "SELECTED_ARTIFACT" ||
+    input.lookup.matchedSubjectIds.length === 0 ||
+    input.lookup.sourceEvidenceIds.length === 0
+  ) return empty();
+
+  const subjects = new Map(input.intent.nodes.map((node) => [node.id, node]));
+  const evidenceById = new Map(
+    input.intent.evidence.map((evidence) => [evidence.id, evidence]),
+  );
+  const groundedEvidenceIds = new Set(
+    input.lookup.sourceEvidenceIds.filter((id) =>
+      isCurrentArtifactSourceEvidence(evidenceById.get(id))),
+  );
+  const groundedSubjectIds = input.lookup.matchedSubjectIds.filter((id) => {
+    const subject = subjects.get(id);
+    return subject !== undefined &&
+      subject.status !== "hypothesis" &&
+      subject.evidenceIds.some((evidenceId) =>
+        groundedEvidenceIds.has(evidenceId));
+  });
+  if (groundedSubjectIds.length === 0) return empty();
+  const common = new Set([
+    "the", "and", "from", "with", "this", "that", "game", "level",
+    "challenge", "start", "source", "state", "system", "gameplay",
+    "does", "what", "when", "where", "which", "that", "this",
+    "determine", "whether", "expected", "actual", "result",
+    "before", "after", "into", "with", "from", "keep",
+  ]);
+  const mechanicTokens = [...new Set(
+    groundedSubjectIds
+      .flatMap((id) =>
+        subjects.get(id)?.label.toLowerCase()
+          .match(/[\p{L}\p{N}]+/gu) ?? [])
+      .filter((token) => token.length >= 3 && !common.has(token)),
+  )].sort();
+  if (mechanicTokens.length === 0) return empty();
+  const questionTerms = [...new Set(
+    input.lookup.query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [],
+  )].filter((token) =>
+    token.length >= 4 &&
+    !common.has(token) &&
+    !mechanicTokens.includes(token));
+
+  const edition = input.edition;
+  const sourcesById = new Map(
+    input.catalog.sources.map((source) => [source.id, source]),
+  );
+  const entries = [
+    ...input.catalog.facts.map((item) => ({
+      kind: "fact" as const,
+      item,
+      statement: item.statement,
+      extra: [
+        ...item.capabilityTags,
+        ...item.riskSurfaces,
+        ...(item.diagnosticHints ?? []),
+      ],
+    })),
+    ...(input.catalog.relations ?? []).map((item) => ({
+      kind: "relation" as const,
+      item,
+      statement: item.subject + " " + item.kind + " " + item.object,
+      extra: [
+        ...(item.diagnosticHint === undefined ? [] : [item.diagnosticHint]),
+        ...(item.causalConsequences ?? []),
+      ],
+    })),
+  ].filter(({ item }) =>
+    item.classification !== "project-policy" &&
+    item.classification !== "open-assumption" &&
+    (edition === undefined ||
+      item.applicability.editions.includes(edition))
+  );
+  const documents = entries.map(({ item, statement, extra }) => ({
+    id: item.id,
+    text: [
+      item.id, item.domain, item.subject, statement, ...extra,
+    ].join(" "),
+  }));
+  const scores = scoreTextDocuments(documents, input.lookup.query);
+  const candidates = entries.flatMap(({ kind, item, statement, extra }, index) => {
+    const sourceIds = item.sourceIds;
+    const sources = sourceIds.flatMap((id) => {
+      const source = sourcesById.get(id);
+      return source === undefined ||
+          source.authority === "project-policy"
+        ? []
+        : [source];
+    });
+    if (sourceIds.length === 0 || sources.length !== sourceIds.length) {
+      return [];
+    }
+    const body = documents[index]?.text.toLowerCase() ?? "";
+    const bodyTerms = new Set(body.match(/[\p{L}\p{N}]+/gu) ?? []);
+    const matchedMechanicTerms = mechanicTokens.filter((token) =>
+      bodyTerms.has(token));
+    const matchedQuestionTerms = questionTerms.filter((token) =>
+      bodyTerms.has(token));
+    const minimumMatch = mechanicTokens.length >= 2 ? 2 : 1;
+    if (
+      matchedMechanicTerms.length < minimumMatch ||
+      (scores[item.id] ?? 0) <= 0
+    ) return [];
+
+    return [{
+      record: {
+        knowledgeId: item.id,
+        kind,
+        domain: item.domain,
+        statement,
+        classification: item.classification ?? "unspecified",
+        applicability: item.applicability,
+        editionCheck: edition === undefined
+          ? "NOT_EVALUATED" as const
+          : "MATCHED_EDITION_ONLY" as const,
+        sourceIds: [...sourceIds],
+        sources,
+        matchedMechanicTerms,
+        authority: "RETRIEVED_REFERENCE_NOT_BUG_PROOF" as const,
+      },
+      relevance: matchedMechanicTerms.length,
+      questionRelevance: matchedQuestionTerms.length,
+      score: scores[item.id] ?? 0,
+    }];
+  });
+  candidates.sort((a, b) =>
+    b.questionRelevance - a.questionRelevance ||
+    b.relevance - a.relevance ||
+    b.score - a.score ||
+    a.record.knowledgeId.localeCompare(b.record.knowledgeId));
+
+  // Prefer records answering the specific question, rather than merely
+  // repeating broad mechanic/domain words. A single broad prerequisite
+  // is safer than three weak coincidences when no specific term matches.
+  const focused = candidates.some((item) => item.questionRelevance > 0)
+    ? candidates.filter((item) => item.questionRelevance > 0)
+    : candidates.slice(0, 1);
+  const limit = 3;
+  return {
+    status: focused.length > 0 ? "MATCHED" : "NO_SCOPED_MATCH",
+    references: focused.slice(0, limit).map(({ record }) => record),
+    omitted: Math.max(0, candidates.length - Math.min(limit, focused.length)),
+    basis: "CURRENT_MAP_SOURCE_GROUNDED_MECHANICS",
   };
 }
 
@@ -518,6 +717,9 @@ export function deriveAuditModelTaskPackets(input: {
   readonly needValidationFindings?: readonly import("./map-audit-issue-projection.js").NeedValidationAuditIssueProjection[];
   readonly auditObligations?: readonly AuditObligation[];
   readonly userIntent?: AuditUserIntentEnvelope;
+  readonly knowledgeCatalog?: KnowledgeCatalog;
+  /** Only edition identity may be checked here; API/version remain unverified. */
+  readonly knowledgeEdition?: KnowledgeEdition;
 }): readonly AuditModelTaskPacket[] {
   const userPressure =
     deriveAuditUserIntentSearchPressure(
@@ -742,12 +944,26 @@ export function deriveAuditModelTaskPackets(input: {
       packet.decisionNeeded,
       packet.subjectIds,
     );
+    const retrievedKnowledge =
+      input.knowledgeCatalog === undefined ||
+      knowledgeLookup === undefined ||
+      knowledgeLookup.grounding !== "SELECTED_ARTIFACT"
+        ? undefined
+        : retrieveAuditTaskKnowledge({
+            catalog: input.knowledgeCatalog,
+            lookup: knowledgeLookup,
+            intent: input.intent,
+            ...(input.knowledgeEdition === undefined
+              ? {}
+              : { edition: input.knowledgeEdition }),
+          });
     return {
       ...packet,
       ...(userSearchContext === undefined
         ? {}
         : { userSearchContext }),
       ...(knowledgeLookup === undefined ? {} : { knowledgeLookup }),
+      ...(retrievedKnowledge === undefined ? {} : { retrievedKnowledge }),
     };
   });
 }

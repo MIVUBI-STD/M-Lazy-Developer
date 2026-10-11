@@ -1,3 +1,15 @@
+## Completed source integration batch — Knowledge-to-investigation (2026-10-11)
+
+**Outcome:** make the existing Knowledge Catalog useful to the *production* selected-map investigation rather than only the repository-search CLI. Reuse the already-loaded catalog and source-grounded `modelTaskPackets`. No new database, index store, report schema, agent, detector or audit entrypoint.
+
+**Integrated source path:** `runSelectedMapAudit(input.knowledgeCatalog)` → immutable selected-map inspection and Gameplay Intent → `deriveAuditModelTaskPackets()` → limited source-mechanic-anchored Knowledge matches (shared lexical scorer, original IDs/text/provenance, conservative edition-only check) → existing `formatSelectedMapAuditBrief()` view. The default MapAuditOutputV2 JSON, proof stages, BUG/NEED_VALIDATION admission and saved artifacts are unchanged. Unknown or map-unique mechanics remain in source-grounded investigation with NO_SCOPED_MATCH or without a match; no generic genre or historic bug rule is imposed.
+
+**Risk controls:** references are explicitly marked `RETRIEVED_REFERENCE_NOT_BUG_PROOF`. Edition match does not verify Minecraft/API version, experiments, author intent, runtime behavior, or actual detector use. Missing source provenance excludes a candidate. The limited selections are transient; exact-reference continuation preserves only unchanged task/question/evidence selections. Unmatched or goal-only contexts never trigger inventing facts.
+
+**Proof and next boundary:** static source/consumer review plus in-chat execution of source-equivalent pure functions using pinned real Knowledge catalog entries. Shared BM25 scorer parity matched the previous scorer on five queries; the selected-map lookup produced relevant arena/NPC matches, no match for an unrelated novel mechanic, and rejected spoofed source evidence. These are bounded retrieval checks, NOT full TypeScript/Vitest, CLI, Minecraft runtime, true gameplay understanding, or bug-recall acceptance. Vitest/typecheck and independent .mcworld proof remain NOT EXECUTED/UNKNOWN. Do not add new storage or registries to improve a vanity coverage number; measure relevance and bug detection on independently verifiable maps next.
+
+---
+
 ## Active batch — Selected-map audit operator integration (2026-10-11)
 
 **User outcome:** stop micro-patches. One selected-map production audit should yield immediately usable Game Understanding, Findings and Next Investigations without introducing a second report, model, graph, database or workflow. Canonical Map Audit Output V2 remains unchanged.

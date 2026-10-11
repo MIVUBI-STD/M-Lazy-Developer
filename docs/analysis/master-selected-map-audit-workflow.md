@@ -124,7 +124,7 @@ confirmed Pre-Audit Plan
 → npm run audit -- <selected.mcworld> [--brief]
 ~~~
 
-Only one selected artifact/version is authoritative. The optional `--brief` flag on the existing production audit CLI renders a bounded **Game Understanding / Findings / Next Investigations** view, sourced from the same `runSelectedMapAudit()` output. Without it, the CLI preserves the canonical Map Audit Output V2 JSON. The brief does not create another audit entrypoint, publish issues, change proof gates, or equate possible source-backed journeys with observed player behavior.
+Only one selected artifact/version is authoritative. The optional `--brief` flag on the existing production audit CLI renders a bounded **Game Understanding / Findings / Next Investigations** view, sourced from the same `runSelectedMapAudit()` output. Without it, the CLI preserves the canonical Map Audit Output V2 JSON. The brief does not create another audit entrypoint, publish issues, change proof gates, or equate possible source-backed journeys with observed player behavior. When the selected-map audit was supplied the existing Knowledge Catalog, model tasks with actual selected-artifact mechanics may carry bounded source-backed platform references. These remain search context, not expected-gameplay authority, a runtime observation, or detector-consumption proof; no knowledge match is never itself a gameplay defect.
 
 Do not mix:
 - old map versions;

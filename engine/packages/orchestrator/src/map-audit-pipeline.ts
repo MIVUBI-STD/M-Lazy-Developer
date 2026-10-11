@@ -590,6 +590,8 @@ function assembleSelectedMapAuditRun(
   reconciliation: AuditDemandReconciliation,
   userIntent?: AuditUserIntentEnvelope,
   runtimeProbeTranscript?: RuntimeProbeTranscript,
+  knowledgeCatalog?: KnowledgeCatalog,
+  previousModelTaskPackets?: readonly AuditModelTaskPacket[],
 ): SelectedMapAuditRun {
   const identity =
     deriveSelectedMapAuditIdentity(inspection);
@@ -642,7 +644,16 @@ function assembleSelectedMapAuditRun(
     (item): item is NeedValidationAuditIssueProjection =>
       item.status === "NEED_VALIDATION",
   );
-  const modelTaskPackets = deriveAuditModelTaskPackets({
+  // Only a resolved, conflict-free edition can filter Knowledge candidates.
+  // Matching edition does NOT prove game version/API/experiment applicability.
+  const edition = inspection.targetCompatibility.edition;
+  const knowledgeEdition =
+    inspection.knowledgeRuntime.profileResolved &&
+    inspection.knowledgeRuntime.profileConflicts.length === 0 &&
+    (edition === "bedrock" || edition === "education")
+      ? edition
+      : undefined;
+  const freshModelTaskPackets = deriveAuditModelTaskPackets({
     admission,
     procedure,
     graph: scenario.graph,
@@ -654,6 +665,26 @@ function assembleSelectedMapAuditRun(
     needValidationFindings,
     auditObligations:
       control.auditObligations,
+    ...(knowledgeCatalog === undefined ? {} : { knowledgeCatalog }),
+    ...(knowledgeEdition === undefined ? {} : { knowledgeEdition }),
+  });
+  // resolveSelectedMapAudit reuses the same immutable artifact but may have
+  // no catalogue argument. Carry only a bounded selection whose task goal,
+  // evidence and source-grounded query are still identical.
+  const previousById = new Map(
+    (previousModelTaskPackets ?? []).map((task) => [task.id, task]),
+  );
+  const modelTaskPackets = freshModelTaskPackets.map((task) => {
+    if (task.retrievedKnowledge !== undefined) return task;
+    const previous = previousById.get(task.id);
+    if (
+      previous?.retrievedKnowledge === undefined ||
+      previous.decisionNeeded !== task.decisionNeeded ||
+      previous.knowledgeLookup?.query !== task.knowledgeLookup?.query ||
+      JSON.stringify(previous.knowledgeLookup?.sourceEvidenceIds ?? []) !==
+        JSON.stringify(task.knowledgeLookup?.sourceEvidenceIds ?? [])
+    ) return task;
+    return { ...task, retrievedKnowledge: previous.retrievedKnowledge };
   });
   const allFindings = [
     ...control.issueLanes.BUG,
@@ -913,6 +944,7 @@ export async function runSelectedMapAudit(
     reconciliation,
     userIntent,
     input.runtimeProbeTranscript,
+    input.knowledgeCatalog,
   );
 }
 
@@ -973,6 +1005,8 @@ export function resolveSelectedMapAudit(
     input.audit.demandReconciliation,
     input.audit.userIntent,
     input.runtimeProbeTranscript,
+    undefined,
+    input.audit.modelTaskPackets,
   );
   const previousReasoning = Object.fromEntries([
     ...input.audit.mapAuditReport.bugs,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   retrieveResources,
+  scoreTextDocuments,
   type CatalogResource,
   type GraphEdge,
 } from "../src/retrieval.js";
@@ -65,6 +66,22 @@ const edges: readonly GraphEdge[] = [
 ];
 
 describe("retrieveResources", () => {
+  it("scores in-memory text with the same scorer used by repository and map audit context", () => {
+    const scores = scoreTextDocuments([{
+      id: "knowledge.inventory",
+      text: "Arena cleanup resets player inventory and equipment slots.",
+    }, {
+      id: "knowledge.chunks",
+      text: "Chunk simulation and ticking area loading.",
+    }], "arena cleanup inventory equipment");
+    expect(scores["knowledge.inventory"]).toBe(1);
+    expect(scores["knowledge.chunks"]).toBeUndefined();
+    expect(scoreTextDocuments([], "inventory")).toEqual({});
+    expect(scoreTextDocuments([{
+      id: "empty", text: "inventory",
+    }], "")).toEqual({});
+  });
+
   it("keeps routing structural and authority signals explicit", () => {
     const results = retrieveResources(resources, edges, {
       text: "inventory reconnect lifecycle",

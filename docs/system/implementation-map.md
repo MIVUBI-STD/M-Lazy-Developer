@@ -234,6 +234,18 @@ can actually execute it; it is not a new ChatGPT remote execution capability.
 
 The production `deriveAuditModelTaskPackets()` derives a small
 `knowledgeLookup` hint only for packets with scoped subject IDs.
+When the canonical audit receives an already-loaded `KnowledgeCatalog`, those
+same source-grounded tasks additionally select at most three in-memory
+fact/relation references using the **same scorer** as repository retrieval
+(`scoreTextDocuments()` in `analysis-planner/src/retrieval.ts`).
+The task `retrievedKnowledge` projection preserves original Knowledge IDs,
+statement, source IDs/URLs, omitted counts and declared edition applicability.
+It has no independent storage or fact authority. Edition match is a *partial
+claim scope check*, not version/experiment/API validation and never a bug
+proof. Source-unrelated or goal-only tasks do not receive fabricated matches.
+The existing `--brief` output displays these references only as investigation
+context; the canonical MapAuditOutputV2 schema and issue admission stay intact.
+
 Its query uses the packet's decision question and up to four grounded,
 non-hypothetical current-artifact mechanic labels. Unknown/historical-only
 subjects are retained in `unresolvedSubjectIds`, not promoted to gameplay
