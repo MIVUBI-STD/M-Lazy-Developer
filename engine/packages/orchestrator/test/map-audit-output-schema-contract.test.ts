@@ -2,6 +2,33 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("Map Audit Output V2 naming contract", () => {
+  it("keeps every canonical Game Reconstruction projection in the strict report schema", () => {
+    const view = schema.properties.gameplayStructure;
+    const projections = [
+      "mechanicReconstructions",
+      "gameplayJourneyCandidates",
+      "gameplayJourneyTruncated",
+      "guardedSourceTransitions",
+      "sourceFlowCandidates",
+      "authoredBehaviorRelationships",
+      "uninterpretedSourceFlows",
+    ];
+    expect(view.additionalProperties).toBe(false);
+    expect(view.required).toEqual(expect.arrayContaining(projections));
+    expect(Object.keys(view.properties)).toEqual(expect.arrayContaining(projections));
+    expect(view.properties.mechanicReconstructions.items.properties.runtimeStatus.const)
+      .toBe("NOT_OBSERVED");
+    expect(view.properties.sourceFlowCandidates.items.properties.runtimeStatus.const)
+      .toBe("NOT_OBSERVED");
+    expect(view.properties.gameplayJourneyCandidates.items.properties.runtimeStatus.const)
+      .toBe("NOT_OBSERVED");
+    expect(view.properties.features.items.properties.sourceBehaviorPaths.items.properties.association.enum)
+      .toEqual(["DIRECT_EFFECT_EVIDENCE", "CALL_PATH_CONTEXT"]);
+    expect(view.properties.guardedSourceTransitions.items.$ref)
+      .toContain("guardedStateTransitionCandidates");
+  });
+
+
   const schema = JSON.parse(
     readFileSync(
       ".agents/schemas/map-audit-output-v2.schema.json",

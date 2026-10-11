@@ -48,33 +48,11 @@ function purposeForNode(
   if (node.description?.trim()) {
     return node.description.trim();
   }
-  switch (node.kind) {
-    case "objective":
-      return "Provide or resolve a player-facing objective.";
-    case "phase":
-      return "Control a material stage of the player journey.";
-    case "lifecycle":
-      return "Maintain valid gameplay state across entry, active play, exit, cleanup, or recovery.";
-    case "mechanic":
-      return "Provide gameplay behavior required by one or more player scenarios.";
-    case "outcome":
-      return "Produce a player-visible gameplay result.";
-    case "resource":
-      return "Provide a gameplay resource required by another mechanic or state.";
-    case "state":
-      return "Represent gameplay state consumed by transitions or mechanics.";
-    case "actor":
-    case "role":
-      return "Participate in player-facing gameplay behavior.";
-    case "spatial-region":
-      return "Provide the world-space context required by gameplay.";
-    case "policy":
-      return "Constrain gameplay availability, ownership, capacity, or transition rules.";
-    case "game":
-      return "Represent the selected game's overall gameplay contract.";
-    default:
-      return "Support selected-artifact gameplay.";
-  }
+  // A recognized name and source presence are not a player-facing design
+  // contract. Expose the missing meaning instead of a generic invented goal.
+  return "Gameplay purpose UNKNOWN for " + node.kind +
+    ": the selected artifact identifies this subject, but its intended " +
+    "player-facing purpose is not independently established.";
 }
 
 function technicalRoleForNode(

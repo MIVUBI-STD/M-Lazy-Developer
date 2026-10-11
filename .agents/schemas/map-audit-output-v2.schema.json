@@ -2311,7 +2311,14 @@
         "unplacedFeatureIds",
         "unassignedSemanticIrEvidenceIds",
         "effectSlices",
-        "effectIdsWithoutComponentOwner"
+        "effectIdsWithoutComponentOwner",
+        "mechanicReconstructions",
+        "gameplayJourneyCandidates",
+        "gameplayJourneyTruncated",
+        "guardedSourceTransitions",
+        "sourceFlowCandidates",
+        "authoredBehaviorRelationships",
+        "uninterpretedSourceFlows"
       ],
       "properties": {
         "scope": {
@@ -4304,6 +4311,826 @@
                 "type": "integer",
                 "minimum": 0,
                 "description": "Number of exact-guard-contradictory path extensions excluded from the bounded candidate ingress search; NOT a runtime unreachable assertion. Temporal boundaries begin a separate guard evaluation segment."
+              }
+            }
+          }
+        },
+        "mechanicReconstructions": {
+          "type": "array",
+          "description": "Evidenced interpretation of recognized game features; no live execution proof.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "featureId",
+              "kind",
+              "name",
+              "meaningStatus",
+              "declaredEvidenceIds",
+              "exactSourceFlowIds",
+              "exactSourceStepIds",
+              "authoredBehaviorRelationIds",
+              "sourceGuardedTransitionCandidateIds",
+              "relations",
+              "unresolvedDimensions",
+              "runtimeStatus"
+            ],
+            "properties": {
+              "featureId": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "mechanic",
+                  "objective",
+                  "phase",
+                  "lifecycle",
+                  "outcome"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "meaningStatus": {
+                "enum": [
+                  "AUTHORED",
+                  "INFERRED"
+                ]
+              },
+              "declaredEvidenceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "exactSourceFlowIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "exactSourceStepIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "authoredBehaviorRelationIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "sourceGuardedTransitionCandidateIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "relations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "from",
+                    "to",
+                    "kind",
+                    "evidenceIds",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "evidenceIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "status": {
+                      "enum": [
+                        "AUTHORED_RELATION",
+                        "INFERRED_RELATION"
+                      ]
+                    }
+                  }
+                }
+              },
+              "unresolvedDimensions": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "NO_EXACT_IR_LINK",
+                    "NO_ACTIVATION_RELATION",
+                    "NO_STATE_OR_EFFECT_RELATION",
+                    "NO_OUTCOME_RELATION"
+                  ]
+                }
+              },
+              "runtimeStatus": {
+                "const": "NOT_OBSERVED"
+              }
+            }
+          }
+        },
+        "gameplayJourneyCandidates": {
+          "type": "array",
+          "description": "Bounded directed Intent paths; not observed player journeys.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "subjectIds",
+              "relationIds",
+              "evidenceIds",
+              "exactSourceFlowIds",
+              "meaningStatus",
+              "boundary",
+              "runtimeStatus"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "subjectIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "relationIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "evidenceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "exactSourceFlowIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "meaningStatus": {
+                "enum": [
+                  "SOURCE_AUTHORED",
+                  "SOURCE_INFERRED"
+                ]
+              },
+              "boundary": {
+                "enum": [
+                  "OUTCOME_SUBJECT",
+                  "SOURCE_SINK",
+                  "CYCLE",
+                  "DEPTH_LIMIT"
+                ]
+              },
+              "runtimeStatus": {
+                "const": "NOT_OBSERVED"
+              }
+            }
+          }
+        },
+        "gameplayJourneyTruncated": {
+          "type": "boolean"
+        },
+        "guardedSourceTransitions": {
+          "type": "array",
+          "description": "Authored guarded state candidates, not verified stage transitions.",
+          "items": {
+            "$ref": "#/properties/gameplayStructure/properties/effectSlices/items/properties/guardedStateTransitionCandidates/items"
+          }
+        },
+        "sourceFlowCandidates": {
+          "type": "array",
+          "description": "Exact technical source paths, not runtime game-flow observations.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "entryRegionId",
+              "entryKind",
+              "regionIds",
+              "executionEdgeIds",
+              "unresolvedExecutionEdgeIds",
+              "temporalRelationIds",
+              "branchPoints",
+              "sourceSteps",
+              "authoredBehaviorRelationIds",
+              "sourceOrderScope",
+              "runtimeStatus",
+              "exactFeatureIds",
+              "candidateScenarioContextIds",
+              "uninterpretedEvidenceIds",
+              "unclassifiedMaterialStepIds"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "entryRegionId": {
+                "type": "string"
+              },
+              "entryKind": {
+                "type": "string"
+              },
+              "regionIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "executionEdgeIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unresolvedExecutionEdgeIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "temporalRelationIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "branchPoints": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "expression",
+                    "source",
+                    "branches"
+                  ],
+                  "properties": {
+                    "expression": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "artifactId",
+                        "relativePath"
+                      ],
+                      "properties": {
+                        "artifactId": {
+                          "type": "string"
+                        },
+                        "relativePath": {
+                          "type": "string"
+                        },
+                        "jsonPointer": {
+                          "type": "string"
+                        },
+                        "range": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [],
+                          "properties": {
+                            "lineStart": {
+                              "type": "integer"
+                            },
+                            "lineEnd": {
+                              "type": "integer"
+                            },
+                            "columnStart": {
+                              "type": "integer"
+                            },
+                            "columnEnd": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "branches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "branch",
+                          "executionEdgeIds",
+                          "stateWriteOperationIds",
+                          "returnOutcomeIds",
+                          "resourceActionIds",
+                          "resourceReleaseActionIds",
+                          "precedenceEvidenceIds"
+                        ],
+                        "properties": {
+                          "branch": {
+                            "enum": [
+                              "true",
+                              "false"
+                            ]
+                          },
+                          "executionEdgeIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "stateWriteOperationIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "returnOutcomeIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "resourceActionIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "resourceReleaseActionIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "precedenceEvidenceIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "worldEffectIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "sourceSteps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "executionRegionId",
+                    "source"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "state",
+                        "resource-action",
+                        "return",
+                        "world-effect"
+                      ]
+                    },
+                    "executionRegionId": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "artifactId",
+                        "relativePath"
+                      ],
+                      "properties": {
+                        "artifactId": {
+                          "type": "string"
+                        },
+                        "relativePath": {
+                          "type": "string"
+                        },
+                        "jsonPointer": {
+                          "type": "string"
+                        },
+                        "range": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [],
+                          "properties": {
+                            "lineStart": {
+                              "type": "integer"
+                            },
+                            "lineEnd": {
+                              "type": "integer"
+                            },
+                            "columnStart": {
+                              "type": "integer"
+                            },
+                            "columnEnd": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "operation": {
+                      "type": "string"
+                    },
+                    "targetLabel": {
+                      "type": "string"
+                    },
+                    "authoredTimingSeconds": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "authoredBehaviorRelationIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "sourceOrderScope": {
+                "const": "PER_EXECUTION_REGION_ONLY"
+              },
+              "runtimeStatus": {
+                "const": "NOT_OBSERVED"
+              },
+              "exactFeatureIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "candidateScenarioContextIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "uninterpretedEvidenceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unclassifiedMaterialStepIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "authoredBehaviorRelationships": {
+          "type": "array",
+          "description": "Authored entity/dialogue/animation source references, not activation proof.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "kind",
+              "ownerId",
+              "from",
+              "to",
+              "resolution",
+              "source",
+              "reason"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "entity-event-trigger",
+                  "external-event-trigger",
+                  "entity-controller-activation",
+                  "controller-state-transition",
+                  "controller-animation-reference",
+                  "controller-state-command",
+                  "entity-animation-activation",
+                  "controller-animation-timeline",
+                  "animation-timeline-command",
+                  "animation-timeline-uncertainty",
+                  "dialogue-button-command",
+                  "dialogue-scene-command"
+                ]
+              },
+              "ownerId": {
+                "type": "string"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "resolution": {
+                "enum": [
+                  "EXACT_REFERENCE",
+                  "POSSIBLE_TARGET",
+                  "UNRESOLVED"
+                ]
+              },
+              "source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "artifactId",
+                  "relativePath"
+                ],
+                "properties": {
+                  "artifactId": {
+                    "type": "string"
+                  },
+                  "relativePath": {
+                    "type": "string"
+                  },
+                  "jsonPointer": {
+                    "type": "string"
+                  },
+                  "range": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [],
+                    "properties": {
+                      "lineStart": {
+                        "type": "integer"
+                      },
+                      "lineEnd": {
+                        "type": "integer"
+                      },
+                      "columnStart": {
+                        "type": "integer"
+                      },
+                      "columnEnd": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              },
+              "targetSource": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "artifactId",
+                  "relativePath"
+                ],
+                "properties": {
+                  "artifactId": {
+                    "type": "string"
+                  },
+                  "relativePath": {
+                    "type": "string"
+                  },
+                  "jsonPointer": {
+                    "type": "string"
+                  },
+                  "range": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [],
+                    "properties": {
+                      "lineStart": {
+                        "type": "integer"
+                      },
+                      "lineEnd": {
+                        "type": "integer"
+                      },
+                      "columnStart": {
+                        "type": "integer"
+                      },
+                      "columnEnd": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              },
+              "condition": {
+                "type": "string"
+              },
+              "timingSeconds": {
+                "type": "number"
+              },
+              "interactionLabel": {
+                "type": "string"
+              },
+              "worldEffectIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "stateOperationIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "executionEdgeIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "uninterpretedSourceFlows": {
+          "type": "array",
+          "description": "Unclassified source regions remain visible; never automatically named game mechanics.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "unknownId",
+              "entryRegionId",
+              "materialEvidenceIds",
+              "effectPaths",
+              "materialIdsWithoutEffectSlice"
+            ],
+            "properties": {
+              "unknownId": {
+                "type": "string"
+              },
+              "entryRegionId": {
+                "type": "string"
+              },
+              "materialEvidenceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "materialIdsWithoutEffectSlice": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "effectPaths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "effectId",
+                    "effectKind",
+                    "worldEffectKind",
+                    "targetLabel",
+                    "evidenceStatus",
+                    "effectGuards",
+                    "candidateOutcomeIds",
+                    "guardStateReadIds",
+                    "sourceLocalStateValueHandoffs",
+                    "matchingIngress",
+                    "candidateFeatureContextIds"
+                  ],
+                  "properties": {
+                    "effectId": {
+                      "type": "string"
+                    },
+                    "effectKind": {
+                      "enum": [
+                        "state-mutation",
+                        "resource-action",
+                        "authored-return",
+                        "world-effect"
+                      ]
+                    },
+                    "worldEffectKind": {
+                      "enum": [
+                        "entity-spawn",
+                        "teleport",
+                        "block-mutation",
+                        "structure-load",
+                        "dialogue",
+                        "entity-event",
+                        null
+                      ]
+                    },
+                    "targetLabel": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "evidenceStatus": {
+                      "enum": [
+                        "CANDIDATE_INGRESS",
+                        "NO_KNOWN_INGRESS",
+                        "TRUNCATED"
+                      ]
+                    },
+                    "effectGuards": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/properties/gameplayStructure/properties/effectSlices/items/properties/effectGuards/items"
+                      }
+                    },
+                    "candidateOutcomeIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "guardStateReadIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sourceLocalStateValueHandoffs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/properties/gameplayStructure/properties/effectSlices/items/properties/sourceLocalStateValueHandoffs/items"
+                      }
+                    },
+                    "matchingIngress": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "executionEdgeIds",
+                          "pathGuards",
+                          "temporalBoundaryEvidence",
+                          "candidateCallerStateWriteIds"
+                        ],
+                        "properties": {
+                          "executionEdgeIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "pathGuards": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/properties/gameplayStructure/properties/effectSlices/items/properties/candidateIngress/items/properties/pathGuards/items"
+                            }
+                          },
+                          "temporalBoundaryEvidence": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/properties/gameplayStructure/properties/effectSlices/items/properties/candidateIngress/items/properties/temporalBoundaryEvidence/items"
+                            }
+                          },
+                          "candidateCallerStateWriteIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "candidateFeatureContextIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
               }
             }
           }

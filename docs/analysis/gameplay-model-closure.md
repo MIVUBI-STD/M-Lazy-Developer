@@ -87,6 +87,20 @@ implementation detail
 → assumed design
 ```
 
+## Understand → Model output contract
+
+The existing Map Audit V2 `gameplayStructure` is one **derived** navigation
+view over the canonical Intent, Semantic IR, Behavior Model and Scenario
+Graph. Its strict output schema must preserve recognized mechanics, source
+flows, authored relations, guarded transitions, journey candidates and
+uninterpreted evidence without inventing a new graph or gameplay authority.
+
+A feature label and parser evidence alone do not establish intended
+player-facing purpose. If purpose is not independently grounded, report
+`UNKNOWN` rather than manufacturing a generic game design statement.
+`DIRECT_EFFECT_EVIDENCE` and `CALL_PATH_CONTEXT` remain distinct, and
+authored paths remain `NOT_OBSERVED` until runtime evidence exists.
+
 ## Discovery independence rule
 
 Game Reconstruction is one operator process with the ordered internal responsibilities
