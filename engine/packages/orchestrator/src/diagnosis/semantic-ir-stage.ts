@@ -887,7 +887,9 @@ export function buildInspectionSemanticIr(
   const seenBehaviorCommandSites = new Set<string>();
   for (const relation of input.authoredBehaviorRelations ?? []) {
     if (relation.kind !== "animation-timeline-command" &&
-        relation.kind !== "controller-state-command") continue;
+        relation.kind !== "controller-state-command" &&
+        relation.kind !== "dialogue-button-command" &&
+        relation.kind !== "dialogue-scene-command") continue;
     const identity = JSON.stringify([
       relation.kind, relation.from, relation.source.artifactId,
       relation.source.relativePath, relation.source.jsonPointer,
@@ -895,9 +897,13 @@ export function buildInspectionSemanticIr(
     ]);
     if (seenBehaviorCommandSites.has(identity)) continue;
     seenBehaviorCommandSites.add(identity);
-    const regionId = "exec:behavior-animation:" + token(relation.from);
+    const dialogueCommand = relation.kind === "dialogue-button-command" ||
+      relation.kind === "dialogue-scene-command";
+    const regionId = (dialogueCommand ? "exec:dialogue-command:" :
+      "exec:behavior-animation:") + token(relation.from);
     ensureRegion({
-      id: regionId, kind: "behavior-animation",
+      id: regionId, kind: dialogueCommand
+        ? "dialogue-command" : "behavior-animation",
       ownerId: relation.ownerId, label: relation.from,
       source: relation.source,
     });
@@ -905,7 +911,8 @@ export function buildInspectionSemanticIr(
       relation.to, relation.source));
     addCommandWorldEffects(
       effects, regionId,
-      relation.kind === "animation-timeline-command"
+      dialogueCommand ? "dialogue-command" :
+        relation.kind === "animation-timeline-command"
         ? "behavior-animation-command" : "behavior-controller-command",
       undefined, undefined, relation.timingSeconds,
     );
@@ -913,8 +920,13 @@ export function buildInspectionSemanticIr(
   const behaviorRelationships = (input.authoredBehaviorRelations ?? [])
     .map(relation => {
       if (relation.kind !== "animation-timeline-command" &&
-          relation.kind !== "controller-state-command") return relation;
-      const regionId = "exec:behavior-animation:" + token(relation.from);
+          relation.kind !== "controller-state-command" &&
+          relation.kind !== "dialogue-button-command" &&
+          relation.kind !== "dialogue-scene-command") return relation;
+      const dialogueCommand = relation.kind === "dialogue-button-command" ||
+        relation.kind === "dialogue-scene-command";
+      const regionId = (dialogueCommand ? "exec:dialogue-command:" :
+        "exec:behavior-animation:") + token(relation.from);
       const worldEffectIds = [...worldEffects.values()]
         .filter(effect => effect.executionRegionId === regionId &&
           effect.source.artifactId === relation.source.artifactId &&

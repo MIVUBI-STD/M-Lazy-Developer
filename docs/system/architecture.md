@@ -97,6 +97,32 @@ For each authored effect/return the owner traverses *only uniquely identified re
 
 The existing `deriveGameplayArchitectureNavigation()` consumes these behavior-model slices once, connects effects to graph components only by exact evidence ID and separately labels feature associations encountered on a source-call path. It publishes them through the already-established `MapAuditOutputV2.gameplayStructure` view. Static path association is not player-facing gameplay meaning or PROVEN causality; unowned effect IDs remain explicit. Testing/CI are deferred until the integrated BUILD acceptance boundary.
 
+### Authored NPC dialogue interaction → exact command → IR source effects
+
+The canonical dialogue parser retains JSON-pointer identities for scene
+indices, displayed NPC/button text and each open/close/button command, even
+when two scenes share a scene_tag. Its command analyzer receives the exact
+command source location. The existing gameplay surface owner derives
+dialogue-button-command / dialogue-scene-command relations from exact
+button indices rather than semantic similarity between displayed words and
+source symbols.
+
+The existing Semantic IR normalizes these commands through its canonical
+command analyzer and associates source-observed world effect IDs with the
+dialogue relations. The Gameplay Intent owner admits an INFERRED NPC
+interaction mechanic candidate only for a button with literal visible text
+and an exact authored command site. It retains the matching world effects
+and explicit unknown for objective, activation and runtime success. Unlabelled
+buttons, scene open/close commands, and non-world-effect commands remain
+technical evidence, not manufactured player objectives.
+
+The existing Gameplay Scenario Compiler automatically consumes these
+classified interaction candidates and exact IR IDs through existing feature
+reconstruction; Map Audit V2 receives the original derived gameplayStructure.
+The translation .lang parser now splits real CR/LF lines instead of literal
+backslash sequences, preserving authored line locators. No second graph,
+intent store, classifier or runtime evaluator is introduced.
+
 ### Evidence-linked mechanic profiles and authored journey candidates
 
 The existing Scenario Compiler now reconciles classified Gameplay Intent

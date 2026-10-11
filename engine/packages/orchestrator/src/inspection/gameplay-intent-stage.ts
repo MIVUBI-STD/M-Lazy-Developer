@@ -812,6 +812,76 @@ export function buildGameplayIntentModel(
     }
   }
 
+  // Source-grounded authored relations are technical evidence. Only NPC
+  // buttons with literal visible text and an exact authored command site
+  // admit a bounded UI-interaction candidate; no win/phase purpose inferred.
+  const authoredByOwner = new Map<string, string[]>();
+  const uiByOwner = new Map<string, {
+    label: string; evidenceIds: Set<string>;
+  }>();
+  for (const relation of input.semanticIr?.execution.authoredBehaviorRelations ?? []) {
+    if (input.artifactId !== undefined &&
+        relation.source.artifactId !== input.artifactId) continue;
+    evidence.set(relation.id, {
+      id: relation.id,
+      origin: relation.kind.startsWith("dialogue-") ? "dialogue" : "source-code",
+      locator: relation.source.relativePath,
+      scope: "selected-artifact",
+      summary: relation.kind + ": " + relation.reason +
+        (relation.condition ? " Authored condition: " + relation.condition : ""),
+    });
+    const evidenceIds = [relation.id];
+    for (const effectId of relation.worldEffectIds ?? []) {
+      const effect = input.semanticIr?.execution.worldEffects?.find(item =>
+        item.id === effectId &&
+        item.source.artifactId === relation.source.artifactId &&
+        item.source.relativePath === relation.source.relativePath &&
+        item.source.jsonPointer === relation.source.jsonPointer);
+      if (!effect) continue;
+      evidenceIds.push(effect.id);
+      evidence.set(effect.id, {
+        id: effect.id, origin: "source-code",
+        locator: effect.source.relativePath, scope: "selected-artifact",
+        summary: "Parsed authored command world-effect attempt; UI activation and runtime success remain unverified.",
+      });
+    }
+    const owned = authoredByOwner.get(relation.ownerId) ?? [];
+    owned.push(...evidenceIds);
+    authoredByOwner.set(relation.ownerId, owned);
+    if (relation.kind === "dialogue-button-command" &&
+        relation.resolution === "EXACT_REFERENCE" &&
+        relation.interactionLabel?.trim()) {
+      const existing = uiByOwner.get(relation.ownerId);
+      if (existing && existing.label !== relation.interactionLabel.trim()) continue;
+      const value = existing ?? {
+        label: relation.interactionLabel.trim(), evidenceIds: new Set<string>(),
+      };
+      evidenceIds.forEach(id => value.evidenceIds.add(id));
+      uiByOwner.set(relation.ownerId, value);
+    }
+  }
+  for (const [ownerId, ui] of uiByOwner) {
+    const id = "mechanic:dialogue-interaction:" + encodeURIComponent(ownerId);
+    nodes.set(id, {
+      id, kind: "mechanic",
+      label: "NPC interaction: " + ui.label,
+      status: "inferred",
+      description: "NPC dialogue button with an authored command. This grounds an interaction surface, not its game-design purpose, availability or effect success.",
+      evidenceIds: [...ui.evidenceIds].sort(),
+    });
+  }
+  for (const [ownerId, evidenceIds] of authoredByOwner) {
+    const uiId = "mechanic:dialogue-interaction:" + encodeURIComponent(ownerId);
+    intentUnknowns.push({
+      id: "unknown:authored-behavior:" + encodeURIComponent(ownerId),
+      question: uiByOwner.has(ownerId)
+        ? "NPC interaction is source-grounded, but gameplay objective, activation conditions and actual command outcome remain unverified."
+        : "Authored entity/controller/dialogue/script references exist; their activation and gameplay meaning remain unclassified.",
+      blockedSubjectIds: uiByOwner.has(ownerId) ? [uiId] : [],
+      evidenceIds: [...new Set(evidenceIds)].sort(),
+    });
+  }
+
   // Reconcile observed material execution against recognized gameplay subjects.
   // A technical state/return/resource chain is not a named mechanic merely
   // because it exists. Keep unclassified behavior explicit without creating
@@ -898,31 +968,6 @@ export function buildGameplayIntentModel(
         sourceEntryRegionId: candidate.identity,
       });
     }
-  }
-
-  // Data-driven cross-source links are technical references, not automatically
-  // named mechanics or confirmed gameplay paths. Keep them actionable at A7.
-  const authoredByOwner = new Map<string, string[]>();
-  for (const relation of input.semanticIr?.execution.authoredBehaviorRelations ?? []) {
-    evidence.set(relation.id, {
-      id: relation.id,
-      origin: "source-code",
-      locator: relation.source.relativePath,
-      scope: "selected-artifact",
-      summary: relation.kind + ": " + relation.reason +
-        (relation.condition ? " Authored condition: " + relation.condition : ""),
-    });
-    const owned = authoredByOwner.get(relation.ownerId) ?? [];
-    owned.push(relation.id);
-    authoredByOwner.set(relation.ownerId, owned);
-  }
-  for (const [ownerId, evidenceIds] of authoredByOwner) {
-    intentUnknowns.push({
-      id: "unknown:authored-behavior:" + encodeURIComponent(ownerId),
-      question: "Authored entity/controller/script references are grounded as source relationships, but their event activation, animation timeline and player-facing mechanic meaning are not yet established.",
-      blockedSubjectIds: [],
-      evidenceIds: [...new Set(evidenceIds)].sort(),
-    });
   }
 
   const model: GameplayIntentModel = {

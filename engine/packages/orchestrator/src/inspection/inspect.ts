@@ -39,7 +39,10 @@ import { buildInspectionSemanticIr } from "../diagnosis/semantic-ir-stage.js";
 import { deriveCrossFileCallEdges } from "../../../../analyzers/scripts/src/index.js";
 import { semanticIrDiagnostics } from "../diagnosis/semantic-ir-diagnostics.js";
 import { buildGameplayIntentModel } from "./gameplay-intent-stage.js";
-import { deriveGameplayIntentSurfaceSignals } from "./gameplay-intent-surface-signals.js";
+import {
+  deriveGameplayIntentSurfaceSignals,
+  deriveAuthoredDialogueBehaviorRelations,
+} from "./gameplay-intent-surface-signals.js";
 import { deriveGameplayResourceTextSignals } from "./gameplay-intent-resource-text.js";
 import { indexSelectedArtifactContractSources } from "./inspect-contract-source.js";
 import { analyzeGameplayIntentRuntime } from "./gameplay-intent-runtime-stage.js";
@@ -154,7 +157,10 @@ export async function inspectDirectory(
   });
   const semanticIr = buildInspectionSemanticIr({
     parsedFunctions,
-    authoredBehaviorRelations,
+    authoredBehaviorRelations: [
+      ...authoredBehaviorRelations,
+      ...deriveAuthoredDialogueBehaviorRelations(parsedDialogueDocuments),
+    ],
     parsedScripts,
     crossFileCallEdges,
     tickFunctionRegistrations,

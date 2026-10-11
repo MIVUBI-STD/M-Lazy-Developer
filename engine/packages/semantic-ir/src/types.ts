@@ -11,7 +11,8 @@ export type ExecutionRegionKind =
   | "script-function"
   | "script-callback"
   | "mcfunction"
-  | "behavior-animation";
+  | "behavior-animation"
+  | "dialogue-command";
 
 export interface ExecutionRegion {
   id: string;
@@ -96,7 +97,8 @@ export interface AuthoredWorldEffect {
     "structure-load" | "dialogue" | "entity-event";
   readonly mechanism: "mcfunction-command" | "script-command" |
     "script-api" | "script-spatial" |
-    "behavior-animation-command" | "behavior-controller-command";
+    "behavior-animation-command" | "behavior-controller-command" |
+    "dialogue-command";
   readonly targetLabel: string;
   readonly precision: "parsed-command" | "typed-method" |
     "bounded-method" | "resolved-spatial" | "unresolved-spatial";
@@ -202,7 +204,8 @@ export interface AuthoredBehaviorRelation {
     | "entity-controller-activation" | "controller-state-transition"
     | "controller-animation-reference" | "controller-state-command"
     | "entity-animation-activation" | "controller-animation-timeline"
-    | "animation-timeline-command" | "animation-timeline-uncertainty";
+    | "animation-timeline-command" | "animation-timeline-uncertainty"
+    | "dialogue-button-command" | "dialogue-scene-command";
   readonly ownerId: string;
   readonly from: string;
   readonly to: string;
@@ -212,6 +215,8 @@ export interface AuthoredBehaviorRelation {
   readonly condition?: string;
   /** Authored seconds for timeline commands, never a runtime observation. */
   readonly timingSeconds?: number;
+  /** Authored NPC button label, not proof of game-design objective. */
+  readonly interactionLabel?: string;
   /** Semantic IR world effects grounded in this exact command source site. */
   readonly worldEffectIds?: readonly string[];
   readonly reason: string;

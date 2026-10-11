@@ -1,7 +1,7 @@
 import type { SourceRef } from "../../../packages/project-model/src/index.js";
 
 export const DIALOGUE_PARSER_REVISION =
-  "m-bedrock-dialogue-parser:1";
+  "m-bedrock-dialogue-parser:2";
 import { analyzeCommand } from "../../commands/src/index.js";
 import type {
   DialogueCommandTrigger,
@@ -36,17 +36,22 @@ function parseCommands(
   values: unknown,
   trigger: DialogueCommandTrigger,
   source: SourceRef,
+  pointer: string,
   buttonIndex?: number,
 ): DialogueSceneCommand[] {
   if (!Array.isArray(values)) return [];
-  return values.flatMap((value) => {
+  return values.flatMap((value, index) => {
     const command = normalizedCommand(value);
     if (!command) return [];
+    const commandSource: SourceRef = {
+      ...source, jsonPointer: pointer + "/" + index,
+    };
     return [{
       raw: command,
       trigger,
       ...(buttonIndex !== undefined ? { buttonIndex } : {}),
-      analysis: analyzeCommand(command, source),
+      source: commandSource,
+      analysis: analyzeCommand(command, commandSource),
     }];
   });
 }
@@ -54,15 +59,21 @@ function parseCommands(
 function parseScene(
   value: unknown,
   source: SourceRef,
+  sceneIndex: number,
 ): ParsedDialogueScene | undefined {
   const record = asRecord(value);
   if (!record || typeof record.scene_tag !== "string" || !record.scene_tag.trim()) {
     return undefined;
   }
-
+  const scenePath = "/minecraft:npc_dialogue/scenes/" + sceneIndex;
+  const at = (pointer: string): SourceRef => ({
+    ...source, jsonPointer: scenePath + pointer,
+  });
   const commands: DialogueSceneCommand[] = [
-    ...parseCommands(record.on_open_commands, "open", source),
-    ...parseCommands(record.on_close_commands, "close", source),
+    ...parseCommands(record.on_open_commands, "open", source,
+      scenePath + "/on_open_commands"),
+    ...parseCommands(record.on_close_commands, "close", source,
+      scenePath + "/on_close_commands"),
   ];
   const text: DialogueDisplayText[] = [];
   const npcName = displayText(record.npc_name);
@@ -71,12 +82,14 @@ function parseScene(
     text.push({
       kind: "npc-name",
       text: npcName,
+      source: at("/npc_name"),
     });
   }
   if (body) {
     text.push({
       kind: "body",
       text: body,
+      source: at("/text"),
     });
   }
 
@@ -92,12 +105,15 @@ function parseScene(
           kind: "button",
           text: buttonText,
           buttonIndex,
+          source: at("/buttons/" + buttonIndex +
+            (displayText(button.name) ? "/name" : "/text")),
         });
       }
       commands.push(...parseCommands(
         button.commands,
         "button",
         source,
+        scenePath + "/buttons/" + buttonIndex + "/commands",
         buttonIndex,
       ));
     });
@@ -105,6 +121,7 @@ function parseScene(
 
   return {
     sceneTag: record.scene_tag.trim(),
+    source: at(""),
     commands,
     displayText: text,
   };
@@ -119,7 +136,7 @@ export function parseDialogueDocument(
   if (!root || !dialogue || !Array.isArray(dialogue.scenes)) return undefined;
 
   const scenes = dialogue.scenes
-    .map((value) => parseScene(value, source))
+    .map((value, index) => parseScene(value, source, index))
     .filter((scene): scene is ParsedDialogueScene => scene !== undefined);
 
   const counts = new Map<string, number>();

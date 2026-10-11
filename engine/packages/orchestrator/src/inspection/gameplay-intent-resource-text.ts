@@ -20,7 +20,7 @@ function parseLang(
   relativePath: string,
 ): readonly GameplayResourceTextEntry[] {
   return source
-    .split(/\\r?\\n/)
+    .split(/\r?\n/)
     .flatMap((raw, index) => {
       const line = raw.trim();
       if (

@@ -8,6 +8,7 @@ import type {
 import type {
   ParsedEntityDefinition,
 } from "../../../../analyzers/entities/src/index.js";
+import type { AuthoredBehaviorRelation } from "../../../semantic-ir/src/index.js";
 
 export interface GameplayIntentSurfaceSignalSource {
   readonly functions: readonly {
@@ -134,4 +135,62 @@ export function deriveGameplayIntentSurfaceSignals(
       a.subjectKey.localeCompare(b.subjectKey) ||
       a.locator.localeCompare(b.locator),
   );
+}
+
+
+/**
+ * Dialogue button → literal command linkage is source-authored, unlike
+ * semantic similarity between a phrase and a feature name.
+ * The command analyzer in ParsedDialogueDocument already owns syntax;
+ * world effects will be normalized by the existing Semantic IR producer.
+ */
+export function deriveAuthoredDialogueBehaviorRelations(
+  documents: readonly (ParsedDialogueDocument | undefined)[],
+): readonly AuthoredBehaviorRelation[] {
+  const result: AuthoredBehaviorRelation[] = [];
+  for (const document of documents) {
+    if (!document) continue;
+    for (const scene of document.scenes) {
+      const sceneSource = scene.source;
+      if (!sceneSource?.jsonPointer) continue;
+      for (const command of scene.commands) {
+        if (!command.source?.jsonPointer) continue;
+        const label = command.trigger === "button"
+          ? (scene.displayText ?? []).find(item =>
+              item.kind === "button" &&
+              item.buttonIndex === command.buttonIndex &&
+              item.source !== undefined)
+          : undefined;
+        const ownerId = [
+          "dialogue-interaction",
+          document.source.relativePath,
+          sceneSource.jsonPointer,
+          command.trigger,
+          command.trigger === "button" ? String(command.buttonIndex) : "-",
+        ].map(encodeURIComponent).join(":");
+        result.push({
+          id: [
+            "authored-dialogue-command",
+            document.source.artifactId,
+            document.source.relativePath,
+            command.source.jsonPointer,
+          ].map(encodeURIComponent).join(":"),
+          kind: command.trigger === "button"
+            ? "dialogue-button-command" : "dialogue-scene-command",
+          ownerId,
+          from: ownerId,
+          to: command.raw,
+          source: command.source,
+          resolution: label?.source
+            ? "EXACT_REFERENCE" : "POSSIBLE_TARGET",
+          ...(label?.source ? { targetSource: label.source } : {}),
+          ...(label?.text ? { interactionLabel: label.text } : {}),
+          reason: label?.text
+            ? "NPC dialogue button text and authored command are bound by exact scene/button index; activation and effect success remain unknown."
+            : "NPC scene open/close or unlabelled button command; player-facing intent and invocation remain unknown.",
+        });
+      }
+    }
+  }
+  return result.sort((a, b) => a.id.localeCompare(b.id));
 }
