@@ -729,6 +729,10 @@ export function formatSelectedMapAuditBrief(input: {
     intent.evidence.map((item) => [item.id, item]),
   );
   const features = report.gameplayStructure?.features ?? [];
+  const reconstructionByFeature = new Map(
+    (report.gameplayStructure?.mechanicReconstructions ?? [])
+      .map((mechanic) => [mechanic.featureId, mechanic] as const),
+  );
   const journeys = report.gameplayStructure?.gameplayJourneyCandidates ?? [];
   const findings = [...report.bugs, ...report.designMismatches];
   const unresolvedSurfaces = report.gameplayClosure.surfaceInventory.filter(
@@ -772,6 +776,15 @@ export function formatSelectedMapAuditBrief(input: {
       references.length > 0
         ? "  Source: " + references.slice(0, 3).join("; ")
         : "  Source locator: unresolved",
+      "  Source-derived relations: activation " +
+        feature.activationRelationIds.length + ", effects " +
+        feature.effectRelationIds.length + ", transitions " +
+        feature.transitionRelationIds.length + ", outcomes " +
+        feature.outcomeRelationIds.length + ".",
+      ...(reconstructionByFeature.get(feature.id)?.unresolvedDimensions.length
+        ? ["  Unresolved mechanics: " +
+          reconstructionByFeature.get(feature.id)!.unresolvedDimensions.join(", ")]
+        : []),
     );
   }
   if (features.length > 12) {
@@ -800,6 +813,10 @@ export function formatSelectedMapAuditBrief(input: {
       "  Impact: " + concise(finding.playerImpact),
       "  Expected / actual: " + concise(finding.expected) + " / " +
         concise(finding.actual),
+      ...(finding.evidenceIds.length === 0
+        ? ["  Source evidence: UNRESOLVED"]
+        : ["  Evidence IDs: " +
+          finding.evidenceIds.slice(0, 5).map(concise).join("; ")]),
       ...(finding.missingProof === undefined ? [] :
         ["  Missing proof: " + concise(finding.missingProof)]),
     );
@@ -824,7 +841,14 @@ export function formatSelectedMapAuditBrief(input: {
         e.locator !== undefined ? [e.locator] : []),
     ])];
     out.push(
-      "- " + task.kind + ": " + concise(task.decisionNeeded),
+      "- " + task.kind + " [" + concise(task.id) + "]: " +
+        concise(task.decisionNeeded),
+      ...(task.causalLinkId === undefined ? []
+        : ["  Causal link: " + concise(task.causalLinkId)]),
+      ...(task.unresolvedEvidenceIds.length === 0 ? []
+        : ["  Missing source evidence: " +
+          task.unresolvedEvidenceIds.slice(0, 5).map(concise).join("; ")]),
+      "  Stop condition: " + concise(task.stopCondition),
       ...(locations.length === 0 ? [] :
         ["  Source: " + locations.slice(0, 4).map(concise).join("; ")]),
       ...(task.knowledgeLookup === undefined ? [] :

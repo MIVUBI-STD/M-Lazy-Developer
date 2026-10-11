@@ -1,6 +1,10 @@
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   runSelectedMapAudit,
+  applySelectedMapAuditModelResponses,
+  projectSelectedMapAuditModelHandoff,
+  type SelectedMapAuditModelResponseBatch,
   type SelectedMapAuditRuntimeTarget,
 } from "../../../engine/packages/orchestrator/src/map-audit-pipeline.js";
 import type {
@@ -26,36 +30,68 @@ function runtimeTarget(
 
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
-  const briefCount = rawArgs.filter((arg) => arg === "--brief").length;
-  if (briefCount > 1) {
-    throw new Error("--brief may only be supplied once");
+  const auditArgs: string[] = [];
+  let brief = false;
+  let handoff = false;
+  let handoffOffset = 0;
+  let offsetSupplied = false;
+  let responsesPath: string | undefined;
+  let expectedArtifactFingerprint: string | undefined;
+
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const argument = rawArgs[index]!;
+    if (argument === "--brief" || argument === "--handoff") {
+      if ((argument === "--brief" && brief) ||
+          (argument === "--handoff" && handoff)) {
+        throw new Error(argument + " may only be supplied once");
+      }
+      if (argument === "--brief") brief = true;
+      else handoff = true;
+      continue;
+    }
+    if (argument === "--expected-sha256" ||
+        argument === "--responses" ||
+        argument === "--handoff-offset") {
+      const value = rawArgs[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error(argument + " requires a value");
+      }
+      if (argument === "--expected-sha256") {
+        if (expectedArtifactFingerprint !== undefined) {
+          throw new Error("--expected-sha256 may only be supplied once");
+        }
+        expectedArtifactFingerprint = value;
+      } else if (argument === "--responses") {
+        if (responsesPath !== undefined) {
+          throw new Error("--responses may only be supplied once");
+        }
+        responsesPath = value;
+      } else {
+        if (offsetSupplied || !/^(0|[1-9][0-9]*)$/.test(value)) {
+          throw new Error("--handoff-offset must be a single nonnegative integer");
+        }
+        handoffOffset = Number(value);
+        if (!Number.isSafeInteger(handoffOffset)) {
+          throw new Error("--handoff-offset exceeds supported integer range");
+        }
+        offsetSupplied = true;
+      }
+      index += 1;
+      continue;
+    }
+    auditArgs.push(argument);
   }
-  const brief = briefCount === 1;
-  const args = rawArgs.filter((arg) => arg !== "--brief");
-  const fingerprintFlags = args.flatMap((arg, index) =>
-    arg === "--expected-sha256" ? [index] : []
-  );
-  if (fingerprintFlags.length > 1) {
-    throw new Error("--expected-sha256 may only be supplied once");
+  if (brief && handoff) {
+    throw new Error("--brief and --handoff are alternative audit views");
   }
-  const flagIndex = fingerprintFlags[0];
-  const expectedArtifactFingerprint =
-    flagIndex === undefined ? undefined : args[flagIndex + 1];
-  if (flagIndex !== undefined &&
-      (expectedArtifactFingerprint === undefined ||
-       expectedArtifactFingerprint.startsWith("--"))) {
-    throw new Error("--expected-sha256 requires a SHA-256 fingerprint");
+  if (offsetSupplied && !handoff) {
+    throw new Error("--handoff-offset requires --handoff");
   }
-  const auditArgs = flagIndex === undefined
-    ? args
-    : args.filter((_, index) =>
-        index !== flagIndex && index !== flagIndex + 1
-      );
   const { positionals, target, telemetryPath, arenaRegionContractsPath } =
     parseCliTargetOptions(auditArgs);
   const [input] = positionals;
   if (!input) {
-    throw new Error("Usage: npm run audit -- <selected.mcworld> [--brief] [target options]");
+    throw new Error("Usage: npm run audit -- <selected.mcworld> [--brief|--handoff] [--handoff-offset N] [--responses model.json] [target options]");
   }
   if (telemetryPath !== undefined || arenaRegionContractsPath !== undefined) {
     throw new Error(
@@ -78,16 +114,31 @@ async function main(): Promise<void> {
     knowledgeCatalog: knowledge,
     telemetry: [],
   });
-  process.stdout.write(
-    brief
+  // Responses are not proof. The canonical resolution gate validates all
+  // artifact/revision/task/evidence references before any report projection.
+  const resolvedAudit = responsesPath === undefined
+    ? audit
+    : applySelectedMapAuditModelResponses({
+        audit,
+        responses: JSON.parse(
+          await readFile(resolve(responsesPath), "utf8"),
+        ) as SelectedMapAuditModelResponseBatch,
+      });
+  const output = handoff
+    ? JSON.stringify(
+        projectSelectedMapAuditModelHandoff(resolvedAudit, handoffOffset),
+        null,
+        2,
+      ) + "\n"
+    : brief
       ? formatSelectedMapAuditBrief({
-          report: audit.mapAuditReport,
-          intent: audit.inspection.gameplayIntent.model,
-          modelTaskPackets: audit.modelTaskPackets,
+          report: resolvedAudit.mapAuditReport,
+          intent: resolvedAudit.inspection.gameplayIntent.model,
+          modelTaskPackets: resolvedAudit.modelTaskPackets,
         })
-      : JSON.stringify(audit.mapAuditReport, null, 2) + "\n",
-  );
-  if (audit.mapAuditReport.control.status === "BLOCKED") {
+      : JSON.stringify(resolvedAudit.mapAuditReport, null, 2) + "\n";
+  process.stdout.write(output);
+  if (resolvedAudit.mapAuditReport.control.status === "BLOCKED") {
     process.exitCode = 1;
   }
 }

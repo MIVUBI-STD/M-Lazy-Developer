@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { packageDirectoryDeterministically } from "../../archive/src/index.js";
-import { runSelectedMapAudit } from "../src/map-audit-pipeline.js";
+import {
+  runSelectedMapAudit,
+  applySelectedMapAuditModelResponses,
+  projectSelectedMapAuditModelHandoff,
+} from "../src/map-audit-pipeline.js";
 import {
   deriveAuditModelKnowledgeLookup,
   retrieveAuditTaskKnowledge,
@@ -190,6 +194,46 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
       });
       expect(brief).toContain("# Selected Map Audit");
       expect(brief).toContain("NPC interaction: Start Challenge");
+      expect(brief).toContain("Source-derived relations: activation");
+      const handoff = projectSelectedMapAuditModelHandoff(result);
+      expect(handoff.policy).toBe("selected-map-audit-model-handoff");
+      expect(handoff.artifactId).toBe(result.identity.artifactId);
+      expect(handoff.artifactFingerprint).toBe(result.identity.artifactFingerprint);
+      expect(handoff.auditRevision).toBe(result.auditRevision);
+      expect(handoff.gameUnderstanding.gameplayFlowBasis)
+        .toBe("AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY");
+      expect(handoff.taskCount).toBe(result.modelTaskPackets.length);
+      expect(handoff.tasks.every(({ task }) =>
+        task.auditRevision === result.auditRevision)).toBe(true);
+      const emptyAnswers = {
+        schemaVersion: 1 as const,
+        policy: "selected-map-audit-model-responses" as const,
+        artifactId: handoff.artifactId,
+        artifactFingerprint: handoff.artifactFingerprint,
+        auditRevision: handoff.auditRevision,
+        resolutions: [],
+      };
+      expect(applySelectedMapAuditModelResponses({
+        audit: result,
+        responses: emptyAnswers,
+      })).toBe(result);
+      expect(() => applySelectedMapAuditModelResponses({
+        audit: result,
+        responses: { ...emptyAnswers, auditRevision: "stale-revision" },
+      })).toThrow(/different selected artifact or audit revision/);
+      expect(() => applySelectedMapAuditModelResponses({
+        audit: result,
+        responses: {
+          ...emptyAnswers,
+          resolutions: [{
+            taskId: "fabricated-model-task",
+            resolution: {
+              causalLinkId: "fabricated-causal-link",
+              disposition: "CONFIRMED_DEFECT_READY" as const,
+            },
+          }],
+        },
+      })).toThrow(/does not belong to a resolvable causal task/);
       expect(brief).toContain("Possible player journeys (NOT OBSERVED)");
       expect(brief).toContain("Source associations and knowledge lookup hints are not Minecraft runtime proof.");
       expect(result.mapAuditReport.gameplayFlowBasis)

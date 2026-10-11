@@ -1,3 +1,16 @@
+## Completed macro batch — Selected-map AI investigation exchange (2026-10-11)
+
+**Outcome:** close the source-level connection between Game Understanding, bounded model task context, source-bound proof responses, canonical resolution admission, and the existing operator view. No extra proof engine, agent manager, database, graph, detector or report schema.
+
+**Single owners:** `map-audit-pipeline.ts` now exposes a model handoff with artifact fingerprint/audit revision and proof-scoped `modelTaskPackets`; the same owner accepts responses bound to exactly matching task, causal link and source evidence, then calls the pre-existing `resolveSelectedMapAudit()`. `gameplay-defect-resolution.ts` repairs a proven missing fourth `graph` argument in the terminal proof check and reuses its exact blocking-counterproof helper. The existing `npm run audit` CLI gains optional `--handoff`, `--handoff-offset N`, and `--responses answers.json` without changing the MapAuditOutputV2 default. The existing brief explains source-derived mechanics, unresolved relations, evidence IDs and task stopping conditions.
+
+**Proof safety:** A model does not create gameplay authority; only causal tasks with known graph evidence and permitted source scope can submit dispositions, and the existing counterproof/monotonicity gates decide outcome. Non-causal checkpoint tasks remain advisory until new executable/map evidence closes them. The response guard reuses `automaticCounterProofSearch()` and `blockingCounterProofFor()`; a model cannot assert exhaustion that the canonical graph has not independently established, and no free-text model answer can create missing source/runtime proof. No automatic ChatGPT invocation is claimed; the GitHub connector cannot run the canonical CLI.
+
+**Verification ceiling:** exact-ref source integration review and an extended existing synthetic acceptance assertion were authored. No full TypeScript/Vitest, canonical Defense v1.1.5 run, Minecraft host/runtime or cross-genre recall evidence is claimed. Frozen Defense SHA and calibration case stay unchanged.
+
+**Next:** obtain one authentic canonical audit+model handoff for the exact frozen Defense v1.1.5 bytes when execution becomes available inside approved ChatGPT tools, compare to independent oracle, and fix only independently proven product gaps rather than widening knowledge or binding counts.
+
+---
 ## Defense v1.1.5 — Benchmark execution boundary (2026-10-11)
 
 **Artifact authority:** SHA-256 `eb554476d26b7b9de949628d8efe00f12beb95669f6c424a2eb754b52d39f45c`, 24,032,943 bytes; CRC verifies all 529 archive entries, including 77 `.mcstructure` files. Google Drive ID `1U6s2Obtt332ShMBYJZ1yVNuoynAn0Qgi`; binary stays outside GitHub.

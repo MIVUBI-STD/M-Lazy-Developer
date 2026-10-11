@@ -119,7 +119,7 @@ Architecture and ownership:
 Production map audit has one operator flow:
 
 ```text
-npm run audit -- <selected.mcworld> [--brief]
+npm run audit -- <selected.mcworld> [--brief | --handoff] [--responses answers.json]
 → TARGET
 → DISCOVERY
 → UNDERSTAND
@@ -134,7 +134,7 @@ Canonical owners:
 - [Mandatory Gameplay Audit Procedure](docs/analysis/mandatory-audit-procedure.md)
 - [Bug-Finding Coverage System](docs/analysis/bug-finding-coverage.md)
 
-The default `npm run audit -- <selected.mcworld>` emits the existing authoritative Map Audit V2 JSON. The optional `--brief` view renders **Game Understanding → Findings → Next Investigations** from the exact same audit output and model task packets. When a knowledge catalog is supplied (the production CLI already loads it), source-grounded investigation packets can include a few matched Minecraft facts/relations with original source URLs and declared edition scope. These are **retrieved references**, not evidence that a detector consumed a fact or that Minecraft gameplay was observed. An unmatched mechanic remains a valid map mechanic, not a forced database category. It is a bounded human-facing projection, not a second audit run/report contract. Source-derived journey candidates are **not observed gameplay**, and a blocked/zero-finding audit never proves the absence of bugs. The engineering CLI `npm run cli --` is a separate development utility and does not implement an `audit` command.
+The default `npm run audit -- <selected.mcworld>` emits the existing authoritative Map Audit V2 JSON. The optional `--handoff` view exports a bounded source-grounded AI investigation packet with artifact fingerprint, audit revision, task IDs, knowledge references and proof constraints. `--handoff-offset N` pages through existing tasks. Responses in the existing `GameplayDefectResolution` shape can be applied through `--responses <answers.json>`, on the SAME audit entrypoint and SAME canonical proof gate. This is an explicit exchange for a ChatGPT-capable caller, not autonomous model execution or a second report. Non-causal obligations cannot be closed from model text. The optional `--brief` view renders **Game Understanding → Findings → Next Investigations** from the exact same audit output and model task packets. When a knowledge catalog is supplied (the production CLI already loads it), source-grounded investigation packets can include a few matched Minecraft facts/relations with original source URLs and declared edition scope. These are **retrieved references**, not evidence that a detector consumed a fact or that Minecraft gameplay was observed. An unmatched mechanic remains a valid map mechanic, not a forced database category. It is a bounded human-facing projection, not a second audit run/report contract. Source-derived journey candidates are **not observed gameplay**, and a blocked/zero-finding audit never proves the absence of bugs. The engineering CLI `npm run cli --` is a separate development utility and does not implement an `audit` command.
 
 The exact selected map artifact is current gameplay authority. Historical evidence and user/client symptoms may guide search but never replace current-artifact proof.
 

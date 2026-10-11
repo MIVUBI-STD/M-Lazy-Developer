@@ -121,10 +121,18 @@ Do not introduce alternate names for these states in operator or tester-facing o
 
 ~~~
 confirmed Pre-Audit Plan
-→ npm run audit -- <selected.mcworld> [--brief]
+→ npm run audit -- <selected.mcworld> [--brief | --handoff] [--responses answers.json]
 ~~~
 
-Only one selected artifact/version is authoritative. The optional `--brief` flag on the existing production audit CLI renders a bounded **Game Understanding / Findings / Next Investigations** view, sourced from the same `runSelectedMapAudit()` output. Without it, the CLI preserves the canonical Map Audit Output V2 JSON. The brief does not create another audit entrypoint, publish issues, change proof gates, or equate possible source-backed journeys with observed player behavior. When the selected-map audit was supplied the existing Knowledge Catalog, model tasks with actual selected-artifact mechanics may carry bounded source-backed platform references. These remain search context, not expected-gameplay authority, a runtime observation, or detector-consumption proof; no knowledge match is never itself a gameplay defect.
+Only one selected artifact/version is authoritative.
+
+Model exchange is a projection of the existing `runSelectedMapAudit()` output, not a new audit, state owner, proof gate, or report schema.
+
+`--handoff` emits the exact `artifactId`, `artifactFingerprint`, `auditRevision`, current-artifact game-understanding evidence and `modelTaskPackets` with `resolutionEligible` flags; `--handoff-offset N` pages this view.
+
+`--responses <answers.json>` requires schemaVersion 1, policy `selected-map-audit-model-responses`, those exact artifact/revision fields and `resolutions:[{taskId,resolution}]` where `resolution` follows the existing `GameplayDefectResolution` contract. The same CLI reruns its single canonical selected-map audit and invokes `applySelectedMapAuditModelResponses()`; only verified causal tasks and scoped source evidence can enter `resolveSelectedMapAudit()`.
+
+Non-causal tasks remain advisory. ChatGPT/GitHub does not execute the CLI or the model callback automatically. A model may submit a `CONFIRMED_DEFECT_READY` proposal only when the pre-existing canonical graph independently establishes complete source-bounded counterproof exhaustion with no blocking proof; free-text AI findings cannot create that proof. New evidence must be incorporated through the established selected-map inspection before reconsidering an unresolved claim. The optional `--brief` flag on the existing production audit CLI renders a bounded **Game Understanding / Findings / Next Investigations** view, sourced from the same `runSelectedMapAudit()` output. Without it, the CLI preserves the canonical Map Audit Output V2 JSON. The brief does not create another audit entrypoint, publish issues, change proof gates, or equate possible source-backed journeys with observed player behavior. When the selected-map audit was supplied the existing Knowledge Catalog, model tasks with actual selected-artifact mechanics may carry bounded source-backed platform references. These remain search context, not expected-gameplay authority, a runtime observation, or detector-consumption proof; no knowledge match is never itself a gameplay defect.
 
 Do not mix:
 - old map versions;

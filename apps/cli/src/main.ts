@@ -99,7 +99,7 @@ async function main(): Promise<void> {
     throw new Error(
       command +
         " is an engineering/reliability-only command. " +
-        "Use 'npm run audit -- <map.mcworld> [--brief]' for production map bug analysis. " +
+        "Use 'npm run audit -- <map.mcworld> [--brief | --handoff] [--handoff-offset N] [--responses answers.json]' for production map bug analysis. " +
         "Set MBEDROCK_ENGINEERING_TOOLS=1 only for bounded engine development.",
     );
   }
@@ -671,7 +671,7 @@ async function main(): Promise<void> {
     "Usage:",
     "",
     "Production map bug analysis (single entry):",
-    "  npm run audit -- <path-to-mcworld-or-zip> [--brief] [--edition bedrock|education] [--version x.y.z] [--experiment id] [--arena-proof-mode progressive|full]",
+    "  npm run audit -- <path-to-mcworld-or-zip> [--brief | --handoff] [--handoff-offset N] [--responses answers.json] [--edition bedrock|education] [--version x.y.z] [--experiment id] [--arena-proof-mode progressive|full]",
     "",
     "Repository / engineering utilities:",
     "  npm run cli -- affected <changed-path> [changed-path ...]",

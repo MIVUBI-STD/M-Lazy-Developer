@@ -620,7 +620,7 @@ function runtimeQuestionFor(
   }
 }
 
-function automaticCounterProofSearch(
+export function automaticCounterProofSearch(
   graph: GameplayScenarioGraph,
   contradicted: GameplayCausalLink,
   scenario:
@@ -757,7 +757,7 @@ function counterProofAppliesAtCommit(
   );
 }
 
-function blockingCounterProofFor(
+export function blockingCounterProofFor(
   graph: GameplayScenarioGraph,
   contradicted: GameplayCausalLink,
 ): readonly string[] {
@@ -1117,6 +1117,7 @@ export function assessGameplayDefectResolutionGate(
       (item) => item.id === link.scenarioId,
     );
     return validateResolution(
+      graph,
       link,
       resolution,
       scenario,

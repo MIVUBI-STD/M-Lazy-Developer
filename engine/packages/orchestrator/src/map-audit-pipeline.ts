@@ -37,8 +37,12 @@ import {
 import type {
   InspectionEngineeringAnalysis,
 } from "./inspection/engineering-analysis-stage.js";
-import type {
-  GameplayDefectResolution,
+import {
+  assessGameplayDefectResolutionGate,
+  automaticCounterProofSearch,
+  blockingCounterProofFor,
+  type GameplayDefectResolution,
+  type GameplayDefectResolutionDisposition,
 } from "./inspection/gameplay-defect-resolution.js";
 import {
   refreshHiddenGameplayDefectsForWorld,
@@ -234,6 +238,119 @@ export interface SelectedMapAuditRun {
   readonly honesty: AuditHonestyAssessment;
   readonly blockingCheckpointIds: readonly string[];
   readonly reasons: readonly string[];
+}
+
+
+/**
+ * Read-only, bounded model handoff from the SINGLE production audit result.
+ * It is not an audit result, a second evidence owner or an LLM invocation.
+ */
+export interface SelectedMapAuditModelHandoff {
+  readonly schemaVersion: 1;
+  readonly policy: "selected-map-audit-model-handoff";
+  readonly artifactId: string;
+  readonly artifactFingerprint: string;
+  readonly auditRevision: string;
+  readonly currentStage: SelectedMapAuditRun["currentStage"];
+  readonly allowedNextAction: SelectedMapAuditRun["allowedNextAction"];
+  readonly gameUnderstanding: {
+    readonly gameDesign: MapAuditOutputV2["gameDesign"];
+    readonly gameplayFlowBasis: MapAuditOutputV2["gameplayFlowBasis"];
+    readonly features: readonly {
+      readonly id: string;
+      readonly label: string;
+      readonly kind: string;
+      readonly grounding: "SOURCE_EVIDENCED" | "UNVERIFIED";
+      readonly sourceEvidenceIds: readonly string[];
+      readonly sourceEffectCount: number;
+    }[];
+    readonly omittedFeatures: number;
+    readonly unresolved: MapAuditOutputV2["unresolved"];
+  };
+  readonly taskCount: number;
+  readonly offset: number;
+  readonly nextOffset: number | null;
+  readonly tasks: readonly {
+    readonly task: AuditModelTaskPacket;
+    readonly resolutionEligible: boolean;
+  }[];
+  readonly proofBoundary: "MODEL_RESPONSE_IS_UNTRUSTED_UNTIL_CANONICAL_ENGINE_ADMISSION";
+}
+
+const MODEL_RESOLVABLE_KINDS = new Set([
+  "COUNTERPROOF_SEARCH",
+  "GAMEPLAY_TRANSLATION",
+  "PROOF_NAVIGATION",
+]);
+
+export function projectSelectedMapAuditModelHandoff(
+  audit: SelectedMapAuditRun,
+  offset = 0,
+  limit = 12,
+): SelectedMapAuditModelHandoff {
+  if (!Number.isSafeInteger(offset) || offset < 0 ||
+      !Number.isSafeInteger(limit) || limit < 1 || limit > 50) {
+    throw new Error("Model handoff offset must be nonnegative and limit must be 1–50.");
+  }
+  const graph = audit.inspection.hiddenGameplayDefects.scenarioAudit.graph;
+  const resolvable = new Set(graph.causalLinks
+    .filter((link) => ["CONTRADICTED", "RUNTIME_BLOCKED", "DETECTION_GAP"]
+      .includes(link.status))
+    .map((link) => link.id));
+  const features = audit.mapAuditReport.gameplayStructure?.features ?? [];
+  const selected = audit.modelTaskPackets.slice(offset, offset + limit);
+  return {
+    schemaVersion: 1,
+    policy: "selected-map-audit-model-handoff",
+    artifactId: audit.identity.artifactId,
+    artifactFingerprint: audit.identity.artifactFingerprint,
+    auditRevision: audit.auditRevision,
+    currentStage: audit.currentStage,
+    allowedNextAction: audit.allowedNextAction,
+    gameUnderstanding: {
+      gameDesign: audit.mapAuditReport.gameDesign,
+      gameplayFlowBasis: audit.mapAuditReport.gameplayFlowBasis,
+      features: features.slice(0, 16).map((feature) => ({
+        id: feature.id,
+        label: feature.label,
+        kind: feature.kind,
+        grounding: feature.grounding,
+        sourceEvidenceIds: [...feature.sourceEvidenceIds],
+        sourceEffectCount: new Set(feature.sourceBehaviorPaths
+          .filter((path) => path.association === "DIRECT_EFFECT_EVIDENCE")
+          .map((path) => path.effectId)).size,
+      })),
+      omittedFeatures: Math.max(0, features.length - 16),
+      unresolved: audit.mapAuditReport.unresolved,
+    },
+    taskCount: audit.modelTaskPackets.length,
+    offset,
+    nextOffset: offset + selected.length < audit.modelTaskPackets.length
+      ? offset + selected.length
+      : null,
+    tasks: selected.map((task) => ({
+      task,
+      resolutionEligible:
+        task.auditRevision === audit.auditRevision &&
+        MODEL_RESOLVABLE_KINDS.has(task.kind) &&
+        task.causalLinkId !== undefined &&
+        resolvable.has(task.causalLinkId),
+    })),
+    proofBoundary:
+      "MODEL_RESPONSE_IS_UNTRUSTED_UNTIL_CANONICAL_ENGINE_ADMISSION",
+  };
+}
+
+export interface SelectedMapAuditModelResponseBatch {
+  readonly schemaVersion: 1;
+  readonly policy: "selected-map-audit-model-responses";
+  readonly artifactId: string;
+  readonly artifactFingerprint: string;
+  readonly auditRevision: string;
+  readonly resolutions: readonly {
+    readonly taskId: string;
+    readonly resolution: GameplayDefectResolution;
+  }[];
 }
 
 function deriveSelectedMapAuditControl(input: {
@@ -1037,6 +1154,190 @@ export function resolveSelectedMapAudit(
     );
   }
   return nextAudit;
+}
+
+
+/**
+ * Apply a caller-supplied ChatGPT/model proposal through the EXISTING proof
+ * gate. The model cannot create source evidence, close checkpoint tasks, or
+ * change an artifact/version/revision. No second detector or state machine.
+ */
+export function applySelectedMapAuditModelResponses(input: {
+  readonly audit: SelectedMapAuditRun;
+  readonly responses: SelectedMapAuditModelResponseBatch;
+  readonly runtimeProbeTranscript?: RuntimeProbeTranscript;
+}): SelectedMapAuditRun {
+  const { audit, responses } = input;
+  if (
+    responses.schemaVersion !== 1 ||
+    responses.policy !== "selected-map-audit-model-responses" ||
+    responses.artifactId !== audit.identity.artifactId ||
+    responses.artifactFingerprint !== audit.identity.artifactFingerprint ||
+    responses.auditRevision !== audit.auditRevision
+  ) {
+    throw new Error(
+      "Refusing model responses for a different selected artifact or audit revision.",
+    );
+  }
+  if (!Array.isArray(responses.resolutions) ||
+      responses.resolutions.length > 50) {
+    throw new Error("Model responses must contain at most 50 bounded resolutions.");
+  }
+  if (responses.resolutions.length === 0) return audit;
+
+  const graph = audit.inspection.hiddenGameplayDefects.scenarioAudit.graph;
+  const byTask = new Map(audit.modelTaskPackets
+    .map((task) => [task.id, task] as const));
+  const byLink = new Map(graph.causalLinks
+    .map((link) => [link.id, link] as const));
+  const seenTasks = new Set<string>();
+  const seenLinks = new Set<string>();
+  const candidateResolutions = new Map(
+    audit.inspection.hiddenGameplayDefects.scenarioAudit
+      .defectResolution.resolutions
+      .map((item) => [item.causalLinkId, item] as const),
+  );
+  const dispositionSet = new Set<GameplayDefectResolutionDisposition>([
+    "CONFIRMED_DEFECT_READY",
+    "BLOCKING_COUNTERPROOF",
+    "RUNTIME_PROOF_REQUIRED",
+    "DETECTION_GAP",
+    "GAMEPLAY_TRANSLATION_REQUIRED",
+    "COUNTERPROOF_SEARCH_REQUIRED",
+  ]);
+
+  for (const answer of responses.resolutions) {
+    if (answer === null || typeof answer !== "object" ||
+        typeof answer.taskId !== "string" ||
+        answer.resolution === null || typeof answer.resolution !== "object") {
+      throw new Error("Malformed model response; expected taskId and resolution.");
+    }
+    const task = byTask.get(answer.taskId);
+    const resolution = answer.resolution;
+    if (!task ||
+        task.auditRevision !== audit.auditRevision ||
+        !MODEL_RESOLVABLE_KINDS.has(task.kind) ||
+        !task.causalLinkId ||
+        task.causalLinkId !== resolution.causalLinkId) {
+      throw new Error(
+        "Model response does not belong to a resolvable causal task: " +
+        answer.taskId,
+      );
+    }
+    const link = byLink.get(task.causalLinkId);
+    if (!link ||
+        !["CONTRADICTED", "RUNTIME_BLOCKED", "DETECTION_GAP"]
+          .includes(link.status) ||
+        (resolution.scenarioId !== undefined &&
+          resolution.scenarioId !== link.scenarioId) ||
+        !dispositionSet.has(resolution.disposition)) {
+      throw new Error("Model response has unsupported causal scope/disposition.");
+    }
+    if (seenTasks.has(task.id) || seenLinks.has(link.id)) {
+      throw new Error("Duplicate model response for a task/causal link.");
+    }
+    seenTasks.add(task.id);
+    seenLinks.add(link.id);
+
+    for (const [label, supplied, authorized] of [
+      ["subjects", resolution.subjectIds, link.subjectIds],
+      ["components", resolution.componentIds, link.componentIds],
+      ["knowledge requirements", resolution.knowledgeRequirementIds,
+        link.knowledgeRequirementIds],
+    ] as const) {
+      if (supplied?.some((id) => !authorized.includes(id))) {
+        throw new Error("Model response cites out-of-scope " + label +
+          " for " + link.id + ".");
+      }
+    }
+
+    const overlaps = (left: readonly string[], right: readonly string[]) =>
+      left.some((id) => right.includes(id));
+    const related = graph.causalLinks.filter((candidate) =>
+      candidate.scenarioId === link.scenarioId &&
+      (candidate.id === link.id ||
+        overlaps(candidate.subjectIds, link.subjectIds) ||
+        overlaps(candidate.componentIds, link.componentIds)));
+    const allowedEvidence = new Set([
+      ...task.evidenceContext
+        .filter((evidence) => evidence.kind === "selected-artifact-evidence")
+        .map((evidence) => evidence.id),
+      ...related.flatMap((candidate) => [
+        ...candidate.evidenceIds,
+        ...Object.values(candidate.dimensionEvidence ?? {}).flat(),
+      ]),
+    ]);
+    const claimedEvidence = [
+      ...(resolution.evidenceIds ?? []),
+      ...(resolution.counterProofEvidenceIds ?? []),
+      ...(resolution.counterProofSearch?.evidenceIds ?? []),
+      ...(resolution.counterProofSearch?.dimensionReceipts ?? [])
+        .flatMap((receipt) => receipt.evidenceIds),
+      ...(resolution.familyProof?.criteria ?? [])
+        .flatMap((criterion) => criterion.evidenceIds),
+    ];
+    if (claimedEvidence.some((id) =>
+      typeof id !== "string" ||
+      !id.trim() ||
+      !allowedEvidence.has(id))) {
+      throw new Error(
+        "Model response cites unverified or out-of-scope evidence for " +
+        link.id + ".",
+      );
+    }
+    if (resolution.disposition === "CONFIRMED_DEFECT_READY") {
+      const scenario = graph.scenarios.find((item) =>
+        item.id === link.scenarioId);
+      const sourceProof = automaticCounterProofSearch(
+        graph, link, scenario,
+      );
+      if (
+        link.status !== "CONTRADICTED" ||
+        !sourceProof.exhaustiveWithinScope ||
+        sourceProof.conclusion !== "NO_BLOCKING_PROOF"
+      ) {
+        throw new Error(
+          "Model cannot promote a defect before the canonical graph proves " +
+          "source-bounded counterproof exhaustion. Reinspect new source evidence first.",
+        );
+      }
+    }
+    if (resolution.disposition === "BLOCKING_COUNTERPROOF") {
+      const blocking = new Set(blockingCounterProofFor(graph, link));
+      if (!(resolution.counterProofEvidenceIds?.length) ||
+          resolution.counterProofEvidenceIds.some((id) => !blocking.has(id))) {
+        throw new Error(
+          "AI cannot invent a blocking counterproof; no exact PROVEN exclusion supports " +
+          link.id + ".",
+        );
+      }
+    }
+    candidateResolutions.set(link.id, resolution);
+  }
+
+  const candidate = [...candidateResolutions.values()];
+  const assessment = assessGameplayDefectResolutionGate(graph, candidate);
+  // A global unresolved checkpoint may remain legitimately open. A specific
+  // proposed response must not pass through malformed resolution diagnostics.
+  const invalid = assessment.issues.filter((issue) =>
+    [...seenLinks].some((id) => issue.startsWith(id + ":")) ||
+    issue.startsWith("Duplicate defect resolution") ||
+    issue.startsWith("Resolution references"));
+  if (invalid.length > 0) {
+    throw new Error(
+      "Model response fails canonical defect resolution: " +
+      invalid.join("; "),
+    );
+  }
+
+  return resolveSelectedMapAudit({
+    audit,
+    basedOnAuditRevision: audit.auditRevision,
+    resolutions: candidate,
+    ...(input.runtimeProbeTranscript === undefined
+      ? {}
+      : { runtimeProbeTranscript: input.runtimeProbeTranscript }),
+  });
 }
 
 function designMismatchCandidateIssues(
