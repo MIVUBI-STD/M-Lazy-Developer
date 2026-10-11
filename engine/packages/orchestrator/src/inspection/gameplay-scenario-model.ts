@@ -119,6 +119,31 @@ export interface GameplayScenario {
   readonly composedScenarioIds: readonly string[];
 }
 
+/** Source-known behavior order is local to an execution region, not a player journey. */
+export interface GameplaySourceFlowCandidate {
+  readonly id: string;
+  readonly entryRegionId: string;
+  readonly entryKind: import("../../../semantic-ir/src/index.js").ExecutionRegionKind;
+  readonly regionIds: readonly string[];
+  readonly executionEdgeIds: readonly string[];
+  readonly unresolvedExecutionEdgeIds: readonly string[];
+  readonly temporalRelationIds: readonly string[];
+  readonly branchPoints: readonly ObservedBranchPoint[];
+  readonly sourceSteps: readonly {
+    readonly id: string;
+    readonly kind: "state" | "resource-action" | "return" | "world-effect";
+    readonly executionRegionId: string;
+    readonly source: import("../../../project-model/src/index.js").SourceRef;
+    readonly targetLabel?: string;
+    readonly operation?: string;
+    readonly authoredTimingSeconds?: number;
+  }[];
+  /** Linked by IR world-effect IDs, never by filename/command text. */
+  readonly authoredBehaviorRelationIds: readonly string[];
+  readonly sourceOrderScope: "PER_EXECUTION_REGION_ONLY";
+  readonly runtimeStatus: "NOT_OBSERVED";
+}
+
 export interface GameplayScenarioGraph {
   readonly schemaVersion: 1;
   readonly policy: "scenario-driven-causal-audit";
@@ -128,6 +153,11 @@ export interface GameplayScenarioGraph {
   readonly knowledgeRequirements: readonly GameplayKnowledgeRequirement[];
   readonly knowledgeReceipts: readonly GameplayKnowledgeReceipt[];
   readonly requiredInspectionGraph: GameplayRequiredInspectionGraph;
+  /**
+   * Non-playing observed source flows; deliberately not GameplayScenario
+   * entries, scenario closure evidence, or authored player journey.
+   */
+  readonly sourceFlowCandidates?: readonly GameplaySourceFlowCandidate[];
 }
 
 export type GameplayScenarioClosureStatus =
@@ -230,6 +260,13 @@ export interface GameplayArchitectureNavigation {
       readonly pathAssociatedFeatureIds: readonly string[];
     })[];
     readonly effectIdsWithoutComponentOwner: readonly string[];
+    /** Source-to-effect traces compiled upstream in the scenario owner. */
+    readonly sourceFlowCandidates: readonly (GameplaySourceFlowCandidate & {
+      readonly exactFeatureIds: readonly string[];
+      readonly candidateScenarioContextIds: readonly string[];
+      readonly uninterpretedEvidenceIds: readonly string[];
+      readonly unclassifiedEffectIds: readonly string[];
+    })[];
     /** Source-authored cross-file behavior references, not executable proof. */
     readonly authoredBehaviorRelationships: readonly NonNullable<
       SemanticIr["execution"]["authoredBehaviorRelations"]
@@ -1413,6 +1450,36 @@ export function deriveGameplayArchitectureNavigation(
     effectIdsWithoutComponentOwner: effectSlices
       .filter(slice => slice.exactComponentIds.length === 0)
       .map(slice => slice.effectId),
+    sourceFlowCandidates: (graph.sourceFlowCandidates ?? []).map(flow => {
+      const evidenceIds = new Set([
+        flow.entryRegionId, ...flow.regionIds, ...flow.executionEdgeIds,
+        ...flow.sourceSteps.map(step => step.id),
+        ...flow.authoredBehaviorRelationIds,
+      ]);
+      const exactFeatureIds = sorted(featureComponents.filter(component =>
+        component.evidenceIds.some(id => evidenceIds.has(id)))
+        .map(component => component.id));
+      const exactFeatures = new Set(exactFeatureIds);
+      const directlyAssignedIds = new Set(featureComponents
+        .flatMap(component => component.evidenceIds.filter(id => evidenceIds.has(id))));
+      const sourceSteps = flow.sourceSteps.map(step => step.id);
+      return {
+        ...flow,
+        exactFeatureIds,
+        // Context membership alone does not establish a source dependency.
+        candidateScenarioContextIds: sorted(graph.scenarios.filter(scenario =>
+          scenario.componentIds.some(id => exactFeatures.has(id)))
+          .map(scenario => scenario.id)),
+        uninterpretedEvidenceIds: sorted((observed.intentUnknowns ?? [])
+          .filter(unknown =>
+            unknown.sourceEntryRegionId === flow.entryRegionId ||
+            unknown.evidenceIds?.some(id => evidenceIds.has(id)))
+          .flatMap(unknown =>
+            (unknown.evidenceIds ?? []).filter(id => evidenceIds.has(id)))),
+        unclassifiedEffectIds: sourceSteps.filter(id =>
+          !directlyAssignedIds.has(id)),
+      };
+    }).sort((a,b) => a.id.localeCompare(b.id)),
     authoredBehaviorRelationships:
       observed.semanticIr?.execution.authoredBehaviorRelations ?? [],
     uninterpretedSourceFlows: (observed.intentUnknowns ?? [])

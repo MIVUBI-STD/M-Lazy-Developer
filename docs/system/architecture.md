@@ -97,6 +97,33 @@ For each authored effect/return the owner traverses *only uniquely identified re
 
 The existing `deriveGameplayArchitectureNavigation()` consumes these behavior-model slices once, connects effects to graph components only by exact evidence ID and separately labels feature associations encountered on a source-call path. It publishes them through the already-established `MapAuditOutputV2.gameplayStructure` view. Static path association is not player-facing gameplay meaning or PROVEN causality; unowned effect IDs remain explicit. Testing/CI are deferred until the integrated BUILD acceptance boundary.
 
+### Source-backed flow candidates in the canonical scenario graph
+
+The scenario compiler now consumes the SAME selected-artifact Semantic IR as
+Gameplay Intent and derives source-flow candidates from its exact entry-region
+traces, state operations, resource actions, object return sites and world-effect
+attempts. Intraregion source order, branch arms, unresolved execution edges,
+temporal boundaries and exact behavior-animation effect IDs remain distinct;
+no cross-region order or player outcome is inferred. Isolated authored animation
+regions with material source effects remain visible without inventing runnable
+event-dispatch edges.
+
+These observations belong to the existing GameplayScenarioGraph as
+sourceFlowCandidates, deliberately NOT to its playable scenarios, knowledge
+receipts, causal proof or closure statuses. The existing Gameplay Architecture
+Navigation reconciles their exact source evidence with classified feature IDs,
+unclassified effects and only contextual matching scenarios. Unknown intent
+evidence remains visible; a named mechanic is never manufactured by a
+technical effect. World-only graph recomposition preserves these source facts.
+
+Map Audit V2 continues to expose its longstanding generic audit-stage checklist
+as gameplayFlow but now explicitly labels its basis as
+AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY. The actual source candidates are under
+gameplayStructure.sourceFlowCandidates. This prevents interpreting the generic
+audit checklist as a discovered player journey while keeping its existing
+consumer contract. Full mechanic meaning and game lifecycle are still
+unverified until evidence supports them.
+
 ### Behavior animation timelines and normalized source effects
 
 The canonical entity analyzer also parses behavior-pack animations by exact

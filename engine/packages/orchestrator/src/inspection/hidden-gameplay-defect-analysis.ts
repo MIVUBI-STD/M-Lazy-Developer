@@ -826,6 +826,7 @@ export function analyzeHiddenGameplayDefects(
       intent: input.intent,
       world: input.world,
       preset: auditScenarioPreset,
+      semanticIr: input.semanticIr,
     });
   const discoveryChallenges =
     challengeGameplayDiscovery({
@@ -1095,6 +1096,8 @@ export function refreshHiddenGameplayDefectsForWorld(
           intent,
           world,
           preset: auditScenarioPreset,
+          existingSourceFlowCandidates:
+            existing.scenarioAudit.graph.sourceFlowCandidates,
         });
   const scenarioClosure =
     intent === undefined

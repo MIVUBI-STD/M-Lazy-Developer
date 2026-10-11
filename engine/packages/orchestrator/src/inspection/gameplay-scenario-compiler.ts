@@ -22,7 +22,11 @@ import type {
   GameplayCausalLink,
   GameplayScenarioGraph,
   GameplayScenario,
+  GameplaySourceFlowCandidate,
 } from "./gameplay-scenario-model.js";
+import {
+  semanticIrExecutionTraces, type SemanticIr,
+} from "../../../semantic-ir/src/index.js";
 
 const SCENARIO_NODE_KINDS = new Set([
   "mechanic",
@@ -2086,11 +2090,113 @@ function runtimeEdgeState(
   }
 }
 
+/**
+ * Lift observed execution entry candidates into the EXISTING scenario graph.
+ * Only exact IR IDs can join across regions. Record all material operations
+ * without synthesizing mechanic names or claiming a player-visible journey.
+ */
+function sourceFlowCandidates(ir: SemanticIr): readonly GameplaySourceFlowCandidate[] {
+  const execution = semanticIrExecutionTraces(ir);
+  const regions = new Map(ir.execution.regions.map(region => [region.id, region]));
+  const stepsByRegion = new Map<string, GameplaySourceFlowCandidate["sourceSteps"][number][]>();
+  const append = (regionId: string, step: GameplaySourceFlowCandidate["sourceSteps"][number]) => {
+    const list = stepsByRegion.get(regionId) ?? [];
+    list.push(step);
+    stepsByRegion.set(regionId, list);
+  };
+  for (const op of ir.state.operations) {
+    append(op.executionRegionId, {
+      id: op.id, kind: "state", executionRegionId: op.executionRegionId,
+      source: op.source, operation: op.operation,
+    });
+  }
+  for (const action of ir.state.resourceActions ?? []) {
+    append(action.executionRegionId, {
+      id: action.id, kind: "resource-action",
+      executionRegionId: action.executionRegionId, source: action.source,
+      operation: action.action, targetLabel: action.surface + ":" + action.key,
+    });
+  }
+  for (const outcome of ir.execution.outcomes ?? []) {
+    append(outcome.executionRegionId, {
+      id: outcome.id, kind: "return",
+      executionRegionId: outcome.executionRegionId, source: outcome.source,
+      targetLabel: outcome.propertyName + "=" + outcome.value,
+    });
+  }
+  for (const effect of ir.execution.worldEffects ?? []) {
+    append(effect.executionRegionId, {
+      id: effect.id, kind: "world-effect",
+      executionRegionId: effect.executionRegionId, source: effect.source,
+      targetLabel: effect.kind + ":" + effect.targetLabel,
+      ...(effect.authoredTimingSeconds === undefined ? {} :
+        { authoredTimingSeconds: effect.authoredTimingSeconds }),
+    });
+  }
+  // Sort only within an execution region: cross-region source order cannot
+  // establish callback timing, world mutation success or terminal sequence.
+  const ordered = (ids: readonly string[]) =>
+    ids.flatMap(regionId =>
+      [...(stepsByRegion.get(regionId) ?? [])].sort((a,b) =>
+        a.source.relativePath.localeCompare(b.source.relativePath) ||
+        (a.source.range?.lineStart ?? 0) - (b.source.range?.lineStart ?? 0) ||
+        (a.source.range?.columnStart ?? 0) - (b.source.range?.columnStart ?? 0) ||
+        (a.authoredTimingSeconds ?? 0) - (b.authoredTimingSeconds ?? 0) ||
+        (a.source.jsonPointer ?? "").localeCompare(b.source.jsonPointer ?? "") ||
+        a.id.localeCompare(b.id)));
+  const relations = ir.execution.authoredBehaviorRelations ?? [];
+  const build = (input: {
+    readonly entryRegionId: string;
+    readonly entryKind: GameplaySourceFlowCandidate["entryKind"];
+    readonly regionIds: readonly string[];
+    readonly executionEdgeIds: readonly string[];
+    readonly unresolvedExecutionEdgeIds: readonly string[];
+    readonly temporalRelationIds: readonly string[];
+    readonly branchPoints: readonly ObservedBranchPoint[];
+  }): GameplaySourceFlowCandidate => {
+    const steps = ordered(input.regionIds);
+    const ids = new Set(steps.map(step => step.id));
+    return {
+      id: "source-flow:" + encodeURIComponent(input.entryRegionId),
+      ...input,
+      sourceSteps: steps,
+      authoredBehaviorRelationIds: relations
+        .filter(relation => relation.worldEffectIds?.some(id => ids.has(id)))
+        .map(relation => relation.id).sort(),
+      sourceOrderScope: "PER_EXECUTION_REGION_ONLY",
+      runtimeStatus: "NOT_OBSERVED",
+    };
+  };
+  const flows: GameplaySourceFlowCandidate[] = execution.traces.map(trace =>
+    build({
+      entryRegionId: trace.entryRegionId, entryKind: trace.entryKind,
+      regionIds: trace.regionIds,
+      executionEdgeIds: trace.executionEdgeIds,
+      unresolvedExecutionEdgeIds: trace.unresolvedExecutionEdgeIds,
+      temporalRelationIds: trace.temporalRelationIds,
+      branchPoints: trace.branchPoints,
+    }));
+  for (const id of execution.regionsOutsideTraces) {
+    const region = regions.get(id);
+    if (!region || !(stepsByRegion.get(id)?.length)) continue;
+    flows.push(build({
+      entryRegionId: id, entryKind: region.kind, regionIds: [id],
+      executionEdgeIds: [], unresolvedExecutionEdgeIds: [],
+      temporalRelationIds: [], branchPoints: [],
+    }));
+  }
+  return flows.sort((a,b) => a.id.localeCompare(b.id));
+}
+
 export function compileGameplayScenarioGraph(
   input: {
     readonly intent: GameplayIntentModel;
     readonly world: GameplayWorldModel;
     readonly preset: GameplayAuditScenarioPreset;
+    /** Same selected-artifact IR already used by Gameplay Intent. */
+    readonly semanticIr?: SemanticIr;
+    /** Preserve source facts across world-only scenario refreshes. */
+    readonly existingSourceFlowCandidates?: readonly GameplaySourceFlowCandidate[];
   },
 ): GameplayScenarioGraph {
   const sourceEvidenceIds = new Set(input.intent.evidence
@@ -2678,5 +2784,8 @@ export function compileGameplayScenarioGraph(
       nodes: knowledgeRequirements,
       receipts: knowledgeReceipts,
     },
+    sourceFlowCandidates: input.semanticIr
+      ? sourceFlowCandidates(input.semanticIr)
+      : input.existingSourceFlowCandidates ?? [],
   };
 }

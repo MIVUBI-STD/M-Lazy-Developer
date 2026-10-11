@@ -151,7 +151,9 @@ export interface MapAuditOutputV2 {
     readonly preserveRules: readonly string[];
     readonly progressionRules: readonly string[];
   };
+  /** Audit checklist stages, NOT a reconstructed or observed player route. */
   readonly gameplayFlow: readonly string[];
+  readonly gameplayFlowBasis: "AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY";
   /** Derived game-centric source navigation; not a second Game Design or bug authority. */
   readonly gameplayStructure?: GameplayArchitectureNavigation["gameplayStructure"];
   readonly stateTransitions: readonly {
@@ -635,6 +637,7 @@ export function projectMapAuditOutputV2(input: {
       progressionRules,
     },
     gameplayFlow: PLAYER_FLOW,
+    gameplayFlowBasis: "AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY",
     ...(input.gameplayStructure === undefined
       ? {}
       : { gameplayStructure: input.gameplayStructure }),
