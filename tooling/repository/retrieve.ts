@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import {
   retrieveDocumentSections,
   retrieveResources,
@@ -233,6 +234,16 @@ function main(): void {
     const knowledge = resource.class === "KNOWLEDGE"
       ? readKnowledgeResourceContext(resource)
       : undefined;
+    // Keep declared source/proof references discoverable by exact ID, but
+    // never treat them as runtime use or ranked Graph dependencies.
+    const bindingDeclaration = resource.class === "KNOWLEDGE"
+      ? (JSON.parse(readFileSync(
+          "engine/reliability/catalogs/knowledge-detector-bindings.json",
+          "utf8",
+        )).bindings ?? []).find(
+          (item) => item.knowledgeId === resource.locator,
+        )
+      : undefined;
     if (resource.class === "KNOWLEDGE" && knowledge === undefined) {
       throw new Error("Knowledge content could not be resolved: " + resource.id);
     }
@@ -245,6 +256,14 @@ function main(): void {
           outgoing,
           sections,
           ...(knowledge === undefined ? {} : { knowledge }),
+          ...(bindingDeclaration === undefined ? {} : {
+            bindingDeclaration: {
+              semantics: "REFERENCE_ONLY_NOT_CONSUMPTION_PROOF",
+              consumer: bindingDeclaration.consumer,
+              analyzerPaths: bindingDeclaration.analyzerPaths,
+              proofPaths: bindingDeclaration.proofPaths,
+            },
+          }),
         },
         null,
         2,

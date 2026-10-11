@@ -197,7 +197,7 @@ Context
 → `engine/packages/orchestrator/src/workflow/context-compiler.ts` + `resource-context.ts`
 ```
 
-Catalog and Graph are derived navigation structures. They never replace the source/data owners listed above.
+Catalog and Graph are derived navigation structures. They never replace the source/data owners listed above. The 458 knowledge-to-analyzer/proof declarations (as of the 2026-10-11 Phase D audit) remain in the reliability registry for explicit lookup, but no longer create inferred module-level `USES`/`VALIDATES` edges in the active retrieval Graph. Of those declarations, 375 reference at least one file in the orchestrator package; collapsing those files to one SOURCE module created a large unrelated-fact fanout. These were administrative relationships, not proven analyzer consumption. Keep the direct Knowledge Catalog, content lookup and scoped lexical retrieval; do not promote declaration count to detector coverage or bug-finding recall.
 
 ## Bounded Knowledge context delivery (ChatGPT + GitHub)
 
@@ -215,6 +215,8 @@ Unknown/missing contents are visible as `knowledgeContent.status=PARTIAL`;
 they cannot silently constitute complete context. Version/edition applicability
 is `NOT_EVALUATED` without a selected runtime profile and is not Minecraft
 runtime proof. A historical record is a search hint, never gameplay truth.
+
+The exact `retrieve:repository -- --id knowledge.<fact-id>` command can also reveal `bindingDeclaration` with analyzer/proof paths, clearly labeled `REFERENCE_ONLY_NOT_CONSUMPTION_PROOF`. This is a navigation detail, not part of the active ranking graph.
 
 The GitHub connector in ChatGPT **cannot execute this repository CLI**.
 In GitHub-only conversations, use the same source authority directly:

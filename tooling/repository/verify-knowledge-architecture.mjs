@@ -514,19 +514,29 @@ try {
     }
   }
 
+  // Declaration-only registry pointers must not inflate the active
+  // graph with unsupported use/validation claims at MODULE granularity.
   const bindingRegistryPath =
     "engine/reliability/catalogs/knowledge-detector-bindings.json";
   if (existsSync(bindingRegistryPath)) {
     const bindingRegistry = JSON.parse(
       readFileSync(bindingRegistryPath, "utf8"),
     );
-    if ((bindingRegistry.bindings ?? []).length > 0) {
-      if (!graph.edges.some((edge) => edge.type === "USES")) {
-        failures.push("Knowledge binding Graph lacks USES edges.");
-      }
-      if (!graph.edges.some((edge) => edge.type === "VALIDATES")) {
-        failures.push("Knowledge binding Graph lacks VALIDATES edges.");
-      }
+    const declaredKnowledgeTargets = new Set(
+      (bindingRegistry.bindings ?? []).map(
+        (binding) => "knowledge." + binding.knowledgeId,
+      ),
+    );
+    const unprovenBindingEdges = graph.edges.filter((edge) =>
+      edge.from.startsWith("source.") &&
+      declaredKnowledgeTargets.has(edge.to) &&
+      (edge.type === "USES" || edge.type === "VALIDATES")
+    );
+    if (unprovenBindingEdges.length > 0) {
+      failures.push(
+        "Declaration-only Knowledge binding edges pollute the active Retrieval Graph: " +
+        unprovenBindingEdges.length,
+      );
     }
   }
 

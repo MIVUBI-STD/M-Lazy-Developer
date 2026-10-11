@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { posix } from "node:path";
 import { buildResourceCatalog, resourceIdForDocumentPath } from "./resource-catalog.mjs";
-import { buildKnowledgeBindingEdges } from "./knowledge-binding-edges.mjs";
 
 const MARKDOWN_LINK = /\[[^\]]*\]\(([^)]+)\)/g;
 
@@ -85,13 +84,10 @@ export function buildGraph() {
     }
   }
 
-  for (const edge of buildKnowledgeBindingEdges(
-    catalog.resources.filter(
-      (resource) => resource.lifecycle === "ACTIVE",
-    ),
-  )) {
-    addEdge(edges, seen, edge);
-  }
+  // Do not materialize declaration-only analyzer/proof bindings as USES or
+  // VALIDATES graph edges. Module-level owner collapse made unrelated facts
+  // appear connected during Context Retrieval. Exact binding references
+  // remain available through the registry, outside the ranking graph.
 
   edges.sort((a, b) => {
     const left = a.from + "|" + a.type + "|" + a.to;
