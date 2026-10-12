@@ -797,6 +797,19 @@ export function formatSelectedMapAuditBrief(input: {
     intent.evidence.map((item) => [item.id, item]),
   );
   const features = report.gameplayStructure?.features ?? [];
+  // Show actual source-labelled stages before incidental technical features.
+  // This changes presentation only, never grants phase activation or a
+  // source-derived journey the status of observed gameplay.
+  const visibleFeatures = [
+    ...features.filter(feature =>
+      feature.kind === "phase" &&
+      feature.id.startsWith("phase:localized:") &&
+      feature.grounding === "SOURCE_EVIDENCED"),
+    ...features.filter(feature =>
+      !(feature.kind === "phase" &&
+        feature.id.startsWith("phase:localized:") &&
+        feature.grounding === "SOURCE_EVIDENCED")),
+  ];
   const reconstructionByFeature = new Map(
     (report.gameplayStructure?.mechanicReconstructions ?? [])
       .map((mechanic) => [mechanic.featureId, mechanic] as const),
@@ -853,7 +866,7 @@ export function formatSelectedMapAuditBrief(input: {
         (unresolvedSourceIsolation.length - 5));
     }
   }
-  for (const feature of features.slice(0, 12)) {
+  for (const feature of visibleFeatures.slice(0, 12)) {
     const references = feature.sourceEvidenceIds.flatMap((id) => {
       const e = evidenceById.get(id);
       return e === undefined || e.scope === "external-reference" ||

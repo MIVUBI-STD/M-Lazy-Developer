@@ -11,6 +11,8 @@ import type { SemanticNode } from "../../../graph/src/index.js";
 import { populateInspectionScriptImportGraph } from "../../src/inspection/inspect-script-import-graph.js";
 import { discoverInspectionPacks } from "../../src/inspection/inspect-packs.js";
 import { buildFilesystemInventory } from "../../../project-model/src/index.js";
+import { deriveGameplayResourceTextSignals } from "../../src/inspection/gameplay-intent-resource-text.js";
+import { buildGameplayIntentModel } from "../../src/inspection/gameplay-intent-stage.js";
 
 describe("inspectDirectory", () => {
   it("discovers pack, functions, structures and unresolved references", async () => {
@@ -355,6 +357,52 @@ describe("inspectDirectory", () => {
       expect(result.unresolvedReferences).toBeGreaterThan(0);
       // This is authored file-reference evidence, NOT a proof a mob spawned
       // with bad equipment or that Minecraft executed the source group.
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+
+  it("preserves distinct source-labelled stage guides without claiming execution", async () => {
+    const root = await mkdtemp(join(tmpdir(), "map-stage-guide-"));
+    const path = "resource_packs/example/texts/en_US.lang";
+    try {
+      await mkdir(join(root, "resource_packs/example/texts"), { recursive: true });
+      await writeFile(join(root, path), [
+        "demo.stage_1.guide=§lEnter the fortress",
+        "demo.stage_2.guide=§lEnter the fortress",
+        "demo.stage_2.task.1=Eliminate all enemies",
+        "demo.hud.level=Level",
+      ].join("\n"));
+      const inventory = await buildFilesystemInventory(root);
+      const { signals } = await deriveGameplayResourceTextSignals(root, inventory);
+      const guides = signals.filter(item =>
+        item.subjectKey.startsWith("phase:localized:"));
+      expect(guides).toHaveLength(2);
+      expect(guides.map(item => item.label)).toEqual([
+        "Stage 1: Enter the fortress",
+        "Stage 2: Enter the fortress",
+      ]);
+      expect(guides[0]?.subjectKey).not.toBe(guides[1]?.subjectKey);
+      expect(guides.every(item =>
+        item.status === "inferred" &&
+        item.summary.includes("not verified gameplay order") &&
+        item.locator.startsWith(path + "#L"))).toBe(true);
+      const model = buildGameplayIntentModel({
+        id: "intent:source-stages",
+        artifactId: "selected-world",
+        parsedScripts: [],
+        supplementalSignals: signals,
+      });
+      const phases = model.nodes.filter(node =>
+        node.id.startsWith("phase:localized:"));
+      expect(phases).toHaveLength(2);
+      expect(phases.every(node => node.status === "inferred")).toBe(true);
+      expect(phases.every(node =>
+        node.evidenceIds.some(id => model.evidence.some(item =>
+          item.id === id && item.scope === "selected-artifact")))).toBe(true);
+      // Source key numbers and localized text are not runtime chronology.
+      expect(model.edges.some(edge => edge.kind === "transitions-to")).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
