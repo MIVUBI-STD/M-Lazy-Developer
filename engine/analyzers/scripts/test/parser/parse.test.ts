@@ -1348,4 +1348,56 @@ const arenas = joins.map((entry, index) => {
       .toBe(true);
   });
 
+  it("retains authored class Map set/get keys and same-block const constructor candidate", () => {
+    const artifactId="map:session";
+    const parsed=parseScriptFile("arena",[
+      'import { Session } from "./session.js";',
+      'export class Arena {',
+      ' constructor(){ this.sessions = new Map(); }',
+      ' boot(){',
+      '   for(const a of this.definitions){',
+      '     const game = new Session(this,a);',
+      '     this.sessions.set(a.id,game);',
+      '   }',
+      ' }',
+      ' use(player){ return this.sessions.get(this.membership(player.id)); }',
+      '}',
+    ].join("\n"),{
+      artifactId,relativePath:"behavior_packs/demo/scripts/arena.js",
+    });
+    expect(parsed.sourceClassMaps).toHaveLength(1);
+    expect(parsed.sourceClassMaps?.[0]).toMatchObject({
+      className:"Arena",fieldName:"sessions",
+    });
+    const operations=parsed.sourceClassMapAccesses ?? [];
+    expect(operations).toHaveLength(2);
+    expect(operations[0]).toMatchObject({
+      operation:"set",keyExpression:"a.id",valueExpression:"game",
+      constructorName:"Session",executionRegion:"function:boot",
+    });
+    expect(operations[0]?.constructorSource?.range?.lineStart).toBe(6);
+    expect(operations[1]).toMatchObject({
+      operation:"get",keyExpression:"this.membership(player.id)",
+      executionRegion:"function:use",
+    });
+    expect(operations[1]?.constructorName).toBeUndefined();
+  });
+
+  it("rejects unsafe Map ownership when a source field is reassigned", () => {
+    const source={
+      artifactId:"map:replaced",
+      relativePath:"behavior_packs/demo/scripts/owner.js",
+    };
+    const parsed=parseScriptFile("owner",[
+      'class Arena {',
+      ' constructor(){ this.sessions = new Map(); }',
+      ' reset(){ this["sessions"] = replacement; }',
+      ' boot(){ this.sessions.set("x",game); }',
+      ' use(){ return this.sessions.get("x"); }',
+      '}',
+    ].join("\n"),source);
+    expect(parsed.sourceClassMaps).toEqual([]);
+    expect(parsed.sourceClassMapAccesses).toEqual([]);
+  });
+
 });

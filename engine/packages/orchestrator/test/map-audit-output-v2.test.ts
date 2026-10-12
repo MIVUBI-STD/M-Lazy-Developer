@@ -736,4 +736,55 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("shows authored keyed Map writes and reads without equating their runtime owner", () => {
+    const report:any={
+      mapVersion:"1",evidenceScope:{selectedArtifact:"selected.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const mapId="resource:source-class-map:example";
+    const input:any={
+      evidence:[
+        {id:"source-class-map-definition:one",origin:"source-code",
+          scope:"selected-artifact",locator:"bp/scripts/service.js:81:5",
+          summary:"this.sessions = new Map()"},
+        {id:"source-class-map-access:set",origin:"source-code",
+          scope:"selected-artifact",locator:"bp/scripts/service.js:451:7",
+          summary:"Source Arena.this.sessions.set(key=a.id, value=game)."},
+        {id:"source-class-map-access:get",origin:"source-code",
+          scope:"selected-artifact",locator:"bp/scripts/service.js:1337:18",
+          summary:"Source Arena.this.sessions.get(key=this.membership(player.id))."},
+      ],
+      nodes:[{
+        id:mapId,kind:"resource",label:"Arena.this.sessions (source keyed Map)",
+        evidenceIds:["source-class-map-definition:one",
+          "source-class-map-access:set","source-class-map-access:get"],
+      }],
+      edges:[],
+      unknowns:[{
+        id:"unknown:source-map-key-identity:one",
+        question:"Read key this.membership(player.id) is not proven equal to stored a.id.",
+        blockedSubjectIds:[mapId],
+        evidenceIds:["source-class-map-access:set",
+          "source-class-map-access:get"],
+      }],
+    };
+    const brief=formatSelectedMapAuditBrief({
+      report,intent:input,modelTaskPackets:[],
+    });
+    expect(brief).toContain("Source keyed storage ownership (KEY IDENTITY UNKNOWN)");
+    expect(brief).toContain("set(key=a.id");
+    expect(brief).toContain("get(key=this.membership(player.id)");
+    expect(brief).toContain("bp/scripts/service.js:451:7");
+    expect(brief).toContain("Key identity unresolved:");
+    expect(brief).not.toContain("PROVEN SAME SESSION");
+    expect(brief).toContain("No published finding");
+  });
+
 });

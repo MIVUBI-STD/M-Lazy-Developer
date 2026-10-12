@@ -1488,6 +1488,133 @@ export function buildGameplayIntentModel(
     }
   }
 
+  // Source Map ownership does not establish runtime session/arena identity.
+  // Render exact same-class field initialization plus individually authored
+  // .set/.get sites as dependencies on ONE existing Intent resource node.
+  // Different key expressions never imply the same runtime key or owner.
+  for(const script of ownedScripts){
+    const collections=script.sourceClassMaps ?? [];
+    for(const declared of collections){
+      if(declared.source.artifactId!==script.source.artifactId ||
+         declared.source.relativePath!==script.source.relativePath)continue;
+      const accesses=(script.sourceClassMapAccesses ?? []).filter(item =>
+        item.className===declared.className &&
+        item.fieldName===declared.fieldName &&
+        item.source.artifactId===script.source.artifactId &&
+        item.source.relativePath===script.source.relativePath);
+      // Ignore unrelated Maps unless the selected source visibly stores and
+      // retrieves keyed values through the exact same owner field.
+      if(!accesses.some(item=>item.operation==="set") ||
+         !accesses.some(item=>item.operation==="get"))continue;
+      const ownerId="resource:source-class-map:"+encodeURIComponent(
+        script.source.artifactId+":"+script.source.relativePath+"#"+
+        declared.className+"."+declared.fieldName);
+      const definitionId="source-class-map-definition:"+
+        encodeURIComponent(ownerId);
+      evidence.set(definitionId,{
+        id:definitionId,origin:"source-code",scope:"selected-artifact",
+        locator:sourceLocator(declared.source),
+        summary:"Direct source this."+declared.fieldName+
+          " = new Map() field of "+declared.className+
+          ". Key and stored object identity at runtime remain UNKNOWN.",
+      });
+      const allIds=[definitionId];
+      const sourceMethodCounts=new Map<string,number>();
+      for(const method of script.sourceClassMethods ?? []){
+        if(method.className!==declared.className)continue;
+        sourceMethodCounts.set(method.methodName,
+          (sourceMethodCounts.get(method.methodName)??0)+1);
+      }
+      for(const access of accesses){
+        const methodName=access.executionRegion.startsWith("function:")
+          ?access.executionRegion.slice("function:".length):undefined;
+        if(!methodName || sourceMethodCounts.get(methodName)!==1)continue;
+        const nodeId="mechanic:source-method:"+encodeURIComponent(
+          script.source.artifactId+":"+script.source.relativePath+"#"+
+          access.executionRegion);
+        const siteId="source-class-map-access:"+encodeURIComponent(
+          ownerId+"#"+sourceLocator(access.source)+"#"+access.operation);
+        allIds.push(siteId);
+        const creationCandidate=(script.importedThisConstructions ?? [])
+          .filter(construct =>
+            access.operation==="set" &&
+            access.constructorSource!==undefined &&
+            sameExactCallSource(construct.source,access.constructorSource!) &&
+            importedModules.filter(route =>
+              route.status==="resolved" &&
+              route.fromSourcePath===script.source.relativePath &&
+              route.module===construct.module &&
+              route.targetSourcePath!==undefined &&
+              (ownerPaths.get(route.targetSourcePath)?.length ?? 0)===1)
+              .length===1);
+        evidence.set(siteId,{
+          id:siteId,origin:"source-code",scope:"selected-artifact",
+          locator:sourceLocator(access.source),
+          summary:"Source "+declared.className+".this."+
+            declared.fieldName+"."+access.operation+
+            "(key="+access.keyExpression+
+            (access.valueExpression===undefined?"":", value="+
+              access.valueExpression)+")"+
+            (creationCandidate.length===1
+              ? "; same-source constructed value from imported "+
+                creationCandidate[0]!.importedName+
+                " (constructor source candidate only)" : "")+
+            ". Key equivalence, session/arena owner and runtime contents "+
+            "NOT PROVEN.",
+        });
+        const old=nodes.get(nodeId);
+        nodes.set(nodeId,{
+          id:nodeId,kind:"mechanic",
+          label:old?.label??access.executionRegion+
+            " (source keyed collection access)",
+          status:"inferred",
+          evidenceIds:[...new Set([
+            ...(old?.evidenceIds??[]),siteId,
+          ])].sort(),
+        });
+        const edgeId="source-class-map-requires:"+encodeURIComponent(
+          nodeId+"->"+ownerId);
+        const prior=edges.get(edgeId);
+        edges.set(edgeId,{
+          id:edgeId,from:nodeId,to:ownerId,
+          kind:"requires",status:"inferred",
+          evidenceIds:[...new Set([
+            ...(prior?.evidenceIds??[]),definitionId,siteId,
+          ])].sort(),
+          description:"The authored method accesses the same class Map "+
+            "field. This does not prove that the stored and retrieved keys "+
+            "or object instances are equal.",
+        });
+      }
+      if(allIds.length===1)continue;
+      nodes.set(ownerId,{
+        id:ownerId,kind:"resource",
+        label:declared.className+".this."+declared.fieldName+
+          " (source keyed Map)",
+        status:"inferred",evidenceIds:[...new Set(allIds)].sort(),
+      });
+      const writerKeys=new Set(accesses.filter(item=>
+        item.operation==="set").map(item=>item.keyExpression));
+      const readerKeys=new Set(accesses.filter(item=>
+        item.operation==="get").map(item=>item.keyExpression));
+      if(writerKeys.size>0 && readerKeys.size>0){
+        intentUnknowns.push({
+          id:"unknown:source-map-key-identity:"+
+            encodeURIComponent(ownerId),
+          question:"Selected source writes "+
+            [...writerKeys].slice(0,6).join(" | ")+" and reads "+
+            [...readerKeys].slice(0,6).join(" | ")+" in the same Map. "+
+            "Matching the runtime key, stored class instance, owning "+
+            "arena/session/player and post-reload identity requires "+
+            "independent dataflow; source collection ownership alone "+
+            "does NOT establish them.",
+          blockedSubjectIds:[ownerId],
+          evidenceIds:[...new Set(allIds)].sort(),
+        });
+      }
+    }
+  }
+
   // Candidate class receiver binding from a COMPLETE authored source witness:
   // new ImportedClass(this) → constructor this.field = argument →
   // this.field.method(this) → uniquely owned target method(parameter).

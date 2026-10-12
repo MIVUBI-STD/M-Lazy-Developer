@@ -974,6 +974,37 @@ export function formatSelectedMapAuditBrief(input: {
   }
   // A navigable source tree over the SAME Intent edges, not a second graph.
   // Source call direction is a technical dependency, not play chronology.
+  const ownedMaps = intent.nodes.filter(node =>
+    node.id.startsWith("resource:source-class-map:"));
+  if(ownedMaps.length>0){
+    out.push("", "### Source keyed storage ownership (KEY IDENTITY UNKNOWN)");
+    out.push("One source class initializes a Map and calls set/get on the "+
+      "same field. This connects source code to a collection, NOT a stable "+
+      "runtime arena/session/player or equivalent read/write key.");
+    for(const map of ownedMaps.slice(0,12)){
+      out.push("- **"+concise(map.label)+"**");
+      const definition=map.evidenceIds.map(id=>evidenceById.get(id))
+        .find(e=>e?.id.startsWith("source-class-map-definition:"));
+      if(definition)out.push("  - Declaration: "+
+        concise(definition.locator));
+      const sites=map.evidenceIds.map(id=>evidenceById.get(id))
+        .filter(e=>e?.scope==="selected-artifact" &&
+          e.id.startsWith("source-class-map-access:"));
+      for(const site of sites.slice(0,28)){
+        out.push("  - "+concise(site!.summary),
+          "    Source: "+concise(site!.locator));
+      }
+      if(sites.length>28)out.push("  Additional access sites omitted: "+
+        (sites.length-28));
+      const unknown=intent.unknowns.find(u=>
+        u.id.startsWith("unknown:source-map-key-identity:") &&
+        u.blockedSubjectIds.includes(map.id));
+      if(unknown)out.push("  - Key identity unresolved: "+
+        concise(unknown.question));
+    }
+    if(ownedMaps.length>12)out.push("Additional owned Maps omitted: "+
+      (ownedMaps.length-12));
+  }
   const designCallEdges = intent.edges.filter(edge =>
     (edge.id.startsWith("source-method-call:") ||
      edge.id.startsWith("source-instance-candidate:")) &&

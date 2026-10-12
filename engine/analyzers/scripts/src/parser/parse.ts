@@ -42,7 +42,7 @@ import {
   inferScriptPropertyAccesses,
   inferScriptPropertyWrites,
 } from "./receiver-inference.js";
-import { inferExactCallArgumentParameterBindings, extractScriptClassWiring } from "./cross-file-call.js";
+import { inferExactCallArgumentParameterBindings, extractScriptClassWiring, extractScriptClassMapSites } from "./cross-file-call.js";
 import { findScriptExecutionPrivilegeRule } from "../../../../packages/compatibility/src/index.js";
 import { inferScriptLifecycleMemberExposures } from "../domains/lifecycle/lifecycle-exposure.js";
 import {
@@ -2009,6 +2009,7 @@ export function parseScriptFile(
     source,
   );
   const classWiring = extractScriptClassWiring(file, source);
+  const mapWiring = extractScriptClassMapSites(file, source);
   const spatialMutations = deriveScriptSpatialMutations(
     text,
     source,
@@ -3287,6 +3288,7 @@ export function parseScriptFile(
     authoredPropertyMutations,
     unresolvedReceiverCalls,
     ...classWiring,
+    ...mapWiring,
     blockCustomComponentRegistrations,
     persistentReconciliation,
     arenaAuthorityEvidence,

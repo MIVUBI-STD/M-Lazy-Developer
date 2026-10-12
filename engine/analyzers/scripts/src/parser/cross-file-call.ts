@@ -1,6 +1,6 @@
 import ts from "typescript";
 import type { SourceRef } from "../../../../packages/project-model/src/index.js";
-import type { ScriptArgumentParameterBinding, ScriptImportedThisConstruction, ScriptConstructorFieldBinding, ScriptThisInstanceDispatch, ScriptSourceClassMethod } from "../core/types.js";
+import type { ScriptArgumentParameterBinding, ScriptImportedThisConstruction, ScriptConstructorFieldBinding, ScriptThisInstanceDispatch, ScriptSourceClassMethod, ScriptClassMapCollection, ScriptClassMapAccess } from "../core/types.js";
 
 export interface ScriptModuleSourceInput {
   path: string;
@@ -1145,5 +1145,186 @@ export function extractScriptClassWiring(
     constructorFieldBindings:fields,
     thisInstanceDispatches:forwards,
     sourceClassMethods:methods,
+  };
+}
+
+
+/**
+ * Exact source Map field storage. Do not connect differently authored key
+ * expressions or promote a retrieved value into a runtime-owned session.
+ * This is a data-ownership view in the existing script parser.
+ */
+export function extractScriptClassMapSites(file: ts.SourceFile, owner: SourceRef): {
+  readonly sourceClassMaps: readonly ScriptClassMapCollection[];
+  readonly sourceClassMapAccesses: readonly ScriptClassMapAccess[];
+} {
+  const collections: ScriptClassMapCollection[] = [];
+  const accesses: ScriptClassMapAccess[] = [];
+  // A local declaration of Map removes certainty about the global native Map.
+  const shadowedMap = file.statements.some(statement =>
+    ((ts.isClassDeclaration(statement) ||
+      ts.isFunctionDeclaration(statement)) && statement.name?.text === "Map") ||
+    (ts.isVariableStatement(statement) &&
+      statement.declarationList.declarations.some(decl =>
+        ts.isIdentifier(decl.name) && decl.name.text === "Map")));
+  if (shadowedMap) return {sourceClassMaps:[],sourceClassMapAccesses:[]};
+
+  const classes = file.statements.filter((s):s is ts.ClassDeclaration =>
+    ts.isClassDeclaration(s) && s.name !== undefined);
+  const classCounts = new Map<string,number>();
+  for (const cls of classes) classCounts.set(cls.name!.text,
+    (classCounts.get(cls.name!.text) ?? 0) + 1);
+  for (const cls of classes) {
+    if (classCounts.get(cls.name!.text) !== 1) continue;
+    const ctor = cls.members.filter(ts.isConstructorDeclaration);
+    if (ctor.length !== 1 || !ctor[0]!.body) continue;
+    if (ctor[0]!.parameters.some(p =>
+      ts.isIdentifier(p.name) && p.name.text === "Map")) continue;
+    let mapShadowedWithinConstructor=false;
+    const lookForShadow=(node:ts.Node):void=>{
+      if ((ts.isVariableDeclaration(node) ||
+           ts.isFunctionDeclaration(node) ||
+           ts.isClassDeclaration(node)) &&
+          node.name && ts.isIdentifier(node.name) &&
+          node.name.text==="Map")mapShadowedWithinConstructor=true;
+      ts.forEachChild(node,lookForShadow);
+    };
+    lookForShadow(ctor[0]!.body);
+    if(mapShadowedWithinConstructor)continue;
+    const declared = new Map<string,{source:SourceRef;count:number}>();
+    const writes = new Map<string,number>();
+    let unknownComputedWrite = false;
+    const visitWrite=(node:ts.Node):void => {
+      if (ts.isBinaryExpression(node) &&
+          node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+          node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+        if (ts.isPropertyAccessExpression(node.left) &&
+            node.left.expression.kind === ts.SyntaxKind.ThisKeyword) {
+          const key = node.left.name.text;
+          writes.set(key,(writes.get(key) ?? 0)+1);
+          if (node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+              ts.isNewExpression(node.right) &&
+              ts.isIdentifier(node.right.expression) &&
+              node.right.expression.text === "Map" &&
+              (node.right.arguments?.length ?? 0) === 0 &&
+              node.getStart(file) >= ctor[0]!.getStart(file) &&
+              node.getEnd() <= ctor[0]!.getEnd()) {
+            const prev = declared.get(key);
+            declared.set(key,{source:nodeSource(file,node,owner),
+              count:(prev?.count ?? 0)+1});
+          }
+        } else if(ts.isElementAccessExpression(node.left) &&
+            node.left.expression.kind === ts.SyntaxKind.ThisKeyword) {
+          if (ts.isStringLiteralLike(node.left.argumentExpression)) {
+            const key=node.left.argumentExpression.text;
+            writes.set(key,(writes.get(key) ?? 0)+1);
+          } else unknownComputedWrite=true;
+        }
+      }
+      ts.forEachChild(node,visitWrite);
+    };
+    for (const member of cls.members) visitWrite(member);
+    if (unknownComputedWrite) continue;
+    const confirmed = new Set<string>();
+    for (const [key,decl] of declared) {
+      if(decl.count!==1 || writes.get(key)!==1)continue;
+      confirmed.add(key);
+      collections.push({source:decl.source,
+        className:cls.name!.text,fieldName:key});
+    }
+    if(confirmed.size===0)continue;
+    const methods=cls.members.filter((m):m is ts.MethodDeclaration=>
+      ts.isMethodDeclaration(m) && m.body !== undefined &&
+      (ts.isIdentifier(m.name) || ts.isStringLiteralLike(m.name)));
+    const counts = new Map<string,number>();
+    for(const m of methods) {
+      const name=(m.name as ts.Identifier|ts.StringLiteral).text;
+      counts.set(name,(counts.get(name) ?? 0)+1);
+    }
+    for(const method of methods) {
+      const methodName=(method.name as ts.Identifier|ts.StringLiteral).text;
+      if(counts.get(methodName)!==1)continue;
+      const visit=(node:ts.Node):void => {
+        if (node !== method &&
+            (ts.isFunctionDeclaration(node) ||
+             ts.isFunctionExpression(node) ||
+             ts.isMethodDeclaration(node) ||
+             ts.isClassDeclaration(node) ||
+             ts.isClassExpression(node))) return;
+        if (ts.isCallExpression(node) &&
+            ts.isPropertyAccessExpression(node.expression) &&
+            ts.isPropertyAccessExpression(node.expression.expression) &&
+            node.expression.expression.expression.kind === ts.SyntaxKind.ThisKeyword) {
+          const field=node.expression.expression.name.text;
+          const operation=node.expression.name.text;
+          if(confirmed.has(field) &&
+              (operation==="set" || operation==="get" ||
+               operation==="has" || operation==="delete") &&
+              node.arguments.length >= (operation==="set" ? 2 : 1)) {
+            const keyExpr=node.arguments[0]!.getText(file).slice(0,200);
+            const value=operation==="set" ? node.arguments[1] : undefined;
+            let constructorName:string|undefined;
+            let constructorSource:SourceRef|undefined;
+            // Same lexical block immutable initialization, preceding the set.
+            if(value && ts.isIdentifier(value)) {
+              let block:ts.Block|undefined;
+              for(let current:ts.Node|undefined=node.parent;current;current=current.parent){
+                if(ts.isBlock(current)){block=current;break;}
+                if(current===method)break;
+              }
+              if(block){
+                const candidates=block.statements.filter(ts.isVariableStatement)
+                  .flatMap(statement=>statement.declarationList.declarations
+                    .filter(decl=>ts.isIdentifier(decl.name) &&
+                      decl.name.text===value.text &&
+                      !!(statement.declarationList.flags & ts.NodeFlags.Const) &&
+                      decl.getStart(file)<node.getStart(file)));
+                const initializer=candidates[0]?.initializer;
+                if(candidates.length===1 && initializer &&
+                    ts.isNewExpression(initializer) &&
+                    ts.isIdentifier(initializer.expression)) {
+                  const ctorExpr=initializer;
+                  // Assignment to the identifier would invalidate the source
+                  // reference. Exclude even late writes conservatively.
+                  let mutated=false;
+                  const check=(n:ts.Node):void=>{
+                    if (ts.isBinaryExpression(n) && ts.isIdentifier(n.left) &&
+                        n.left.text===value.text &&
+                        n.operatorToken.kind>=ts.SyntaxKind.FirstAssignment &&
+                        n.operatorToken.kind<=ts.SyntaxKind.LastAssignment)mutated=true;
+                    ts.forEachChild(n,check);
+                  };
+                  check(block);
+                  if(!mutated) {
+                    constructorName=ctorExpr.expression.text;
+                    constructorSource=nodeSource(file,ctorExpr,owner);
+                  }
+                }
+              }
+            }
+            accesses.push({
+              source:nodeSource(file,node,owner),
+              className:cls.name!.text,
+              executionRegion:"function:"+methodName,
+              fieldName:field,operation,keyExpression:keyExpr,
+              ...(value===undefined?{}:{valueExpression:value.getText(file).slice(0,200)}),
+              ...(constructorName===undefined?{}:{constructorName}),
+              ...(constructorSource===undefined?{}:{constructorSource}),
+            });
+          }
+        }
+        ts.forEachChild(node,visit);
+      };
+      visit(method);
+    }
+  }
+  return {
+    sourceClassMaps:collections.sort((a,b)=>
+      a.source.relativePath.localeCompare(b.source.relativePath) ||
+      (a.source.range?.lineStart??0)-(b.source.range?.lineStart??0)),
+    sourceClassMapAccesses:accesses.sort((a,b)=>
+      a.source.relativePath.localeCompare(b.source.relativePath) ||
+      (a.source.range?.lineStart??0)-(b.source.range?.lineStart??0) ||
+      (a.source.range?.columnStart??0)-(b.source.range?.columnStart??0)),
   };
 }

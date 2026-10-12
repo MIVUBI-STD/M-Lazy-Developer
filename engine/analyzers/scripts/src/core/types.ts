@@ -50,6 +50,25 @@ export interface ScriptThisInstanceDispatch {
   readonly methodName: string;
   readonly thisArgumentIndex: number;
 }
+/** An owned JavaScript Map; no runtime equivalence between its keys. */
+export interface ScriptClassMapCollection {
+  readonly source: SourceRef;
+  readonly className: string;
+  readonly fieldName: string;
+}
+export interface ScriptClassMapAccess {
+  readonly source: SourceRef;
+  readonly className: string;
+  readonly executionRegion: string;
+  readonly fieldName: string;
+  readonly operation: "set" | "get" | "has" | "delete";
+  readonly keyExpression: string;
+  readonly valueExpression?: string;
+  /** Direct immutable new ImportedClass(...) binding at a same-block set. */
+  readonly constructorName?: string;
+  readonly constructorSource?: SourceRef;
+}
+
 export interface ScriptSourceClassMethod {
   readonly source: SourceRef;
   readonly className: string;
@@ -615,6 +634,9 @@ export interface ParsedScriptFile {
   constructorFieldBindings?: readonly ScriptConstructorFieldBinding[];
   thisInstanceDispatches?: readonly ScriptThisInstanceDispatch[];
   sourceClassMethods?: readonly ScriptSourceClassMethod[];
+  /** Source-only owner Map declaration and literal access sites. */
+  sourceClassMaps?: readonly ScriptClassMapCollection[];
+  sourceClassMapAccesses?: readonly ScriptClassMapAccess[];
   blockCustomComponentRegistrations?: BlockCustomComponentRegistrationEvidence[];
   persistentReconciliation?: PersistentReconciliationEvidence;
   imports: ScriptImport[];

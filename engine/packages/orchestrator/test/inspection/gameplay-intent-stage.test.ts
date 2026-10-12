@@ -1878,4 +1878,50 @@ describe("exact authored return-policy source admission", () => {
     expect(computed.constructorFieldBindings).toEqual([]);
   });
 
+  it("projects exact keyed source Map ownership while refusing to equate session keys", () => {
+    const artifactId="map:session";
+    const src={artifactId,
+      relativePath:"behavior_packs/demo/scripts/arena.js"};
+    const parsed=parseScriptFile("arena",[
+      'export class Arena {',
+      ' constructor(){ this.sessions = new Map(); }',
+      ' boot(){',
+      '   for(const arena of this.definitions){',
+      '     const session = new Session(this,arena);',
+      '     this.sessions.set(arena.id,session);',
+      '   }',
+      ' }',
+      ' use(player){ return this.sessions.get(this.membership(player.id)); }',
+      '}',
+    ].join("\n"),src);
+    const model=buildGameplayIntentModel({
+      id:"intent:keyed-map",artifactId,
+      parsedScripts:[{parsed}],
+    });
+    const owned=model.nodes.filter(node =>
+      node.id.startsWith("resource:source-class-map:"));
+    expect(owned).toHaveLength(1);
+    expect(owned[0]?.label).toContain("Arena.this.sessions");
+    const links=model.edges.filter(edge =>
+      edge.id.startsWith("source-class-map-requires:"));
+    expect(links).toHaveLength(2);
+    expect(links.every(edge =>
+      edge.to===owned[0]?.id &&
+      edge.kind==="requires" &&
+      edge.status==="inferred")).toBe(true);
+    const sites=owned[0]!.evidenceIds.map(id =>
+      model.evidence.find(e=>e.id===id));
+    expect(sites.some(e=>e?.summary.includes("set(key=arena.id"))).toBe(true);
+    expect(sites.some(e=>e?.summary.includes(
+      "get(key=this.membership(player.id)"))).toBe(true);
+    const unknown=model.unknowns.find(u=>
+      u.id.startsWith("unknown:source-map-key-identity:"));
+    expect(unknown?.blockedSubjectIds).toEqual([owned[0]!.id]);
+    expect(unknown?.question).toContain("arena.id");
+    expect(unknown?.question).toContain("this.membership(player.id)");
+    expect(model.edges.some(edge=>
+      edge.id.startsWith("source-class-map:") &&
+      edge.kind==="transitions-to")).toBe(false);
+  });
+
 });
