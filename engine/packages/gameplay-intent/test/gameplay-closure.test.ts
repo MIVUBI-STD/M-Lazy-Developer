@@ -126,6 +126,43 @@ describe("gameplay model closure", () => {
     expect(surfaces[0]?.material).toBe(true);
   });
 
+  it("retains unowned source gaps in whole-game closure without inventing mechanics", () => {
+    const model: GameplayIntentModel = {
+      ...intent,
+      unknowns: [
+        {
+          id: "unknown:script-tag-dynamic-key:region-1",
+          question: "Selected-artifact tag key unresolved.",
+          blockedSubjectIds: [],
+          evidenceIds: ["state-op:dynamic-tag"],
+        },
+        {
+          id: "unknown:unplaced",
+          question: "An observed dependency has an unresolved owner.",
+          blockedSubjectIds: ["phase:combat", "state:missing"],
+          evidenceIds: ["state-op:unplaced"],
+        },
+      ],
+    };
+    const surfaces = buildIntentClosureSurfaces(model);
+    const result = assessGameplayModelClosure({
+      discoveredSurfaceIds: intent.nodes.map(node => node.id),
+      surfaces,
+      stateModelComplete: true,
+      boundariesExtracted: true,
+    });
+    expect(result.status).toBe("PARTIAL");
+    expect(result.unknownSurfaceIds).toEqual([
+      "intent-unknown:unknown:script-tag-dynamic-key:region-1",
+      "intent-unknown:unknown:unplaced",
+      "phase:combat",
+    ]);
+    expect(surfaces.find(item =>
+      item.id === "intent-unknown:unknown:script-tag-dynamic-key:region-1"
+    )?.evidenceIds).toEqual(["state-op:dynamic-tag"]);
+    expect(result.unaccountedSurfaceIds).toEqual([]);
+  });
+
   it("is CLOSED only when all discovered material surfaces are accounted", () => {
     const surfaces = buildIntentClosureSurfaces(intent);
     const result = assessGameplayModelClosure({

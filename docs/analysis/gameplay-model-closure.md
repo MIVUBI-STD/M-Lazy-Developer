@@ -385,6 +385,25 @@ unowned by the composed Intent/Scenario graph. Those unknowns are review
 obligations, not automatically gameplay bugs. This is a stricter closure
 contract using existing owners and production paths, not a new graph/runner.
 
+### Unowned semantic evidence must block false gameplay closure
+
+The canonical A7 `gameplay-intent/src/gameplay-closure.ts` includes
+`GameplayIntent.unknowns` even when the extractor cannot identify a
+corresponding gameplay node. Unknowns with empty `blockedSubjectIds`
+(for example a computed tag key, a truncated source call graph, or a
+material unclassified source effect), or with references to missing
+Intent subjects, remain material unknown closure surfaces with exact
+source evidence and their original question. Unknowns already bound
+to actual nodes continue marking those nodes unknown; no duplicate
+material surface is added for fully bound questions.
+
+Consequently, an otherwise connected source-state route with
+unresolved material source interpretation must remain `PARTIAL`,
+never `CLOSED`. This is A7 semantic understanding, not A2 physical
+file discovery. Preserve the existing Map Audit V2 surface inventory,
+unknown/obligation separation, and report projection; do not add a
+parallel graph, registry, reporting lane or test manager.
+
 ### Global technical state normalization (tags and scoreboards)
 
 The canonical Semantic IR must retain selected-artifact tag accesses from

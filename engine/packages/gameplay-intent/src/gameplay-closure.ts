@@ -47,16 +47,36 @@ export function buildIntentClosureSurfaces(
   model: GameplayIntentModel,
 ): readonly GameplayClosureSurface[] {
   const unknownBySubject = new Map<string, string[]>();
+  const knownSubjectIds = new Set(model.nodes.map(node => node.id));
+  const unboundUnknownSurfaces: GameplayClosureSurface[] = [];
 
   for (const unknown of model.unknowns) {
+    const missing = unknown.blockedSubjectIds.filter(id =>
+      !knownSubjectIds.has(id));
     for (const subjectId of unknown.blockedSubjectIds) {
+      if (!knownSubjectIds.has(subjectId)) continue;
       const list = unknownBySubject.get(subjectId) ?? [];
       list.push(unknown.id);
       unknownBySubject.set(subjectId, list);
     }
+    // A source gap without a named Intent node is still an A7 material
+    // obligation. Do not erase unknowns merely because no subject was found.
+    if (unknown.blockedSubjectIds.length === 0 || missing.length > 0) {
+      unboundUnknownSurfaces.push({
+        id: "intent-unknown:" + unknown.id,
+        label: "Unbound source understanding: " + unknown.id,
+        kind: "runtime-domain",
+        status: "unknown",
+        material: true,
+        reason: unknown.question +
+          (missing.length === 0 ? "" :
+            " Missing Intent subjects: " + missing.join(", ")),
+        evidenceIds: [...(unknown.evidenceIds ?? [])],
+      });
+    }
   }
 
-  return model.nodes.map((node) => {
+  return [...model.nodes.map((node) => {
     const unknownIds = unknownBySubject.get(node.id) ?? [];
     const material =
       node.kind === "game" ||
@@ -91,7 +111,7 @@ export function buildIntentClosureSurfaces(
           }),
       evidenceIds: [...node.evidenceIds],
     };
-  });
+  }), ...unboundUnknownSurfaces];
 }
 
 export function assessGameplayModelClosure(
