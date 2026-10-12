@@ -26,6 +26,10 @@ import type { MinecraftRuntimeProfile } from "../../../runtime-profile/src/index
 import {
   compileResourceContext,
   compileSectionContext,
+  compileDeveloperPracticeReferenceContext,
+  type DeveloperPracticeReferenceData,
+  type SelectedArtifactReferenceSignal,
+  type CompiledDeveloperPracticeReferenceContext,
   type CompiledResourceContext,
   type CompiledSectionContext,
   type RetrievedKnowledgeContext,
@@ -59,6 +63,14 @@ export interface ContextCompilerRequest {
   targetRuntimeProfile?: MinecraftRuntimeProfile;
   sectionSelection?: readonly SectionRetrievalResult[];
   sectionLimit?: number;
+  /** Opt-in developer REFERENCE data; NEVER generated from Intent labels. */
+  developerPractice?: {
+    readonly data: DeveloperPracticeReferenceData;
+    /** Source cues must be grounded in this exact selected artifact. */
+    readonly evidence: readonly SelectedArtifactReferenceSignal[];
+    /** The specific semantic question domains chosen by the operator. */
+    readonly domains: readonly string[];
+  };
   budget?: Partial<ContextCompilerBudget>;
 }
 
@@ -145,6 +157,8 @@ export interface CompiledContextPack {
   dataFlow?: CompiledDataFlowContextSlice;
   resources?: CompiledResourceContext;
   sections?: CompiledSectionContext;
+  /** Advisory reference selection cannot close model coverage or prove a bug. */
+  developerPractice?: CompiledDeveloperPracticeReferenceContext;
   executionScope?: {
     status: RepositoryTaskPlan["status"];
     affectedCapabilityIds: readonly string[];
@@ -326,6 +340,17 @@ export function compileContextPack(
       input.sectionSelection,
       input.sectionLimit,
     );
+  // Never let context from another version of the map enter the pack.
+  // A reference is explicit opt-in and cannot change gameplay closure.
+  const developerPractice = input.developerPractice === undefined ||
+      input.intent.artifactId === undefined
+    ? undefined
+    : compileDeveloperPracticeReferenceContext({
+        data: input.developerPractice.data,
+        selectedArtifactId: input.intent.artifactId,
+        evidence: input.developerPractice.evidence,
+        domains: input.developerPractice.domains,
+      });
   const semanticPool =
     semanticCandidates(
       input.graph,
@@ -1084,6 +1109,9 @@ export function compileContextPack(
     ...(sections === undefined
       ? {}
       : { sections }),
+    ...(developerPractice === undefined
+      ? {}
+      : { developerPractice }),
     semantic: {
       nodes:
         semanticSelection.values.map(

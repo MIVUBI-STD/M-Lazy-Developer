@@ -148,6 +148,46 @@ without admitting it as live semantic hints; old source archive surveys,
 reference code and untracked ZIP content still require targeted review.
 A future ZIP is expected to evolve.
 
+## Bounded source-evidence selection and proof record
+
+The existing `workflow/resource-context.ts` owns
+`compileDeveloperPracticeReferenceContext()`; `workflow/context-compiler.ts`
+accepts it as an **explicit optional** `ContextCompilerRequest.developerPractice`
+input. No new retrieval graph or stored gameplay authority is introduced.
+The request must include:
+
+- already-loaded current-version `developer-practice-signals.json`;
+- selected-map artifact ID from canonical `GameplayIntentModel.artifactId`;
+- recognized source cue(s) with exact evidence ID, source path and
+  matching artifact ID (not natural-language filename or report keywords);
+- the operator's precise question domain(s), e.g. `ui` + `session`.
+
+This helper filters to SOURCE_REVIEWED/CORROBORATED, interpretation-eligible
+source files with SHA-256 provenance, exact signal+domain matches, and a
+default maximum of **two** reference patterns. It returns `REFERENCE`
+context with the original question, sample relation hypotheses,
+`negativeControl`, `prohibits`, matching selected-evidence IDs,
+source-file SHA, and source-archive SHA. A mismatch, absent source proof,
+workflow-only source or unknown source alias results in abstention.
+Selecting a hint **cannot** change Game Design closure or issue disposition.
+This opt-in context exists as source code; full ContextCompiler pipeline
+execution and automatic source/ZIP hydration have not been demonstrated.
+
+**Real-source calibration example (HISTORICAL only):**
+[developer-practice UI context source inspection](../../engine/reliability/history/audit-runs/learning/developer-practice-ui-context-2026-10-13.json).
+The source analysis compared Beach Bedwars v1.0.4 (bundled/minified) with
+Build & Decode v1.1.1 (modular), pinned by actual .mcworld SHA-256.
+In Build & Decode, a form UI method returns a leave selection without a
+local session check, **but the caller checks game token, current membership,
+teleport revision and player identity after awaiting the response**.
+A simplistic developer-reference rule would invent a defect. The selected
+form reference instead asks to follow the real call chain, so no BUG is
+inferred. In Beach Bedwars the runtime form class is minified; the helper
+does not pretend that an unknown class alias is `ActionFormData`. A separate
+explicit action-bar API site can select the HUD presentation reference,
+but it does not prove feedback delivery. These examples are historical
+**source-only** calibration, never prewritten conclusions for future maps.
+
 ## Maturity and promotion
 
 The JSON records start at `SOURCE_REVIEWED`: the source claim was inspected,
@@ -166,8 +206,8 @@ never because this ZIP says the pattern is preferred.
 ## Acceptance / evidence ceiling
 
 This curated snapshot makes **all active skills discoverable and
-fingerprinted**, **13 interpretation records selectable** through the
-existing ChatGPT-native source evidence workflow, and **20 pending/research/
+fingerprinted**, **13 interpretation records conditionally selectable** via
+the existing opt-in Context Compiler contract, and **20 pending/research/
 feedback source documents** traceable for future comparison. The other ZIP
 contents (code examples, assets, checkers, archive/history) remain in the
 external original source and are not claimed fully ingested.
