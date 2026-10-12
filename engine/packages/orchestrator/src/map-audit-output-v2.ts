@@ -927,69 +927,125 @@ export function formatSelectedMapAuditBrief(input: {
       .find(e=>e?.scope==="selected-artifact");
     return site?.locator??"UNKNOWN";
   };
+  // Source coordinates define authored order. Lexical comparison of
+  // ":100:..." and ":20:..." would otherwise misorder stages.
+  const sourceOrder=(left:string,right:string):number=>{
+    const parsed=(locator:string)=>{
+      const match=/^(.*):(\d+):(\d+)$/.exec(locator);
+      return match ? {
+        path:match[1]!,line:Number(match[2]),column:Number(match[3]),
+      } : {path:locator,line:0,column:0};
+    };
+    const a=parsed(sourceRef(left)),b=parsed(sourceRef(right));
+    return a.path.localeCompare(b.path) ||
+      a.line-b.line || a.column-b.column || left.localeCompare(right);
+  };
+  const orderedChildren=(id:string)=>
+    [...(children.get(id)??[])].sort((a,b)=>
+      sourceOrder(a.to,b.to));
   const rootNodes=authoredNodes.filter(node=>!contained.has(node.id))
-    .sort((a,b)=>sourceRef(a.id).localeCompare(sourceRef(b.id)) ||
-      a.label.localeCompare(b.label));
+    .sort((a,b)=>sourceOrder(a.id,b.id));
   if(rootNodes.length>0){
     out.push("", "### Game design content graph (SOURCE HIERARCHY ONLY)");
-    out.push("Parent-child relations below are literal authored source "+
-      "containment. Different packs/modes are NOT joined by matching names. "+
-      "No entry proves play order, wave completion, actual spawn count, "+
-      "selection, or runtime effects.");
-    let shown=0;
-    const limit=180;
-    const visit=(id:string,depth:number,seen:Set<string>):void=>{
-      if(shown>=limit)return;
+    out.push("Literal authored containment, not player progression. "+
+      "The root overview is shown before bounded per-branch details so "+
+      "a spawn-heavy early stage cannot hide later levels, modes or rounds. "+
+      "No node proves activation, completion, actual spawning, or a "+
+      "delivered result.");
+
+    // Root coverage is independent of the cost of rendering grandchildren.
+    // Keep per-root and per-branch limits explicit; never confuse a
+    // presentation omission with a missing authored design node.
+    const maxRoots=64;
+    const visibleRoots=rootNodes.slice(0,maxRoots);
+    out.push("**Authored root overview:** "+
+      visibleRoots.length+" of "+rootNodes.length+
+      " source root(s) represented.");
+    for(const root of visibleRoots){
+      const immediate=orderedChildren(root.id);
+      out.push("- **"+concise(root.label)+"**"+
+        " — "+immediate.length+" direct content item(s); source "+
+        concise(sourceRef(root.id)));
+      if(immediate.length>0){
+        const labels=immediate.slice(0,36).map(edge=>
+          authoredById.get(edge.to)?.label ?? "UNKNOWN");
+        out.push("  Direct children: "+labels.map(concise).join(" | ")+
+          (immediate.length>36
+            ? " | +"+(immediate.length-36)+
+              " more authored children (not listed in overview)" : ""));
+      }
+    }
+    if(rootNodes.length>maxRoots){
+      out.push("Additional authored roots not expanded in this brief: "+
+        (rootNodes.length-maxRoots)+
+        ". All remain in the canonical Intent Graph.");
+    }
+
+    const maxDirectTotal=240;
+    const maxDirectPerRoot=Math.max(1,Math.min(48,
+      Math.floor(maxDirectTotal/visibleRoots.length)));
+    const directShownCount=visibleRoots.reduce((total,root)=>
+      total+Math.min(orderedChildren(root.id).length,maxDirectPerRoot),0);
+    const maxLeafTotal=150;
+    const maxLeafPerDirect=Math.max(1,Math.min(6,
+      Math.floor(maxLeafTotal/Math.max(1,directShownCount))));
+    const addAuthoredConfig=(id:string,indent:string):void=>{
       const node=authoredById.get(id);
       if(!node)return;
-      shown++;
-      const prefix="  ".repeat(Math.min(depth,5));
-      out.push(prefix+"- **"+concise(node.label)+"**"+
-        " [authored content; NOT OBSERVED]");
-      if(depth<=1 || (children.get(id)?.length??0)===0){
-        out.push(prefix+"  Source: "+concise(sourceRef(id)));
-      }
-      // Keep material stage/wave/recipe configuration next to the graph
-      // node instead of forcing an operator to reconcile detached lists.
-      // This remains authored source text, NOT an observed world event.
       let decodedId="";
       try { decodedId=decodeURIComponent(id); } catch {}
-      const detailed = decodedId.includes("#wave:") ||
+      const detailed=decodedId.includes("#wave:") ||
         decodedId.includes("#spawn:") ||
         decodedId.includes("#wave-end:") ||
         decodedId.includes("#config:");
-      if(detailed){
-        const sourceFact=node.evidenceIds
-          .filter(x=>x.startsWith("authored-content-evidence:"))
-          .map(x=>evidenceById.get(x))
-          .find(x=>x?.scope==="selected-artifact");
-        if(sourceFact){
-          const summary=sourceFact.summary.split(
-            " Source-authored content only;")[0] ?? "";
-          if(summary)out.push(prefix+"  Authored config: "+
-            concise(summary));
-        }
-      }
-      if(seen.has(id))return;
-      const next=new Set(seen);next.add(id);
-      const edges=children.get(id)??[];
-      for(const edge of edges){
-        if(shown>=limit)break;
-        if(depth>=4)break;
-        visit(edge.to,depth+1,next);
-      }
-      if(depth>=4 && edges.length>0)
-        out.push(prefix+"  Additional nested source items: "+
-          edges.length+" (not expanded)");
+      if(!detailed)return;
+      const sourceFact=node.evidenceIds
+        .filter(x=>x.startsWith("authored-content-evidence:"))
+        .map(x=>evidenceById.get(x))
+        .find(x=>x?.scope==="selected-artifact");
+      const summary=sourceFact?.summary.split(
+        " Source-authored content only;")[0] ?? "";
+      if(summary)out.push(indent+"  Authored config: "+
+        concise(summary));
     };
-    for(const root of rootNodes){
-      if(shown>=limit)break;
-      visit(root.id,0,new Set());
-    }
-    if(shown<authoredNodes.length){
-      out.push("Additional authored content graph nodes omitted by "+
-        "presentation limit: "+(authoredNodes.length-shown)+
-        ". Source records remain in the canonical Intent Graph.");
+    out.push("", "**Branch details (balanced source samples, NOT OBSERVED):**");
+    for(const root of visibleRoots){
+      const direct=orderedChildren(root.id);
+      const directShown=direct.slice(0,maxDirectPerRoot);
+      out.push("- **"+concise(root.label)+"** [authored root]");
+      addAuthoredConfig(root.id,"  ");
+      if(direct.length===0){
+        out.push("  Source: "+concise(sourceRef(root.id)));
+        continue;
+      }
+      for(const edge of directShown){
+        const node=authoredById.get(edge.to);
+        if(!node)continue;
+        const nested=orderedChildren(edge.to);
+        out.push("  - **"+concise(node.label)+"**"+
+          " ["+nested.length+" nested source item(s)]"+
+          " — "+concise(sourceRef(edge.to)));
+        addAuthoredConfig(edge.to,"    ");
+        for(const child of nested.slice(0,maxLeafPerDirect)){
+          const leaf=authoredById.get(child.to);
+          if(!leaf)continue;
+          out.push("    - "+concise(leaf.label)+
+            " — "+concise(sourceRef(leaf.id)));
+          addAuthoredConfig(leaf.id,"      ");
+          const deeper=orderedChildren(leaf.id);
+          if(deeper.length>0)out.push(
+            "      Deeper authored items not expanded: "+deeper.length);
+        }
+        if(nested.length>maxLeafPerDirect)
+          out.push("    Additional authored items in "+
+            concise(node.label)+": "+
+            (nested.length-maxLeafPerDirect)+
+            " (not displayed; canonical source graph retains them).");
+      }
+      if(direct.length>directShown.length)
+        out.push("  Additional direct children of "+
+          concise(root.label)+": "+(direct.length-directShown.length)+
+          " (not expanded; see overview and canonical graph).");
     }
     const unjoined=(
       waveStages.length>0 && orderedGroups.length>0

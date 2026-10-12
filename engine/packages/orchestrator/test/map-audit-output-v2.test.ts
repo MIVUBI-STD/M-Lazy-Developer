@@ -836,7 +836,7 @@ describe("Map Audit Output V2 projection", () => {
     expect(start).toBeGreaterThan(0);
     const section=brief.slice(start,brief.indexOf("### Other mechanics",start));
     expect(section).toContain("Stage stage_1");
-    expect(section).toContain("authored content; NOT OBSERVED");
+    expect(section).toContain("balanced source samples, NOT OBSERVED");
     expect(section).toContain("Wave 1");
     expect(section).toContain("GuessText");
     expect(section).toContain("easy");
@@ -846,6 +846,80 @@ describe("Map Audit Output V2 projection", () => {
     expect(section).not.toContain("Stage 15");
     expect(section.indexOf("stage_1")).toBeLessThan(section.indexOf("Wave 1"));
     expect(section.indexOf("GuessText")).toBeLessThan(section.indexOf("easy"));
+    expect(brief).toContain("No published finding");
+  });
+
+  it("shows all fifteen authored levels before a spawn-heavy first stage can consume the detail budget", () => {
+    const report: any = {
+      mapVersion:"1",evidenceScope:{selectedArtifact:"multi-stage.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const nodes: any[] = [];
+    const edges: any[] = [];
+    const evidence: any[] = [];
+    const path = "behavior_packs/example/scripts/arena.js";
+    const addNode = (id: string, label: string, line: number): void => {
+      const proof = "proof:" + id;
+      nodes.push({id,label,kind:"resource",status:"inferred",
+        evidenceIds:[proof]});
+      evidence.push({id:proof,origin:"source-code",
+        scope:"selected-artifact",locator:path + ":" + line + ":1",
+        summary:"Literal authored source content only."});
+    };
+    const addOwnership = (parent: string, child: string): void => {
+      edges.push({id:"authored-content-owns:"+encodeURIComponent(
+        parent+"->"+child),from:parent,to:child,kind:"owns",
+        status:"inferred",evidenceIds:["proof:"+parent,"proof:"+child]});
+    };
+    for(let stage=1;stage<=15;stage++){
+      const stageId="resource:authored-source:stage-"+stage;
+      addNode(stageId,"Stage "+stage,stage*10);
+      for(let wave=1;wave<=2;wave++){
+        const waveId="resource:authored-source:wave-"+stage+"-"+wave;
+        addNode(waveId,"Wave "+wave,stage*10+wave);
+        addOwnership(stageId,waveId);
+        const spawnCount=stage===1&&wave===1?190:4;
+        for(let index=1;index<=spawnCount;index++){
+          const spawnId="resource:authored-source:spawn-"+stage+"-"+
+            wave+"-"+index;
+          addNode(spawnId,"Spawn recipe "+index,stage*1000+wave*200+index);
+          addOwnership(waveId,spawnId);
+        }
+      }
+    }
+    const brief = formatSelectedMapAuditBrief({
+      report,intent:{schemaVersion:1,id:"sample",nodes,edges,evidence,
+        unknowns:[],invariants:[]} as any,
+      modelTaskPackets:[],
+    });
+    const start=brief.indexOf("### Game design content graph (SOURCE HIERARCHY ONLY)");
+    const end=brief.indexOf("### Other mechanics",start);
+    const graph=brief.slice(start,end<0?undefined:end);
+    const detailIndex=graph.indexOf("**Branch details (balanced source samples, NOT OBSERVED):**");
+    expect(detailIndex).toBeGreaterThan(0);
+    const overview=graph.slice(0,detailIndex);
+    const detail=graph.slice(detailIndex);
+    for(let stage=1;stage<=15;stage++){
+      expect(overview).toContain("**Stage "+stage+"**");
+      expect(detail).toContain("**Stage "+stage+"** [authored root]");
+    }
+    expect(overview.indexOf("**Stage 2**"))
+      .toBeLessThan(overview.indexOf("**Stage 10**"));
+    expect(overview.indexOf("**Stage 14**"))
+      .toBeLessThan(overview.indexOf("**Stage 15**"));
+    expect(detail).toContain("**Wave 1**");
+    expect(detail).toContain("**Wave 2**");
+    expect(detail).toContain("Additional authored items in Wave 1:");
+    expect(overview).toContain("15 of 15 source root(s) represented.");
+    expect(graph).toContain("canonical source graph retains them");
+    expect(graph).not.toContain("Stage 16");
     expect(brief).toContain("No published finding");
   });
 
