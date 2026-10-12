@@ -1,3 +1,15 @@
+## Current development focus — map-design understanding and actionable findings (2026-10-12)
+
+**User outcome:** M-Lazy-Developer should explain what a selected Minecraft map is designed to do, then report concrete design deviations/bugs without hallucinating faults. The target is not more checkers, validators, schemas, or zero-gap dashboards. Canonical product outcome: `docs/product/flow.md`; development decisions: `docs/system/development-discipline.md`; operator output: `docs/analysis/master-selected-map-audit-workflow.md`.
+
+**What already exists:** two selected-artifact, ChatGPT-performed source reviews (Defense Challenge v1.1.5 and Fall of the Pillager L1 v1.1.0) reconstruct different authored journeys and document actual source contradictions, negative controls and runtime unknowns. The latest loot/equipment reference join is source-implemented but its contribution to gameplay interpretation has not been independently established. The TypeScript production entrypoint, repository tests and Minecraft runtime were not established as executed.
+
+**Next bounded acceptance:** use these real reviews to identify the smallest material gap between a source-backed game-design explanation and an actionable deviation report; contrast with one independently examined map of different gameplay when accessible. Record the exact missed/misclassified mechanic and counterexample; repair only the earliest canonical owner if this demonstrates a general failure. Measure design fidelity, missed material contradictions, avoided false positives, report usefulness and honest UNKNOWNs—not number of completed checkers. No fabricated full-map accuracy score, speculative new detector, parallel model, local-PC prerequisite or map-specific rule.
+
+**Stop:** once the existing workflow can present the scoped selected-map gameplay design and evidence-backed findings with bounded uncertainty, stop further architecture/validation expansion unless a newly observed real-map deficiency warrants it. Earlier closing-batch PAUSE below applies to that completed reference-integration batch, not this user-authorized focus correction.
+
+---
+
 ## Closing batch — generic entity loot/equipment source-reference integrity (2026-10-12)
 
 **Operating reality:** M-Lazy-Developer remains a ChatGPT-operated checker with GitHub `Local` as source/knowledge authority; no application has been built or run. User approved one bounded reusable source-relation improvement and then closing the current work session.

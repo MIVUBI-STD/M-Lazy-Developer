@@ -157,6 +157,20 @@ Prefer:
 
 Do not sacrifice validation, recoverability, security, data-loss prevention, or explicit user requirements merely to reduce code.
 
+## Product focus — map design before checker expansion
+
+The decisive M-Lazy-Developer outcome is **correctly reconstructing the selected map's authored gameplay** and **reporting material discrepancies/bugs with appropriate proof**, as defined in `docs/product/flow.md`. More rules, validation gates, candidate families, dashboards, schemas, or infrastructure are not progress unless they improve that outcome.
+
+For future SYSTEM DEVELOPMENT decisions:
+
+- **Start with real-map output, not a wished-for detector.** Inspect a pinned selected artifact and its game-design interpretation: player objective, phase transitions, actors, progression, ownership, failure/retry, and player-facing capability. State the concrete mechanic or contradiction the current approach missed or falsely asserted.
+- **Find the first wrong existing owner.** Is evidence missing from DISCOVERY, incorrectly joined in UNDERSTAND, misinterpreted in MODEL, prematurely promoted by PROVE, or concealed by REPORT? Reuse and correct that owner and its actual consumer. If the existing ChatGPT source review already answers the question with honest uncertainty, no code change is required.
+- **Evaluate against decisions, not internal coverage counts.** A useful improvement reconstructs a real mechanic more faithfully, finds a defensible issue missed before, rejects a false positive, or gives a more actionable Expected/Actual and proof boundary. Compare source-backed positives, intentional designs/negative cases, and explicit UNKNOWNs. Do not optimize for raw issue count or a fabricated precision score.
+- **No checker proliferation.** Add/extend a detector or validation rule only for a demonstrated, material, generalizable failure that the current owner cannot resolve more simply. Do not create a new test, benchmark, receipt or coverage layer just to validate another layer. Existing proof protection stays in place; its expansion requires a specific decision it will change.
+- **Stop at useful output.** A bounded source-backed map-design explanation plus correctly classified findings and exact material unknowns is more valuable than exhaustive unrelated validations. Retain final-report admission and safety rules, but do not present inability to certify every runtime behavior as inability to understand any gameplay.
+
+For the next acceptance boundary, compare the existing selected-source Defense v1.1.5 and Fall of the Pillager L1 v1.1.0 reviews (different script styles and gameplay), then one independently inspected contrasting map when accessible. Use their actual evidence and negative controls; do not manufacture an executed TypeScript audit or promote historical QA. Fix only the first demonstrable generalized gap and reassess the human-usable outcome.
+
 ## User-value gate
 
 Before adding a new subsystem, proof layer, registry, workflow state, dashboard, or candidate family, answer:

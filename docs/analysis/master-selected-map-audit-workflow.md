@@ -33,6 +33,18 @@ The Pre-Audit Plan is a communication gate only. It is not an audit stage, gamep
 
 Use this document to know what happens next, what must exist before moving on, and where specialist evidence feeds the same canonical flow.
 
+## What the operator must deliver
+
+Keep the user-facing audit anchored to **game design → deviations → specific remaining proof**, not a parade of checker statuses. From the exact selected artifact, communicate:
+
+1. **Game design:** purpose, player journey, core mechanics, phase/progression/terminal rules, session/arena ownership, and source-backed intended behavior. Distinguish the source-authored design from assumed developer intent and from observed gameplay.
+2. **Findings:** only real expected-versus-actual contradictions supported by a causal source path or observed behavior. Give impact, exact evidence, applicable `BUG` / `DESIGN_MISMATCH` classification, proof state, and practical reproduction/repair context when established. Seek disconfirming evidence before promotion.
+3. **Unresolved:** pinpoint only decisions that materially affect understanding or an identified candidate. Missing package references, unknown runtime consequences, coverage diagnostics and historical bugs are leads or Audit Obligations, not automatically reportable bugs.
+
+For a ChatGPT-native review, this is a clearly labeled **source-scoped assessment**, not a fictitious `runSelectedMapAudit()` execution or closed Map Audit Output V2. Findings proven for a bounded surface may be communicated even if other surfaces remain incomplete; never turn partial coverage into whole-map PASS or published approved Bug Report V2.
+
+The existing graph, proof gate and final report owners remain authoritative. This is presentation priority within the same workflow, **not** a new report, checkpoint, detection policy, or schema. Spend analysis on material gameplay differences; do not search extra checker families merely to fill a coverage table.
+
 ---
 
 # PRE-AUDIT — confirm scope before production audit

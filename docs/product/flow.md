@@ -17,6 +17,20 @@ For gameplay audit, one exact selected `.mcworld` is the only current gameplay a
 
 Historical QA, old map versions, Development/Source, changelogs, and external documents may support comparison/calibration only. They never silently define current Expected Behavior.
 
+## Primary outcome — understand the map and report deviations
+
+The product succeeds when a reviewer can explain **what the selected map is designed to do**, identify **where its implementation conflicts with that design**, and give the developer **actionable, source-grounded findings**. The number of checkers, passed validation gates, graph edges, diagnostic candidates, or tests is not a measure of that success.
+
+The useful operator-facing result, whether from a bounded ChatGPT source review or a genuinely executed programmatic audit, has three parts drawn from the same selected-artifact evidence:
+
+1. **Map design / gameplay blueprint:** player objective; entry → setup → main mechanics → progression → victory/failure → cleanup/replay; arena/player ownership; and only material systems actually present in the map. For each claimed mechanic, distinguish authored facts from inferred purpose and unknown runtime behavior.
+2. **Deviations / actionable findings:** expected behavior justified by the selected source or an explicitly approved design; the contradictory implementation or observed behavior; causal consequence; exact source/area; counter-evidence considered; `BUG` versus `DESIGN_MISMATCH`; `PROVEN` versus `NEED_VALIDATION`. Never turn a missing file, generic diagnostic, old QA item, or heuristic alone into a gameplay bug.
+3. **Precise remaining questions:** only material unknowns affecting game understanding or a candidate finding, with the smallest deciding source/runtime observation. An unresolved question is not a defect and is not a reason to hide independently supported findings.
+
+A partial source review may already give this useful **scoped** design-and-deviation assessment; it must name incomplete surfaces and must not be presented as a closed production Map Audit Report. The canonical final REPORT still obeys the existing evidence/admission rules. Do not defer all practical map understanding until every unrelated checker or possible test is finished.
+
+Technical domains (entity, scoreboard, Script API, ticking, NBT, structures, inventory, permissions, concurrency) serve the reconstructed player journey. They are not independent feature quotas. An unfamiliar mechanic remains valid even if no pre-existing category covers it.
+
 ## One source-declared programmatic audit flow (optional; only if executed)
 
 ```text
