@@ -112,6 +112,10 @@ Load only when the canonical audit flow activates the concern:
 - [Runtime Telemetry Contract](./runtime-telemetry-contract.md) — trace/evidence envelope for runtime observation and diagnostics.
 - [Developer Note Coverage](./developer-note-coverage.md) — engineering-note admission and separation from BUG / DESIGN_MISMATCH.
 
+## Optional developer-origin interpretation
+
+- [Developer-Practice Knowledge for Gameplay Interpretation](./developer-practice-context.md) — **REFERENCE only**: curated, source-fingerprinted hints from evolving developer material, retrieved selectively after current-map evidence raises a question. Its linked JSON is machine-readable and updateable; it never creates a gameplay requirement, a finding, or a separate audit stage. Source inventory remains in [Examples](../examples/bedrock-developer-agent-skills-reference.md).
+
 ## Analysis domains
 
 ### Core models and graphs

@@ -87,6 +87,22 @@ implementation detail
 → assumed design
 ```
 
+## Optional developer-origin knowledge during UNDERSTAND
+
+When selected-map source facts expose a meaningful interpretation gap
+(e.g. a form response crossing a session boundary, entity death versus
+cleanup, or the lifetime of persisted state), the operator **may**
+retrieve a bounded pattern from [Developer-Practice Knowledge for Gameplay
+Interpretation](./developer-practice-context.md) and its source-fingerprinted
+JSON. Treat it as `REFERENCE` context only: record its exact pattern ID,
+source ZIP identity, status, counterexample and version uncertainty. A
+pattern suggests an investigation question; only evidence from the current
+selected artifact and applicable approved design may establish a relation,
+expected behavior, issue or closure decision. Do not load the entire ZIP,
+apply developer preferences as platform rules, or substitute reference
+matching for unresolved state/ownership proof. Absence of a relevant
+pattern does not block normal selected-artifact analysis.
+
 ## Bounded production acceptance
 
 The existing synthetic selected-map acceptance must exercise

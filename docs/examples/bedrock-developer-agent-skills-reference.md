@@ -35,7 +35,11 @@ claims remain provisional.
 The source ZIP was inspected as data. No installer, checker script, imported
 `SKILL.md` instruction, or executable was run. The raw archive itself is
 **not copied into GitHub**. All paths below are locators **inside that exact
-uploaded ZIP**. Future updates to the material require an updated source or
+uploaded ZIP**. The separately routed [Developer-Practice Interpretation
+Reference](../analysis/developer-practice-context.md) and its linked
+`developer-practice-signals.json` provide the deliberately noncanonical,
+machine-readable intake for selectively useful design-interpretation hints.
+Future updates to the material require an updated source or
 an independently located verified upstream. Git history tracks changes to
 this *single stable document*, not `v2`/`final` copies.
 

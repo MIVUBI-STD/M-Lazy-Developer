@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "id": "developer-reference.bedrock-agent-skills",
+  "authority": "REFERENCE",
+  "usagePolicy": "CONTEXT_HINT_ONLY_NOT_GAME_DESIGN_OR_DEFECT_PROOF",
+  "lifecycle": "PROVISIONAL_UPDATABLE",
+  "sourceSnapshot": {
+    "sourceName": "minecraft-bedrock-agent-skills-main.zip",
+    "archiveSha256": "9452f529add3c1616cfaf2bc1d415e66925bec9a78c7a3c83520483d97294a34",
+    "zipEntries": 240,
+    "files": 149,
+    "activeSkillDocuments": 16,
+    "pendingDocuments": 15,
+    "sourceAttribution": "User states this material was supplied by a map developer; original author and license not independently verified",
+    "binaryIncludedInRepo": false
+  },
+  "recordStatusSemantics": {
+    "PROVISIONAL": "Developer-origin assertion normalized as an investigation hint, not independently substantiated",
+    "SOURCE_REVIEWED": "Statement and context inspected in developer source; external truth/applicability unverified",
+    "CORROBORATED": "Independently corroborated for stated version/scope, still not a selected-map contract",
+    "SUPERSEDED": "Underlying source replaced; older record retained via Git history"
+  },
+  "sourceFiles": [
+    {
+      "id": "src.bedrock-forms",
+      "path": "skills/bedrock-forms/SKILL.md",
+      "sha256": "3e04bd878be88ff42f24918856639597f004808a2877bbf374de3c08b97b7ef3",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE"
+    },
+    {
+      "id": "src.bedrock-entity-lifecycle",
+      "path": "skills/bedrock-entity-lifecycle/SKILL.md",
+      "sha256": "e5e3e21addceb91cebd7ab8bdb244a5e1dda5dec26ba5ea40a8267024ed1312f",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE"
+    },
+    {
+      "id": "src.bedrock-data-persistence",
+      "path": "skills/bedrock-data-persistence/SKILL.md",
+      "sha256": "3cd770878a24fc1d4a6866a540d8f638ec1d5fff272fb6f345625afb1ec380ef",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE"
+    },
+    {
+      "id": "src.bedrock-game-time",
+      "path": "skills/bedrock-game-time/SKILL.md",
+      "sha256": "304172eafd0a3eb072420ad25d0f8b14c804fc2183316ef8982c3843d12f4745",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE"
+    },
+    {
+      "id": "src.bedrock-teleport",
+      "path": "skills/bedrock-teleport/SKILL.md",
+      "sha256": "8b9f2f62098f21856342a68afffc0be82873643579da506de8528f18cd24b096",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE"
+    },
+    {
+      "id": "src.bedrock-coordinates",
+      "path": "skills/bedrock-coordinates/SKILL.md",
+      "sha256": "1bded4cec147bf743d5f68f9d4938e062c0044e909d32084d1e73a988b519c4f",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE"
+    },
+    {
+      "id": "src.bedrock-version-targeting",
+      "path": "skills/bedrock-version-targeting/SKILL.md",
+      "sha256": "3acaee706f958c67b44ba6764e3bf771cbc992284b346548d00716077aa42a65",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE"
+    },
+    {
+      "id": "src.bedrock-debug-logging",
+      "path": "skills/bedrock-debug-logging/SKILL.md",
+      "sha256": "4224409020ad7809884e32249b9fa59e3cc6c8f24b0f0ab76185e7308243e26a",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE"
+    }
+  ],
+  "patterns": [
+    {
+      "id": "developer.hint.forms.stale-response",
+      "sourceId": "src.bedrock-forms",
+      "heading": "Form service and force-close rules",
+      "kind": "IMPLEMENTATION_PATTERN",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "ui",
+        "session",
+        "lifecycle"
+      ],
+      "sourceSignals": [
+        "ActionFormData",
+        "ModalFormData",
+        "MessageFormData",
+        "closeAllForms"
+      ],
+      "question": "Does this map tie a pending form response to the same session/phase that opened it?",
+      "candidateRelations": [
+        "player interaction → UI response",
+        "session/phase guard → allowed state mutation",
+        "cancel/close → no mutation"
+      ],
+      "negativeControl": "A legitimately persistent, non-session-specific form is not automatically stale",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not classify an unguarded form as a bug without selected-map design and reachable effect evidence"
+    },
+    {
+      "id": "developer.hint.entity.removal-vs-death",
+      "sourceId": "src.bedrock-entity-lifecycle",
+      "heading": "Removing entities: choose by intent",
+      "kind": "DESIGN_INTERPRETATION_HINT",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "entity",
+        "combat",
+        "cleanup"
+      ],
+      "sourceSignals": [
+        "Entity.kill",
+        "Entity.remove",
+        "minecraft:instant_despawn",
+        "entityDie",
+        "entityRemove"
+      ],
+      "question": "Is entity disappearance part of a combat outcome or a reset/cleanup lifecycle?",
+      "candidateRelations": [
+        "entity death → possible combat progression",
+        "entity remove/despawn → possible cleanup"
+      ],
+      "negativeControl": "A kill used for intentional combat outcome and a removal used for cleanup can both be valid",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Never equate remove/despawn with a win, or require one removal method for all maps"
+    },
+    {
+      "id": "developer.hint.persistence.state-ownership",
+      "sourceId": "src.bedrock-data-persistence",
+      "heading": "Data places and world versus player storage",
+      "kind": "DESIGN_INTERPRETATION_HINT",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "state",
+        "player",
+        "arena",
+        "persistence"
+      ],
+      "sourceSignals": [
+        "setDynamicProperty",
+        "getDynamicProperty",
+        "scoreboard",
+        "config.ts"
+      ],
+      "question": "Which actor/session/arena owns the state, how long does it survive, and where is the reset or recovery?",
+      "candidateRelations": [
+        "data owner → persistence scope",
+        "disconnect/reconnect → possible preserve/reset",
+        "state write → later read"
+      ],
+      "negativeControl": "Scoreboards can legitimately store gameplay state in maps; the author's display-only preference is not universal",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not mark scoreboard storage or a different persistence strategy as defective merely for differing from this author's preference"
+    },
+    {
+      "id": "developer.hint.time.ticks",
+      "sourceId": "src.bedrock-game-time",
+      "heading": "Gameplay time and exception for recording",
+      "kind": "TEAM_IMPLEMENTATION_POLICY",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "timing",
+        "round",
+        "scheduler"
+      ],
+      "sourceSignals": [
+        "system.currentTick",
+        "system.runTimeout",
+        "Date.now",
+        "performance.now"
+      ],
+      "question": "What is the intended time authority for cooldowns, round progression and session expiry?",
+      "candidateRelations": [
+        "timer → phase transition",
+        "time authority → deadline"
+      ],
+      "negativeControl": "Wall-clock timestamps may be intentional telemetry or an approved design requirement",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not infer a time bug solely from Date.now or silently require 20 TPS as a runtime observation"
+    },
+    {
+      "id": "developer.hint.teleport.ui-transition",
+      "sourceId": "src.bedrock-teleport",
+      "heading": "Soft teleport sequence",
+      "kind": "TEAM_IMPLEMENTATION_POLICY",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "teleport",
+        "ui",
+        "lifecycle"
+      ],
+      "sourceSignals": [
+        "player.teleport",
+        "camera.fade",
+        "closeAllForms",
+        "tp"
+      ],
+      "question": "Does moving between gameplay stages intentionally close UI, apply camera feedback and preserve player control?",
+      "candidateRelations": [
+        "stage transition → teleport attempt",
+        "UI close/camera effect → player feedback"
+      ],
+      "negativeControl": "An immediate teleport without fade can be valid if selected-map design expects it",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not require soft teleport universally or classify bare teleport as a bug without evidence"
+    },
+    {
+      "id": "developer.hint.coordinate.position-vs-block",
+      "sourceId": "src.bedrock-coordinates",
+      "heading": "Spawn point versus block coordinate",
+      "kind": "IMPLEMENTATION_PATTERN",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "spatial",
+        "spawn",
+        "geometry"
+      ],
+      "sourceSignals": [
+        "teleport",
+        "spawn",
+        "setblock",
+        "floor",
+        "0.5"
+      ],
+      "question": "Does a coordinate represent an entity/player position or a block/region coordinate?",
+      "candidateRelations": [
+        "authored coordinate → spatial position type",
+        "spawn/teleport → target region"
+      ],
+      "negativeControl": "Fractional authored coordinates can already be exact intended positions; block operations do not require centering",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Never adjust map coordinates or claim a spatial bug based on an unconditional +0.5 rule"
+    },
+    {
+      "id": "developer.hint.version.compatibility",
+      "sourceId": "src.bedrock-version-targeting",
+      "heading": "Inspect targets and upgrade together",
+      "kind": "DEVELOPER_WORKFLOW_HINT",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "edition",
+        "script-api",
+        "manifest"
+      ],
+      "sourceSignals": [
+        "manifest.json",
+        "min_engine_version",
+        "@minecraft/server",
+        "@minecraft/server-ui"
+      ],
+      "question": "Are claimed Script API capabilities applicable to this selected archive's manifest and target edition/version?",
+      "candidateRelations": [
+        "declared target → API compatibility check",
+        "version mismatch → investigation"
+      ],
+      "negativeControl": "A pin mismatch requires verification of actual dependency and runtime target, not assumptions from filenames",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not use a version pinned in this developer ZIP as the selected map's runtime profile"
+    },
+    {
+      "id": "developer.hint.logging.player-vs-dev",
+      "sourceId": "src.bedrock-debug-logging",
+      "heading": "Console and logging boundaries",
+      "kind": "TEAM_IMPLEMENTATION_POLICY",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "observability",
+        "ui",
+        "debug"
+      ],
+      "sourceSignals": [
+        "console.warn",
+        "console.error",
+        "sendMessage",
+        "Content Log"
+      ],
+      "question": "Is the message intended for players or for developer diagnosis, and is it on a material gameplay path?",
+      "candidateRelations": [
+        "error path → diagnostic signal",
+        "player-facing text → feedback"
+      ],
+      "negativeControl": "Intentional player-facing diagnostic information or admin tools can be part of approved map design",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not issue a defect merely for nonconformity with this team's preferred logger"
+    }
+  ]
+}
