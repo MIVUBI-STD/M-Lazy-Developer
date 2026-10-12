@@ -1488,6 +1488,194 @@ export function buildGameplayIntentModel(
     }
   }
 
+  // Candidate class receiver binding from a COMPLETE authored source witness:
+  // new ImportedClass(this) → constructor this.field = argument →
+  // this.field.method(this) → uniquely owned target method(parameter).
+  // Propagate only direct stable parameter forwarding through exact IR-owned
+  // this.method(parameter) call sites. This is a possible source instance
+  // path, NOT universal runtime receiver identity or successful execution.
+  type BoundReceiver = {
+    readonly targetScript: ParsedScriptFile;
+    readonly targetClass: string;
+    readonly evidenceIds: readonly string[];
+  };
+  const methodFor = (script:ParsedScriptFile,className:string,name:string) => {
+    const matches = (script.sourceClassMethods ?? []).filter(item =>
+      item.className === className && item.methodName === name);
+    return matches.length === 1 ? matches[0] : undefined;
+  };
+  const methodNames = (script:ParsedScriptFile,name:string) =>
+    (script.sourceClassMethods ?? []).filter(m => m.methodName === name);
+  const keyFor = (script:ParsedScriptFile, cls:string,method:string,index:number) =>
+    [script.source.artifactId,script.source.relativePath,cls,method,index].join("\u0000");
+  const bindings = new Map<string,BoundReceiver>();
+  const ambiguous = new Set<string>();
+  const sourceWitness = (kind:string,ref:SourceRef,reason:string):string => {
+    const id=kind+":"+encodeURIComponent(ref.artifactId+":"+
+      sourceLocator(ref));
+    evidence.set(id,{
+      id,origin:"source-code",scope:"selected-artifact",
+      locator:sourceLocator(ref),summary:reason,
+    });
+    return id;
+  };
+  const addBinding = (key:string,binding:BoundReceiver) => {
+    if (ambiguous.has(key)) return;
+    const previous = bindings.get(key);
+    if (!previous) { bindings.set(key,binding); return; }
+    if (previous.targetScript !== binding.targetScript ||
+        previous.targetClass !== binding.targetClass) {
+      ambiguous.add(key);
+      bindings.delete(key);
+      return;
+    }
+    bindings.set(key,{
+      ...previous,
+      evidenceIds:[...new Set([
+        ...previous.evidenceIds,...binding.evidenceIds,
+      ])].sort(),
+    });
+  };
+  const constructions = ownedScripts.flatMap(script =>
+    (script.importedThisConstructions ?? []).map(item => ({script,item})));
+  for (const {script:owner,item:construct} of constructions) {
+    if (construct.source.artifactId !== owner.source.artifactId ||
+        construct.source.relativePath !== owner.source.relativePath) continue;
+    // Imported symbol resolution must be unique in this selected source.
+    const routes = importedModules.filter(r =>
+      r.fromSourcePath === owner.source.relativePath &&
+      r.module === construct.module && r.status === "resolved" &&
+      r.targetSourcePath !== undefined);
+    if (routes.length !== 1) continue;
+    const targetFiles=ownerPaths.get(routes[0]!.targetSourcePath!) ?? [];
+    if (targetFiles.length !== 1) continue;
+    const created=targetFiles[0]!;
+    if (created.source.artifactId !== owner.source.artifactId) continue;
+    const exported=(created.sourceClassMethods ?? []).some(m =>
+      m.className === construct.importedName && m.exported);
+    if (!exported) continue;
+    const fieldBindings=(created.constructorFieldBindings ?? []).filter(b =>
+      b.className === construct.importedName &&
+      b.parameterIndex === construct.thisArgumentIndex);
+    if (fieldBindings.length !== 1) continue;
+    const stored=fieldBindings[0]!;
+    for (const dispatch of created.thisInstanceDispatches ?? []) {
+      if (dispatch.className !== construct.importedName ||
+          dispatch.fieldName !== stored.fieldName) continue;
+      const receiving=methodFor(owner,construct.ownerClass,dispatch.methodName);
+      if (!receiving || !receiving.stableParameterIndices.includes(
+        dispatch.thisArgumentIndex)) continue;
+      const sourceIds=[
+        sourceWitness("source-instance-construct",construct.source,
+          "Selected-source imported-class construction with direct this argument; not a runtime singleton."),
+        sourceWitness("source-instance-field",stored.source,
+          "Constructor stores its exact service parameter in a direct this.field assignment."),
+        sourceWitness("source-instance-forward",dispatch.source,
+          "Constructed class forwards this into a method through the stored receiver field."),
+      ];
+      addBinding(keyFor(owner,construct.ownerClass,
+        dispatch.methodName,dispatch.thisArgumentIndex),{
+        targetScript:created,targetClass:construct.importedName,
+        evidenceIds:sourceIds,
+      });
+    }
+  }
+  // Same-class direct-parameter forwarding, bounded depth. The first
+  // source link is anchored by construction; later calls must match the
+  // SAME exact resolved IR call edge and stable formal parameter source.
+  for (let depth=0;depth<3;depth++) {
+    let changed=false;
+    for (const script of ownedScripts) {
+      for (const call of script.localFunctionCalls ?? []) {
+        if (!call.callerRegion.startsWith("function:") ||
+            !call.targetRegion.startsWith("function:")) continue;
+        const callers=methodNames(script,call.callerRegion.slice(9));
+        const targets=methodNames(script,call.targetRegion.slice(9));
+        if (callers.length!==1 || targets.length!==1 ||
+            callers[0]!.className!==targets[0]!.className) continue;
+        const caller=callers[0]!,target=targets[0]!;
+        const proof=input.semanticIr?.execution.edges.filter(edge =>
+          edge.resolution==="resolved" && edge.kind==="synchronous-call" &&
+          edge.from===scriptRegionId(script.source,call.callerRegion) &&
+          edge.to===scriptRegionId(script.source,call.targetRegion) &&
+          sameExactCallSource(edge.source,call.source)) ?? [];
+        if (proof.length!==1) continue;
+        for(let i=0;i<(call.argumentExpressions ?? []).length;i++){
+          const arg=call.argumentExpressions![i]!;
+          const param=caller.parameterNames.indexOf(arg);
+          if(param<0 || !/^[A-Za-z_$][\w$]*$/.test(arg) ||
+             !caller.stableParameterIndices.includes(param) ||
+             !target.stableParameterIndices.includes(i)) continue;
+          const existing=bindings.get(keyFor(script,caller.className,
+            caller.methodName,param));
+          if(!existing)continue;
+          const key=keyFor(script,target.className,target.methodName,i);
+          const before=bindings.get(key);
+          addBinding(key,{
+            ...existing,evidenceIds:[...new Set([
+              ...existing.evidenceIds,
+              sourceWitness("source-instance-local-forward",call.source,
+                "Exact same-class call forwards a stable method parameter into the callee."),
+            ])],
+          });
+          if(!before && bindings.has(key)) changed=true;
+        }
+      }
+    }
+    if(!changed)break;
+  }
+  for(const script of ownedScripts){
+    for(const site of script.unresolvedReceiverCalls ?? []){
+      if(!/^[A-Za-z_$][\w$]*$/.test(site.receiverExpression) ||
+         !site.executionRegion.startsWith("function:"))continue;
+      const owners=methodNames(script,site.executionRegion.slice(9));
+      if(owners.length!==1)continue;
+      const owner=owners[0]!;
+      const index=owner.parameterNames.indexOf(site.receiverExpression);
+      if(index<0 || !owner.stableParameterIndices.includes(index))continue;
+      const receiver=bindings.get(keyFor(script,owner.className,
+        owner.methodName,index));
+      if(!receiver)continue;
+      const target=methodFor(receiver.targetScript,
+        receiver.targetClass,site.method);
+      if(!target)continue;
+      const sourceId="mechanic:source-method:"+
+        encodeURIComponent(script.source.artifactId+":"+
+          script.source.relativePath+"#"+site.executionRegion);
+      if(!nodes.has(sourceId))continue;
+      const targetId="mechanic:source-method:"+
+        encodeURIComponent(receiver.targetScript.source.artifactId+":"+
+          receiver.targetScript.source.relativePath+
+          "#function:"+target.methodName);
+      const siteId=sourceWitness("source-instance-receiver-call",site.source,
+        "Authored call on an exactly forwarded formal parameter; instance origin is a source candidate, not universal runtime identity.");
+      const targetIdEvidence=sourceWitness(
+        "source-instance-target-declaration",target.source,
+        "Uniquely declared source class method; does not prove dynamic invocation.");
+      if(!nodes.has(targetId))nodes.set(targetId,{
+        id:targetId,kind:"mechanic",
+        label:"function:"+target.methodName+
+          " (source method; gameplay purpose UNKNOWN)",
+        status:"inferred",evidenceIds:[targetIdEvidence],
+      });
+      const edgeId="source-instance-candidate:"+
+        encodeURIComponent(sourceId+"->"+targetId);
+      const prev=edges.get(edgeId);
+      edges.set(edgeId,{
+        id:edgeId,from:sourceId,to:targetId,kind:"requires",
+        status:"inferred",
+        evidenceIds:[...new Set([
+          ...(prev?.evidenceIds??[]),
+          ...receiver.evidenceIds,siteId,targetIdEvidence,
+        ])].sort(),
+        description:"Candidate receiver source chain from explicit imported " +
+          "construction, constructor-field binding, this-argument forwarding "+
+          "and unique method declaration. Not universal instance identity "+
+          "or successful call/result delivery.",
+      });
+    }
+  }
+
   const model: GameplayIntentModel = {
     schemaVersion: 1,
     id: input.id,

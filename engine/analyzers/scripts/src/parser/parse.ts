@@ -42,7 +42,7 @@ import {
   inferScriptPropertyAccesses,
   inferScriptPropertyWrites,
 } from "./receiver-inference.js";
-import { inferExactCallArgumentParameterBindings } from "./cross-file-call.js";
+import { inferExactCallArgumentParameterBindings, extractScriptClassWiring } from "./cross-file-call.js";
 import { findScriptExecutionPrivilegeRule } from "../../../../packages/compatibility/src/index.js";
 import { inferScriptLifecycleMemberExposures } from "../domains/lifecycle/lifecycle-exposure.js";
 import {
@@ -2008,6 +2008,7 @@ export function parseScriptFile(
     text,
     source,
   );
+  const classWiring = extractScriptClassWiring(file, source);
   const spatialMutations = deriveScriptSpatialMutations(
     text,
     source,
@@ -2953,12 +2954,24 @@ export function parseScriptFile(
 
       const localMethodTarget = directThisMethodTarget(node);
       if (localMethodTarget) {
+        const container = enclosingClassLike(node);
+        const targets = container?.members.filter((member): member is ts.MethodDeclaration =>
+          ts.isMethodDeclaration(member) &&
+          declarationMemberName(member.name) === localMethodTarget &&
+          member.body !== undefined) ?? [];
+        const target = targets.length === 1 ? targets[0] : undefined;
+        const bindings = target
+          ? inferExactCallArgumentParameterBindings(node, file, source,
+              {parameters:target.parameters,body:target.body!},file,source)
+          : [];
         const lexicalGuards = lexicalBranchGuards(node, file, source);
         const precedenceGuards = precedingEarlyExitGuards(node, file, source);
         localFunctionCalls.push({
           callerRegion: localExecutionRegionId(node, file),
           targetRegion: "function:" + localMethodTarget,
           targetName: localMethodTarget,
+          ...(bindings.length ? {argumentParameterBindings:bindings} : {}),
+          argumentExpressions:node.arguments.map(arg => arg.getText(file)),
           controlFlow: lexicalGuards.length || precedenceGuards.length
             ? "conditional" : localCallControlFlow(node),
           lexicalGuards,
@@ -3273,6 +3286,7 @@ export function parseScriptFile(
     authoredContentUses: extractScriptContentUseSites(file, source),
     authoredPropertyMutations,
     unresolvedReceiverCalls,
+    ...classWiring,
     blockCustomComponentRegistrations,
     persistentReconciliation,
     arenaAuthorityEvidence,

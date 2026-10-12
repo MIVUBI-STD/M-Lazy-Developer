@@ -1733,4 +1733,108 @@ describe("exact authored return-policy source admission", () => {
         edge.kind !== "transitions-to")).toBe(true);
   });
 
+  it("bounds imported-constructor receiver candidate through direct this and method parameters", () => {
+    const artifactId = "artifact:direct";
+    const manager = parseScriptFile("manager", [
+      'export class Manager {',
+      ' constructor(service) { this.service = service; }',
+      ' tick() { this.service.prepareRound(this); }',
+      ' say(message) { return message; }',
+      ' matchSummary() { return "Summary"; }',
+      ' standings() { return []; }',
+      '}',
+    ].join("\n"), {
+      artifactId,relativePath:"behavior_packs/demo/scripts/manager.js",
+    });
+    const service = parseScriptFile("service", [
+      'import { Manager as ImportedManager } from "./manager.js";',
+      'export class Service {',
+      ' init() { const session = new ImportedManager(this); }',
+      ' prepareRound(game) { this.finish(game); }',
+      ' finish(game, reason="complete") {',
+      '   this.state.phase = "match_end";',
+      '   this.settleResult(game);',
+      '   game.say(game.matchSummary());',
+      ' }',
+      ' settleResult(game) { const p = game.standings(); return p; }',
+      '}',
+    ].join("\n"), {
+      artifactId,relativePath:"behavior_packs/demo/scripts/service.js",
+    });
+    expect(service.importedThisConstructions?.[0]).toMatchObject({
+      ownerClass:"Service",module:"./manager.js",
+      importedName:"Manager",thisArgumentIndex:0,
+    });
+    expect(manager.constructorFieldBindings?.[0]).toMatchObject({
+      className:"Manager",fieldName:"service",parameterIndex:0,
+    });
+    expect(manager.thisInstanceDispatches?.some(x =>
+      x.fieldName === "service" && x.methodName === "prepareRound" &&
+      x.thisArgumentIndex === 0)).toBe(true);
+    expect(service.localFunctionCalls.find(c => c.targetName==="finish")
+      ?.argumentExpressions?.[0]).toBe("game");
+    const ir = buildInspectionSemanticIr({
+      parsedScripts:[{parsed:manager},{parsed:service}],parsedFunctions:[],
+    });
+    const model=buildGameplayIntentModel({
+      id:"intent:receiver",artifactId,
+      parsedScripts:[{parsed:manager},{parsed:service}],semanticIr:ir,
+    });
+    const candidates=model.edges.filter(e =>
+      e.id.startsWith("source-instance-candidate:"));
+    const label=(id:string)=>model.nodes.find(n=>n.id===id)?.label ?? "";
+    expect(candidates.length).toBe(3);
+    expect(candidates.some(e =>
+      label(e.from).includes("finish") &&
+      label(e.to).includes("say"))).toBe(true);
+    expect(candidates.some(e =>
+      label(e.from).includes("finish") &&
+      label(e.to).includes("matchSummary"))).toBe(true);
+    expect(candidates.some(e =>
+      label(e.from).includes("settleResult") &&
+      label(e.to).includes("standings"))).toBe(true);
+    expect(candidates.every(e =>
+      e.kind==="requires" && e.status==="inferred" &&
+      e.evidenceIds.length>=4 &&
+      e.evidenceIds.every(id => model.evidence.some(ev =>
+        ev.id===id && ev.scope==="selected-artifact")))).toBe(true);
+    // An authored constructor handoff never verifies play order or UI delivery.
+    expect(candidates.some(e=>e.kind==="transitions-to" ||
+      e.kind==="wins-by")).toBe(false);
+  });
+
+  it("rejects constructor-field reassignment as receiver identity proof", () => {
+    const artifactId="artifact:ambiguous";
+    const manager = parseScriptFile("manager", [
+      'export class Manager {',
+      ' constructor(service) { this.service = service; }',
+      ' tick() {',
+      '   this.service = replacement;',
+      '   this.service.prepareRound(this);',
+      ' }',
+      ' say(text) { return text; }',
+      '}',
+    ].join("\n"),{artifactId,
+      relativePath:"behavior_packs/demo/scripts/manager.js"});
+    const service = parseScriptFile("service",[
+      'import { Manager } from "./manager.js";',
+      'export class Service {',
+      ' init() { const m = new Manager(this); }',
+      ' prepareRound(game) { this.finish(game); }',
+      ' finish(game) { this.state.phase = "match_end"; game.say("Hi"); }',
+      '}',
+    ].join("\n"),{artifactId,
+      relativePath:"behavior_packs/demo/scripts/service.js"});
+    const ir = buildInspectionSemanticIr({
+      parsedScripts:[{parsed:manager},{parsed:service}],parsedFunctions:[],
+    });
+    const model = buildGameplayIntentModel({
+      id:"intent:unsafe",artifactId,
+      parsedScripts:[{parsed:manager},{parsed:service}],semanticIr:ir,
+    });
+    expect(manager.constructorFieldBindings).toEqual([]);
+    expect(model.edges.filter(e=>e.id.startsWith(
+      "source-instance-candidate:"))).toEqual([]);
+  });
+
 });

@@ -1,6 +1,6 @@
 import ts from "typescript";
 import type { SourceRef } from "../../../../packages/project-model/src/index.js";
-import type { ScriptArgumentParameterBinding } from "../core/types.js";
+import type { ScriptArgumentParameterBinding, ScriptImportedThisConstruction, ScriptConstructorFieldBinding, ScriptThisInstanceDispatch, ScriptSourceClassMethod } from "../core/types.js";
 
 export interface ScriptModuleSourceInput {
   path: string;
@@ -880,4 +880,185 @@ export function deriveCrossFileCallEdges(
     a.callerRegion.localeCompare(b.callerRegion) ||
     a.localName.localeCompare(b.localName)
   );
+}
+
+
+/** Bounded source-side constructor/receiver handoffs, not runtime identity.
+ * These direct AST facts are reused by Gameplay Intent's exact source binding.
+ */
+export function extractScriptClassWiring(
+  file: ts.SourceFile, owner: SourceRef,
+): {
+  readonly importedThisConstructions: readonly ScriptImportedThisConstruction[];
+  readonly constructorFieldBindings: readonly ScriptConstructorFieldBinding[];
+  readonly thisInstanceDispatches: readonly ScriptThisInstanceDispatch[];
+  readonly sourceClassMethods: readonly ScriptSourceClassMethod[];
+} {
+  const constructors: ScriptImportedThisConstruction[] = [];
+  const fields: ScriptConstructorFieldBinding[] = [];
+  const forwards: ScriptThisInstanceDispatch[] = [];
+  const methods: ScriptSourceClassMethod[] = [];
+  const imports = new Map<string, { module: string; importedName: string }[]>();
+  for (const declaration of file.statements) {
+    if (!ts.isImportDeclaration(declaration) ||
+        !ts.isStringLiteralLike(declaration.moduleSpecifier) ||
+        !declaration.moduleSpecifier.text.startsWith(".") ||
+        declaration.importClause?.isTypeOnly) continue;
+    const bindings = declaration.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    for (const symbol of bindings.elements) {
+      if (symbol.isTypeOnly) continue;
+      const local = symbol.name.text;
+      imports.set(local, [...(imports.get(local) ?? []), {
+        module: declaration.moduleSpecifier.text,
+        importedName: symbol.propertyName?.text ?? local,
+      }]);
+    }
+  }
+  const classes = file.statements.filter(
+    (statement): statement is ts.ClassDeclaration =>
+      ts.isClassDeclaration(statement) && statement.name !== undefined);
+  const names = new Map<string, number>();
+  for (const item of classes) names.set(item.name!.text,
+    (names.get(item.name!.text) ?? 0) + 1);
+  for (const cls of classes) {
+    const className = cls.name!.text;
+    if (names.get(className) !== 1) continue;
+    const exported = cls.modifiers?.some(m =>
+      m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+    const methodList = cls.members.filter(
+      (member): member is ts.MethodDeclaration =>
+        ts.isMethodDeclaration(member) &&
+        (ts.isIdentifier(member.name) || ts.isStringLiteralLike(member.name)) &&
+        member.body !== undefined);
+    const methodCount = new Map<string,number>();
+    for (const method of methodList) {
+      const name = (method.name as ts.Identifier | ts.StringLiteral).text;
+      methodCount.set(name, (methodCount.get(name) ?? 0) + 1);
+    }
+    for (const method of methodList) {
+      const methodName = (method.name as ts.Identifier | ts.StringLiteral).text;
+      if (methodCount.get(methodName) !== 1) continue;
+      const params = method.parameters.map(p =>
+        ts.isIdentifier(p.name) ? p.name.text : null);
+      const stable = params.flatMap((name,index) => {
+        if (name === null) return [];
+        let mutated = false;
+        const visit = (node:ts.Node):void => {
+          if (mutated) return;
+          if (ts.isBinaryExpression(node) && ts.isIdentifier(node.left) &&
+              node.left.text === name &&
+              node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+              node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+            mutated = true;
+          }
+          if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+              ts.isIdentifier(node.operand) && node.operand.text === name &&
+              (node.operator === ts.SyntaxKind.PlusPlusToken ||
+               node.operator === ts.SyntaxKind.MinusMinusToken)) mutated = true;
+          if (ts.isVariableDeclaration(node) &&
+              ts.isIdentifier(node.name) && node.name.text === name) mutated = true;
+          ts.forEachChild(node,visit);
+        };
+        if (method.body) visit(method.body);
+        return mutated ? [] : [index];
+      });
+      methods.push({
+        className, methodName, parameterNames: params,
+        stableParameterIndices:stable,exported,
+        source:nodeSource(file,method,owner),
+      });
+    }
+    const constructorDeclarations = cls.members.filter(ts.isConstructorDeclaration);
+    if (constructorDeclarations.length === 1) {
+      const ctor = constructorDeclarations[0]!;
+      const params = ctor.parameters.map(p =>
+        ts.isIdentifier(p.name) ? p.name.text : undefined);
+      const seen = new Map<string, {index:number;node:ts.Node}[]>();
+      if (ctor.body) {
+        const visit = (node:ts.Node):void => {
+          if (ts.isBinaryExpression(node) &&
+              node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+              ts.isPropertyAccessExpression(node.left) &&
+              node.left.expression.kind === ts.SyntaxKind.ThisKeyword) {
+            const field = node.left.name.text;
+            const index = ts.isIdentifier(node.right)
+              ? params.indexOf(node.right.text) : -1;
+            const entries = seen.get(field) ?? [];
+            entries.push({index,node});
+            seen.set(field,entries);
+          }
+          ts.forEachChild(node,visit);
+        };
+        visit(ctor.body);
+      }
+      // Reject reassignments to this.field outside the constructor too.
+      const laterWrites = new Set<string>();
+      for (const method of methodList) {
+        if (!method.body) continue;
+        const visit=(node:ts.Node):void => {
+          if (ts.isBinaryExpression(node) &&
+              node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+              node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+              ts.isPropertyAccessExpression(node.left) &&
+              node.left.expression.kind === ts.SyntaxKind.ThisKeyword)
+            laterWrites.add(node.left.name.text);
+          ts.forEachChild(node,visit);
+        };
+        visit(method.body);
+      }
+      for (const [field, entries] of seen) {
+        if (entries.length !== 1 || entries[0]!.index < 0 ||
+            laterWrites.has(field)) continue;
+        fields.push({
+          source:nodeSource(file,entries[0]!.node,owner),
+          className,fieldName:field,parameterIndex:entries[0]!.index,
+        });
+      }
+    }
+
+    const walk=(node:ts.Node):void => {
+      if (ts.isNewExpression(node) && ts.isIdentifier(node.expression)) {
+        const binding = imports.get(node.expression.text);
+        if (binding?.length === 1) {
+          for (let index = 0; index < (node.arguments?.length ?? 0); index++) {
+            if (node.arguments![index]!.kind !== ts.SyntaxKind.ThisKeyword)
+              continue;
+            constructors.push({
+              source:nodeSource(file,node,owner),
+              ownerClass:className,
+              module:binding[0]!.module,
+              importedName:binding[0]!.importedName,
+              thisArgumentIndex:index,
+            });
+          }
+        }
+      }
+      if (ts.isCallExpression(node) &&
+          ts.isPropertyAccessExpression(node.expression) &&
+          ts.isPropertyAccessExpression(node.expression.expression) &&
+          node.expression.expression.expression.kind === ts.SyntaxKind.ThisKeyword) {
+        const fieldName = node.expression.expression.name.text;
+        const methodName = node.expression.name.text;
+        node.arguments.forEach((arg,index) => {
+          if (arg.kind !== ts.SyntaxKind.ThisKeyword) return;
+          forwards.push({
+            source:nodeSource(file,node,owner),
+            className,fieldName,methodName,thisArgumentIndex:index,
+          });
+        });
+      }
+      ts.forEachChild(node,walk);
+    };
+    for (const member of cls.members) {
+      if (ts.isMethodDeclaration(member) || ts.isConstructorDeclaration(member))
+        walk(member);
+    }
+  }
+  return {
+    importedThisConstructions:constructors,
+    constructorFieldBindings:fields,
+    thisInstanceDispatches:forwards,
+    sourceClassMethods:methods,
+  };
 }

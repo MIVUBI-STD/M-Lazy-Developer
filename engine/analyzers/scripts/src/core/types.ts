@@ -29,6 +29,36 @@ import type {
 } from "../../../../packages/project-model/src/index.js";
 import type { ScriptArgumentKind } from "../../../../packages/compatibility/src/index.js";
 
+/** Source-only handoff data; a candidate class reference is not a live instance. */
+export interface ScriptImportedThisConstruction {
+  readonly source: SourceRef;
+  readonly ownerClass: string;
+  readonly module: string;
+  readonly importedName: string;
+  readonly thisArgumentIndex: number;
+}
+export interface ScriptConstructorFieldBinding {
+  readonly source: SourceRef;
+  readonly className: string;
+  readonly fieldName: string;
+  readonly parameterIndex: number;
+}
+export interface ScriptThisInstanceDispatch {
+  readonly source: SourceRef;
+  readonly className: string;
+  readonly fieldName: string;
+  readonly methodName: string;
+  readonly thisArgumentIndex: number;
+}
+export interface ScriptSourceClassMethod {
+  readonly source: SourceRef;
+  readonly className: string;
+  readonly methodName: string;
+  readonly parameterNames: readonly (string | null)[];
+  readonly stableParameterIndices: readonly number[];
+  readonly exported: boolean;
+}
+
 export interface ScriptImport {
   /** Literal module specifier, or source expression when it cannot be resolved. */
   module: string;
@@ -208,6 +238,8 @@ export interface ScriptLocalFunctionCall {
   targetName: string;
   /** Unique AST source parameter binding at this local call, when proven. */
   argumentParameterBindings?: readonly ScriptArgumentParameterBinding[];
+  /** Source-authored actual argument syntax for this.method(...). */
+  argumentExpressions?: readonly string[];
   controlFlow?: "unconditional" | "conditional" | "deferred";
   lexicalGuards?: readonly ScriptLexicalGuard[];
   /** Necessary branch decisions from preceding single-statement exits. */
@@ -578,6 +610,11 @@ export interface ParsedScriptFile {
   authoredPropertyMutations?: readonly ScriptAuthoredPropertyMutation[];
   /** Calls via another object; target method ownership not proven. */
   unresolvedReceiverCalls?: readonly ScriptUnresolvedReceiverCall[];
+  /** Exact direct class-constructor/field/this-forward source witnesses. */
+  importedThisConstructions?: readonly ScriptImportedThisConstruction[];
+  constructorFieldBindings?: readonly ScriptConstructorFieldBinding[];
+  thisInstanceDispatches?: readonly ScriptThisInstanceDispatch[];
+  sourceClassMethods?: readonly ScriptSourceClassMethod[];
   blockCustomComponentRegistrations?: BlockCustomComponentRegistrationEvidence[];
   persistentReconciliation?: PersistentReconciliationEvidence;
   imports: ScriptImport[];

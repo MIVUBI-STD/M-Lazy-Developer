@@ -1074,6 +1074,32 @@ export function formatSelectedMapAuditBrief(input: {
       "Additional methods omitted: " +
       (unresolvedReceiverMethods.length - 24));
   }
+  const receiverCandidates = intent.edges.filter(edge =>
+    edge.id.startsWith("source-instance-candidate:") &&
+    edge.status === "inferred" && edge.kind === "requires");
+  if (receiverCandidates.length > 0) {
+    out.push("", "### Cross-module receiver candidates (SOURCE CHAIN ONLY)");
+    out.push("Each candidate has authored class construction, constructor " +
+      "field storage, direct this-argument handoff, stable local parameter " +
+      "forwarding and a uniquely declared receiving method. A candidate " +
+      "does NOT prove all receiver instances, runtime invocation, matching " +
+      "results, durable settlement or delivered presentation.");
+    const byId = new Map(intent.nodes.map(node => [node.id,node]));
+    for (const edge of receiverCandidates.slice(0, 48)) {
+      const from=byId.get(edge.from),to=byId.get(edge.to);
+      if (!from || !to) continue;
+      const sourceRefs=[...new Set(edge.evidenceIds
+        .map(id=>evidenceById.get(id))
+        .filter(ev=>ev?.scope === "selected-artifact")
+        .map(ev=>concise(ev!.locator)))];
+      out.push("- **" + concise(from.label) + "** --(candidate receiver)--> **" +
+        concise(to.label) + "**",
+        "  Authored witnesses: " + sourceRefs.slice(0, 7).join("; "));
+    }
+    if (receiverCandidates.length > 48) out.push(
+      "Additional receiver candidates omitted: " +
+      (receiverCandidates.length - 48));
+  }
   const sourceMethodStateEdges = intent.edges.filter(edge =>
     edge.id.startsWith("source-method-state:") &&
     edge.kind === "participates-in" && edge.status === "inferred");

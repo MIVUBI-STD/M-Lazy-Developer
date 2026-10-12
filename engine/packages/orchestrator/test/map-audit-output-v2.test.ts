@@ -643,4 +643,45 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("presents exact construction/parameter-based receiver candidates without asserting runtime identity", () => {
+    const report: any = {
+      mapVersion:"1.1.3",evidenceScope:{selectedArtifact:"selected.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const intent:any = {
+      evidence:[
+        {id:"source-instance-construct:one",origin:"source-code",
+          scope:"selected-artifact",locator:"service.js:450:20"},
+        {id:"source-instance-forward:one",origin:"source-code",
+          scope:"selected-artifact",locator:"manager.js:206:9"},
+        {id:"source-instance-receiver-call:one",origin:"source-code",
+          scope:"selected-artifact",locator:"service.js:1131:26"},
+      ],
+      nodes:[
+        {id:"finish",kind:"mechanic",label:"function:finish",evidenceIds:[]},
+        {id:"summary",kind:"mechanic",label:"function:matchSummary",evidenceIds:[]},
+      ],
+      edges:[{id:"source-instance-candidate:summary",
+        kind:"requires",status:"inferred",from:"finish",to:"summary",
+        evidenceIds:["source-instance-construct:one",
+          "source-instance-forward:one","source-instance-receiver-call:one"]}],
+      unknowns:[],
+    };
+    const brief=formatSelectedMapAuditBrief({report,intent,modelTaskPackets:[]});
+    expect(brief).toContain("Cross-module receiver candidates (SOURCE CHAIN ONLY)");
+    expect(brief).toContain("candidate receiver");
+    expect(brief).toContain("matchSummary");
+    expect(brief).toContain("service.js:450:20");
+    expect(brief).toContain("manager.js:206:9");
+    expect(brief).toContain("NOT prove all receiver instances");
+    expect(brief).toContain("No published finding");
+  });
+
 });
