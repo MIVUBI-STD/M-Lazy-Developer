@@ -1,4 +1,5 @@
 import type { ScriptSequentialPathEvidence } from "./statement-sequence.js";
+import type { ScriptWaveStage } from "../parser/source-wave-config.js";
 import type { BlockCustomComponentRegistrationEvidence } from "../domains/automation/block-custom-component-evidence.js";
 import type { PersistentReconciliationEvidence } from "../domains/persistence/persistent-reconciliation.js";
 import type { ScriptEconomyEvidence } from "../domains/economy/economy-evidence.js";
@@ -542,6 +543,8 @@ export interface ParsedScriptFile {
   identifier: string;
   source: SourceRef;
   controlFlowRegions?: readonly ScriptControlFlowRegion[];
+  /** Nested, source-authored wave recipes; not actual gameplay execution. */
+  waveConfigurations?: readonly ScriptWaveStage[];
   blockCustomComponentRegistrations?: BlockCustomComponentRegistrationEvidence[];
   persistentReconciliation?: PersistentReconciliationEvidence;
   imports: ScriptImport[];

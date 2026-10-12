@@ -1,4 +1,5 @@
 import type { MinecraftEdition } from "../../../compatibility/src/index.js";
+import type { ScriptWaveStage } from "../../../../analyzers/scripts/src/index.js";
 import type { CombatBehaviorContract, CombatPolicy, EconomyBehaviorContract, EconomyPolicy, InventoryItemBehaviorContract, InventoryItemPolicy, SpatialAuthorityPolicy } from "../../../behavior-model/src/index.js";
 import type { EducationFeatureState } from "../../../compatibility/src/index.js";
 import type { DiagnosticFinding } from "../../../diagnostics/src/index.js";
@@ -144,6 +145,8 @@ export interface InspectDirectoryResult {
   packs: InspectedPack[];
   functions: number;
   scripts: number;
+  /** Extracted direct literal stage/wave recipes, not runtime waves. */
+  authoredWaveStages: readonly ScriptWaveStage[];
   scriptApiUsage: ScriptApiUsageInventory;
   scriptSafeConfig: ScriptSafeConfigAnalysis;
   scriptSpatial: ScriptSpatialAnalysis;

@@ -1,5 +1,6 @@
 export * from "./parser/module-usage.js";
 export * from "./parser/parse.js";
+export * from "./parser/source-wave-config.js";
 export * from "./parser/resolve.js";
 export * from "./core/types.js";
 

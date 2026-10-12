@@ -1,4 +1,5 @@
 import { parseLocalizedStageKey } from "./inspection/gameplay-intent-resource-text.js";
+import type { ScriptWaveStage } from "../../../analyzers/scripts/src/index.js";
 import type {
   GameDesignMapClassification,
 } from "../../game-design-spec/src/index.js";
@@ -789,9 +790,12 @@ export function projectMapAuditOutputV2(input: {
 export function formatSelectedMapAuditBrief(input: {
   readonly report: MapAuditOutputV2;
   readonly intent: GameplayIntentModel;
+  /** Selected-archive source recipes, never a claim of spawning. */
+  readonly waveStages?: readonly ScriptWaveStage[];
   readonly modelTaskPackets: readonly AuditModelTaskPacket[];
 }): string {
   const { report, intent, modelTaskPackets } = input;
+  const waveStages = input.waveStages ?? [];
   const concise = (value: string): string =>
     value.replace(/\s+/g, " ").trim().slice(0, 300) || "unresolved";
   const evidenceById = new Map(
@@ -930,6 +934,69 @@ export function formatSelectedMapAuditBrief(input: {
     if (orderedGroups.length > 24) {
       out.push("Additional source-labelled stages omitted: " +
         (orderedGroups.length - 24));
+    }
+  }
+  if (waveStages.length > 0) {
+    out.push("", "### Script-authored stage → wave → spawn hierarchy (NOT OBSERVED)");
+    out.push("These are direct nested literal source recipes, not verified " +
+      "spawns, entity-load success, arena offsets, wave completion, or " +
+      "runtime progression. Dynamic type/event expressions remain unresolved.");
+    const locator = (ref: ScriptWaveStage["source"]): string =>
+      concise(ref.relativePath + (ref.range === undefined
+        ? "" : ":" + ref.range.lineStart + ":" +
+          (ref.range.columnStart ?? 1)));
+    for (const stage of waveStages) {
+      out.push("- **" + concise(stage.sourceCollection) + " / " +
+        concise(stage.id) + "**" +
+        (stage.name ? " — " + concise(stage.name) : "") +
+        " [authored configuration; activation UNKNOWN]",
+        "  Source: " + locator(stage.source));
+      for (const wave of stage.waves) {
+        out.push("  - **Wave " + wave.number + "**" +
+          " / " + wave.recipes.length + " literal spawn recipe(s)" +
+          (wave.recipeListIncomplete
+            ? " + UNKNOWN dynamic/unsupported entries" : "") +
+          (wave.delaySpawn === undefined ? "" :
+            " / delay_spawn=" + wave.delaySpawn) +
+          (wave.nextWaveMinMob === undefined ? "" :
+            " / next_wave_min_mob=" + wave.nextWaveMinMob) +
+          " (configured threshold, not proven completion)",
+          "    Source: " + locator(wave.source));
+        for (const [index, recipe] of wave.recipes.entries()) {
+          const identity = recipe.typeId ??
+            (recipe.typeExpression
+              ? recipe.typeExpression + " [dynamic ID unresolved]" :
+              "UNKNOWN");
+          const position = recipe.coordinates === undefined
+            ? recipe.coordinateExpression
+              ? recipe.coordinateExpression + " [coordinate unresolved]"
+              : "UNKNOWN"
+            : [recipe.coordinates.x, recipe.coordinates.y,
+              recipe.coordinates.z].join(" ");
+          out.push("    - Spawn recipe " + (index + 1) +
+            ": type=" + concise(identity) +
+            "; position=" + concise(position) +
+            (recipe.event === undefined && recipe.eventExpression === undefined
+              ? "" : "; event=" +
+                concise(recipe.event ?? recipe.eventExpression!) +
+                (recipe.eventExpression === undefined
+                  ? "" : " [expression unresolved]")) +
+            (recipe.tag === undefined ? "" :
+              "; tag=" + concise(recipe.tag)),
+            "      Source: " + locator(recipe.source));
+        }
+        for (const command of wave.endCommands) {
+          out.push("    - Authored end command: " +
+            concise(command.command) +
+            (command.delay === undefined ? "" :
+              "; delay=" + command.delay) +
+            " [NOT EXECUTED]",
+            "      Source: " + locator(command.source));
+        }
+        if (wave.endCommandsIncomplete) {
+          out.push("    - Other end commands: UNKNOWN / dynamic entries");
+        }
+      }
     }
   }
   if (report.stateTransitions.length > 0) {

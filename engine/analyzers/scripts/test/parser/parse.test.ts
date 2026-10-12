@@ -1212,4 +1212,43 @@ const arenas = joins.map((entry, index) => {
       .toMatchObject({ status: "unresolved" });
   });
 
+  it("preserves nested stage wave spawn recipes as source data, not gameplay proof", () => {
+    const source = {
+      artifactId: "selected",
+      relativePath: "behavior_packs/example/scripts/main.js",
+    };
+    const parsed = parseScriptFile("main", [
+      'var content = { stages: [{ id: "stage_1", name: "First", mobs: [',
+      ' { wave: 1, delay_spawn: 20, next_wave_min_mob: 1, spawn: [',
+      '  { type: i("pillager"), coordinates: "1 -2 3.5", event: "minecraft:ranged_mode", tag: "enemy" },',
+      '  { type: "test:boss", position: {x: -4, y: 5, z: 6} },',
+      '  ...dynamicSpawns',
+      ' ], end_command: [{ command: "fill 1 2 3 air", delay: 0 }] },',
+      ' { wave: 2, spawn: [{type: "test:boss", coordinates: "8 9 10"}] }',
+      '] }] };',
+    ].join("\n"), source);
+    const stage = parsed.waveConfigurations?.[0];
+    expect(parsed.waveConfigurations).toHaveLength(1);
+    expect(stage?.id).toBe("stage_1");
+    expect(stage?.waves).toHaveLength(2);
+    expect(stage?.waves[0]).toMatchObject({
+      number: 1, delaySpawn: 20, nextWaveMinMob: 1,
+      recipeListIncomplete: true,
+      endCommands: [{command:"fill 1 2 3 air",delay:0}],
+    });
+    expect(stage?.waves[0]?.recipes[0]).toMatchObject({
+      typeExpression: 'i("pillager")',
+      coordinates: {x:1,y:-2,z:3.5},
+      event:"minecraft:ranged_mode",tag:"enemy",
+    });
+    expect(stage?.waves[0]?.recipes[1]).toMatchObject({
+      typeId:"test:boss", coordinates:{x:-4,y:5,z:6},
+    });
+    expect(stage?.source.artifactId).toBe("selected");
+    expect(stage?.waves[0]?.recipes[0]?.source.range?.columnStart).toBeGreaterThan(0);
+    expect(parseScriptFile("other",
+      'const ui = { level:"Level", wave:"Wave", stages: [] }',
+      source).waveConfigurations).toHaveLength(0);
+  });
+
 });

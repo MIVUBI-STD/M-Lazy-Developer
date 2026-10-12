@@ -696,6 +696,8 @@ export function buildInspectionResult(
     scripts: nodes.filter(
       (node) => node.kind === "script_file",
     ).length,
+    authoredWaveStages: parsedScripts.flatMap(item =>
+      item.parsed.waveConfigurations ?? []),
     scriptApiUsage,
     scriptSafeConfig,
     scriptSpatial,

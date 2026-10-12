@@ -389,4 +389,45 @@ describe("Map Audit Output V2 projection", () => {
     // Neither localization nor the brief turns staging into confirmed bugs.
     expect(brief).toContain("No published finding");
   });
+  it("renders wave recipes with direct source coordinates and unresolved dynamic entity type", () => {
+    const report: any = {
+      mapVersion: "1.0",
+      evidenceScope: {selectedArtifact:"source.mcworld"},
+      control: {status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const source = {artifactId:"current",relativePath:"behavior_packs/a/scripts/main.js",
+      range:{lineStart:2,lineEnd:2,columnStart:100,columnEnd:150}};
+    const brief = formatSelectedMapAuditBrief({
+      report,
+      intent:{evidence:[],unknowns:[]} as any,
+      modelTaskPackets:[],
+      waveStages:[{
+        source,id:"stage_1",sourceCollection:"stages",
+        waves:[{
+          source,number:1,delaySpawn:0,nextWaveMinMob:2,
+          recipeListIncomplete:false,endCommandsIncomplete:false,
+          endCommands:[{source,command:"fill 1 2 3 air",delay:0}],
+          recipes:[{source,typeExpression:'i("pillager")',
+            coordinates:{x:1,y:-2,z:3},event:"minecraft:ranged_mode"}],
+        }],
+      }],
+    });
+    expect(brief).toContain("Script-authored stage → wave → spawn hierarchy");
+    expect(brief).toContain("**stages / stage_1**");
+    expect(brief).toContain("**Wave 1**");
+    expect(brief).toContain("next_wave_min_mob=2");
+    expect(brief).toContain('i("pillager") [dynamic ID unresolved]');
+    expect(brief).toContain("position=1 -2 3");
+    expect(brief).toContain("Source: behavior_packs/a/scripts/main.js:2:100");
+    expect(brief).toContain("fill 1 2 3 air");
+    expect(brief).toContain("No published finding");
+  });
+
 });
