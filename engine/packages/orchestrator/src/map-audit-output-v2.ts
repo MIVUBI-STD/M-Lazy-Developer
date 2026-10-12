@@ -987,7 +987,9 @@ export function formatSelectedMapAuditBrief(input: {
     const directShownCount=visibleRoots.reduce((total,root)=>
       total+Math.min(orderedChildren(root.id).length,maxDirectPerRoot),0);
     const maxLeafTotal=150;
-    const maxLeafPerDirect=Math.max(1,Math.min(6,
+    // Give compact pools enough room for all authored choices (e.g. 8
+    // per difficulty) while the shared budget still limits large maps.
+    const maxLeafPerDirect=Math.max(1,Math.min(12,
       Math.floor(maxLeafTotal/Math.max(1,directShownCount))));
     const addAuthoredConfig=(id:string,indent:string):void=>{
       const node=authoredById.get(id);

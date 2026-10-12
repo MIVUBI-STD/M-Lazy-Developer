@@ -923,4 +923,59 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("renders all 24 source choices when three categories of eight fit the brief budget", () => {
+    const report:any={
+      mapVersion:"1",evidenceScope:{selectedArtifact:"rounds.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const nodes:any[]=[],edges:any[]=[],evidence:any[]=[];
+    const add=(id:string,label:string,line:number,parent?:string)=>{
+      const eid="evidence:"+id;
+      nodes.push({id,label,kind:"resource",status:"inferred",
+        evidenceIds:[eid]});
+      evidence.push({id:eid,origin:"source-code",
+        scope:"selected-artifact",
+        locator:"behavior_packs/example/scripts/word-data.js:"+line+":1",
+        summary:"Authored source only."});
+      if(parent)edges.push({
+        id:"authored-content-owns:"+id,kind:"owns",status:"inferred",
+        from:parent,to:id,evidenceIds:[eid],
+      });
+    };
+    const root="resource:authored-content:guess";
+    add(root,"GuessText",1);
+    ["easy","medium","hard"].forEach((category,index)=>{
+      const cat="resource:authored-source:category-"+category;
+      add(cat,category,index+2,root);
+      for(let i=1;i<=8;i++){
+        add("resource:authored-source:choice-"+category+"-"+i,
+          category+"-choice-"+i,10+index*10+i,cat);
+      }
+    });
+    const brief=formatSelectedMapAuditBrief({
+      report,intent:{schemaVersion:1,id:"authored-content",
+        nodes,edges,evidence,unknowns:[],invariants:[]} as any,
+      modelTaskPackets:[],
+    });
+    const start=brief.indexOf("### Game design content graph (SOURCE HIERARCHY ONLY)");
+    const next=brief.indexOf("### Other mechanics",start);
+    const graph=brief.slice(start,next<0?undefined:next);
+    const detail=graph.slice(graph.indexOf("**Branch details"));
+    for(const category of ["easy","medium","hard"])
+      for(let i=1;i<=8;i++)
+        expect(detail).toContain(category+"-choice-"+i);
+    expect(graph).not.toContain("Additional authored items in easy");
+    expect(graph).not.toContain("Additional authored items in medium");
+    expect(graph).not.toContain("Additional authored items in hard");
+    expect(graph).toContain("1 of 1 source root(s) represented.");
+    expect(brief).toContain("No published finding");
+  });
+
 });
