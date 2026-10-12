@@ -168,15 +168,30 @@ Semantic IR state-operation, world-effect and scheduler-edge IDs carrying
 the same selected artifact ID and a non-empty source path. Supported
 source cues are deliberately limited to typed/normalized observations:
 `getDynamicProperty`, `setDynamicProperty`, `scoreboard`,
-`teleport`, `system.runTimeout` and `system.runInterval`.
-For example, `teleport` means a source-observed attempted effect, **not**
+`teleport`, `playSound`, `system.runTimeout` and `system.runInterval`.
+A `playSound` cue is emitted ONLY from a canonical Semantic IR
+`audio-feedback` effect authored at a typed `Player` or `Dimension`
+Script API call. It retains the exact script site and an authored
+sound-argument expression (not a resolved asset or proof anyone heard it).
+The world-effect representation preserves candidate source guards and
+localization in the existing scenario/effect reasoning; this is not
+evidence of a successful effect or intended gameplay terminal.
+`teleport` means a source-observed attempted effect, **not**
 necessarily `Player.teleport` or completed arrival. Equal scoreboard
 labels do not establish actor ownership or gameplay scoring.
 
 Other cues such as `ActionFormData`, `onScreenDisplay.setActionBar`
 and arbitrary minified aliases are **NOT** promoted from raw text: the
 existing Semantic IR does not currently expose them as exact typed
-observations. The operator may still inspect such source directly and
+observations. The mere occurrence of a method named `playSound` is
+also insufficient when parser receiver inference is unresolved.
+
+**Cross-source motivation (HISTORICAL, not a semantic score):**
+[developer-practice audio AST evidence](../../engine/reliability/history/audit-runs/learning/developer-practice-audio-source-2026-10-13.json)
+records 13 literal method-name occurrences across four distinct selected
+archives. Its AST census does not establish Minecraft receiver types or
+audible feedback; the canonical typed parser/IR bridge alone admits each
+`audio-feedback` site into the optional reference selector. The operator may still inspect such source directly and
 document it separately, but no automatic developer-reference selection
 is claimed for it.
 

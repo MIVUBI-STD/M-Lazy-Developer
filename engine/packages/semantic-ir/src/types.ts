@@ -94,7 +94,7 @@ export interface AuthoredWorldEffect {
   readonly id: string;
   readonly executionRegionId: string;
   readonly kind: "entity-spawn" | "teleport" | "block-mutation" |
-    "structure-load" | "dialogue" | "entity-event";
+    "structure-load" | "dialogue" | "entity-event" | "audio-feedback";
   readonly mechanism: "mcfunction-command" | "script-command" |
     "script-api" | "script-spatial" |
     "behavior-animation-command" | "behavior-controller-command" |

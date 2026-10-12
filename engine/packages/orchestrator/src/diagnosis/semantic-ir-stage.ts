@@ -566,13 +566,19 @@ export function buildInspectionSemanticIr(
           ? "entity-spawn"
           : (call.receiverType === "Entity" || call.receiverType === "Player") &&
               (call.method === "teleport" || call.method === "tryTeleport")
-            ? "teleport" : undefined;
+            ? "teleport"
+            : (call.receiverType === "Player" || call.receiverType === "Dimension") &&
+                call.method === "playSound"
+              ? "audio-feedback" : undefined;
       if (!kind) continue;
       addWorldEffect({
         kind,
         targetLabel: kind === "entity-spawn"
           ? call.argumentTexts?.[0] ?? "unknown-entity-expression"
-          : call.receiverHint ?? call.receiverType,
+          : kind === "audio-feedback"
+            ? "playSound:" + (call.argumentTexts?.[0]?.trim().slice(0, 120) ??
+                "unresolved-sound-expression")
+            : call.receiverHint ?? call.receiverType,
         executionRegionId: ensureScriptRegion(
           parsed, call.executionRegion ?? "module", call.source,
         ),

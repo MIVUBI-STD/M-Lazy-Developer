@@ -251,6 +251,11 @@ export function developerPracticeSignalsFromSemanticIr(
       // This is a typed/parsing-backed teleport attempt; it does not prove
       // Player.teleport, player arrival or any design requirement.
       add(effect.id, effect.source, "teleport");
+    } else if (effect.kind === "audio-feedback" &&
+               effect.mechanism === "script-api") {
+      // A typed Player/Dimension.playSound source attempt, NOT verified
+      // audible delivery, client targeting, win/loss or a game terminal.
+      add(effect.id, effect.source, "playSound");
     }
   }
   for (const edge of ir.execution.edges) {
