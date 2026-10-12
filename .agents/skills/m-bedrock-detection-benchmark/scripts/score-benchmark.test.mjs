@@ -219,6 +219,75 @@ test("repeat of the SAME source step across entry flows does not become an ambig
   } finally { f.cleanup(); }
 });
 
+test("minified same-line source operations require an unambiguous column-level oracle", () => {
+  const f = fixture();
+  try {
+    const steps = f.frozen.observed.gameplayStructure
+      .sourceFlowCandidates[0].sourceSteps;
+    steps.push({
+      id: "src:other-same-line", kind: "state",
+      executionRegionId: "function:other",
+      source: {
+        artifactId: "selected:map",
+        relativePath: "scripts/main.js",
+        range: { lineStart: 12, lineEnd: 12,
+          columnStart: 80, columnEnd: 100 },
+      },
+    });
+    // The frozen claim only references line 12, which now contains two
+    // distinct candidate operations. Choosing either ID must not count TP.
+    assert.notEqual(f.run().status, 0);
+    f.result.fullMapReview.decisions[0].observedEvidenceIds =
+      ["src:other-same-line"];
+    assert.notEqual(f.run().status, 0);
+
+    // A narrow, independently approved column locator can distinguish them.
+    f.expectation.expected.claims[0].sourceRefs = ["scripts/main.js:12:5"];
+    assert.notEqual(f.run().status, 0); // Still citing unrelated operation.
+    f.result.fullMapReview.decisions[0].observedEvidenceIds =
+      ["src:verified-state"];
+    const narrow = f.run();
+    assert.equal(narrow.status, 0, narrow.stderr);
+    assert.equal(JSON.parse(narrow.stdout).metrics.tp, 1);
+
+    // Explicit line+column ranges use the same inclusive source-site check.
+    f.expectation.expected.claims[0].sourceRefs =
+      ["scripts/main.js:12:1-12:20"];
+    assert.equal(f.run().status, 0);
+
+    // This tests source-location admission only, NOT whether the reviewed
+    // gameplay claim actually follows from the cited operation.
+    f.expectation.expected.claims[0].sourceRefs = ["scripts/main.js:12:85"];
+    assert.notEqual(f.run().status, 0);
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("negative counter-evidence is also ambiguous if different steps share a line", () => {
+  const f = fixture();
+  try {
+    f.frozen.observed.gameplayStructure
+      .sourceFlowCandidates[0].sourceSteps.push({
+        id: "src:other-negative-same-line", kind: "state",
+        executionRegionId: "function:other",
+        source: {
+          artifactId: "selected:map",
+          relativePath: "scripts/main.js",
+          range: { lineStart: 21, lineEnd: 21,
+            columnStart: 60, columnEnd: 90 },
+        },
+      });
+    assert.notEqual(f.run().status, 0);
+    f.expectation.expected.claims[1].sourceRefs = ["scripts/main.js:21:5"];
+    const narrow = f.run();
+    assert.equal(narrow.status, 0, narrow.stderr);
+    assert.equal(JSON.parse(narrow.stdout).metrics.tn, 1);
+  } finally {
+    f.cleanup();
+  }
+});
+
 test("blind acceptance cannot be inferred from source receipt or reviewer presence", () => {
   const f = fixture();
   try {

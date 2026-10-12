@@ -122,8 +122,12 @@ positive, negative and allowed-UNKNOWN source claims, and reviewer decisions
 covering **every claim ID**. It recomputes confusion counts and refuses totals
 without their source review. Decided `supported` **and** `rejected` claims
 must cite source-step IDs from the canonical selected-artifact report matching
-the claim's independently frozen exact file/line source locators. Global
-evidence-ID presence, unrelated statements and a reviewer-only negative
+the claim's independently frozen exact file/line/column source locators.
+A file/line or line-range locator covering multiple distinct source-step
+locations is ambiguous and never admits TP/TN. Use a separately approved
+exact-column locator for bundled/minified same-line operations; do not
+backfill columns from scored engine output. Global evidence-ID presence,
+unrelated statements and a reviewer-only negative
 classification are insufficient to produce TP/TN. Identical source-step
 evidence may appear in multiple flow entry candidates; genuinely conflicting
 same IDs fail closed. This is a source-location gate, **not automatic semantic

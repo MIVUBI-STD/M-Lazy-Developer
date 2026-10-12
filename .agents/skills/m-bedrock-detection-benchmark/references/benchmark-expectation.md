@@ -97,8 +97,16 @@ and `observedEvidenceIds`. Decided positive AND negative observations must cite 
 `gameplayStructure.sourceFlowCandidates[].sourceSteps[].id` whose **selected
 artifact SourceRef file and inclusive line span** intersects that particular
 frozen claim's `sourceRefs`; merely having an evidence ID anywhere in the
-report is not enough. Oracle sourceRef syntax is `relative/path:line` or
-`relative/path:start-end`. Duplicate source-step IDs are acceptable only
+report is not enough. Oracle sourceRef syntax is `relative/path:line`,
+`relative/path:start-end`, `relative/path:line:column` or
+`relative/path:firstLine:firstColumn-lastLine:lastColumn` (inclusive).
+If more than one **distinct SourceRef site** overlaps a locator, that locator
+is **ambiguous** and cannot support a TP/TN, even when the cited evidence ID
+exists. This matters especially for bundled/minified JavaScript where many
+gameplay operations share a single source line. An independently approved
+column-level locator can distinguish exact operations; never silently guess
+columns or rewrite the frozen expectation after viewing the engine result.
+Identical SourceRef sites repeated across valid flow entries count once. Duplicate source-step IDs are acceptable only
 when they resolve to the exact same source owner and span across multiple
 entry flows. Conflicting owners, forged lines, unsupported file-only source
 locators, and free-text negative decisions without a matching counter-evidence

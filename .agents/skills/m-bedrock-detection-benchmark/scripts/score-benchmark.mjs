@@ -104,29 +104,95 @@ function adjudicateFullMapClaims(result) {
     }
   }
 
-  // Generic independent oracle locators use <selected-relative-path>:<line>
-  // or <selected-relative-path>:<first>-<last>, inclusive. An unsupported
-  // locator never authorizes a benchmark TP/TN by fuzzy filename matching.
+  // Distinct authored operations may share one physical source line in
+  // compiled/minified maps. Global file+line overlap is NOT a unique witness.
+  // Deduplicate identical steps emitted through different source flows.
+  const sourceSites = new Map();
+  for (const steps of sourceStepsById.values()) {
+    for (const source of steps) {
+      const range = source.range;
+      const key = JSON.stringify([
+        source.artifactId, source.relativePath, source.jsonPointer ?? null,
+        range.lineStart, range.columnStart ?? null,
+        range.lineEnd, range.columnEnd ?? null,
+      ]);
+      sourceSites.set(key, source);
+    }
+  }
+  // Match only source sites in the relevant module, without allocating a
+  // full-site array on every claim or scanning unrelated pack files.
+  const sourceSitesByPath = new Map();
+  for (const source of sourceSites.values()) {
+    const path = source.relativePath.replaceAll("\\", "/");
+    const owners = sourceSitesByPath.get(path) ?? [];
+    owners.push(source);
+    sourceSitesByPath.set(path, owners);
+  }
+  // Frozen selected-map oracle locators:
+  // path:line | path:first-last | path:line:column |
+  // path:firstLine:firstColumn-lastLine:lastColumn (inclusive).
+  // When more than one distinct source site overlaps one locator, the
+  // claim is ambiguous even if the reviewer names one existing step ID.
   const parseLocator = (ref) => {
     if (typeof ref !== "string") return undefined;
-    const matched = ref.replaceAll("\\", "/").match(/^(.+):(\d+)(?:-(\d+))?$/);
+    const normalized = ref.replaceAll("\\", "/");
+    const exact = normalized.match(/^(.+):(\d+):(\d+)(?:-(\d+):(\d+))?$/);
+    const wholeLine = exact ? null :
+      normalized.match(/^(.+):(\d+)(?:-(\d+))?$/);
+    const matched = exact ?? wholeLine;
     if (!matched || matched[1].startsWith("/") ||
         matched[1].split("/").includes("..")) return undefined;
-    const start = Number(matched[2]);
-    const end = matched[3] === undefined ? start : Number(matched[3]);
-    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) ||
-        start < 1 || end < start) return undefined;
-    return { path: matched[1], start, end };
+    const startLine = Number(matched[2]);
+    const endLine = exact
+      ? Number(matched[4] ?? matched[2])
+      : Number(matched[3] ?? matched[2]);
+    const startColumn = exact ? Number(matched[3]) : undefined;
+    const endColumn = exact ? Number(matched[5] ?? matched[3]) : undefined;
+    if (![startLine, endLine, startColumn, endColumn]
+      .filter(value => value !== undefined).every(Number.isSafeInteger) ||
+      startLine < 1 || endLine < startLine ||
+      (startColumn !== undefined && (
+        startColumn < 1 || endColumn < 1 ||
+        (endLine === startLine && endColumn < startColumn)
+      ))) return undefined;
+    return {
+      path: matched[1], startLine, endLine, startColumn, endColumn,
+    };
+  };
+  const sourceOverlapsLocator = (source, locator) => {
+    if (source.relativePath.replaceAll("\\", "/") !== locator.path) return false;
+    const range = source.range;
+    if (locator.startColumn === undefined) {
+      return range.lineStart <= locator.endLine &&
+        range.lineEnd >= locator.startLine;
+    }
+    // Column-aware expectations fail closed when a parser only knows lines.
+    if (!Number.isSafeInteger(range.columnStart) ||
+        !Number.isSafeInteger(range.columnEnd)) return false;
+    const beforeOrEqual = (line, col, otherLine, otherCol) =>
+      line < otherLine || (line === otherLine && col <= otherCol);
+    return beforeOrEqual(
+      range.lineStart, range.columnStart, locator.endLine, locator.endColumn,
+    ) && beforeOrEqual(
+      locator.startLine, locator.startColumn, range.lineEnd, range.columnEnd,
+    );
+  };
+  const uniquelyIdentifiesSourceSite = (locator) => {
+    let matches = 0;
+    for (const source of sourceSitesByPath.get(locator.path) ?? []) {
+      if (sourceOverlapsLocator(source, locator)) {
+        if (++matches > 1) return false;
+      }
+    }
+    return matches === 1;
   };
   const evidenceOwnedByClaim = (id, claim) => {
     const steps = sourceStepsById.get(id) ?? [];
     const locators = claim.sourceRefs.map(parseLocator).filter(Boolean);
     if (locators.length === 0 || steps.length !== 1) return false;
-    const source = steps[0];
     return locators.some(locator =>
-      source.relativePath.replaceAll("\\", "/") === locator.path &&
-      source.range.lineStart <= locator.end &&
-      source.range.lineEnd >= locator.start);
+      sourceOverlapsLocator(steps[0], locator) &&
+      uniquelyIdentifiesSourceSite(locator));
   };
   const counts = { tp: 0, tn: 0, fp: 0, fn: 0, unknown: 0 };
   let correctUnknown = 0;
