@@ -1655,4 +1655,82 @@ describe("exact authored return-policy source admission", () => {
       e.status !== "inferred")).toBe(false);
   });
 
+  it("retains settlement, presentation and cleanup calls without a content-pool anchor", () => {
+    const source = {
+      artifactId: "world:terminal",
+      relativePath:"behavior_packs/example/scripts/arena-service.js",
+    };
+    const parsed = parseScriptFile("arena-service", [
+      'export class Service {',
+      ' async prepareRound(game) {',
+      '   if (game.state.phase === "round_end") await this.finish(game);',
+      ' }',
+      ' async finish(game) {',
+      '   if (game.state.phase === "match_end") return;',
+      '   game.state.phase = "match_end";',
+      '   this.settleResult(game);',
+      '   if (game.state.outcome === "completed") game.say(game.matchSummary());',
+      '   await this.resetArena(game);',
+      ' }',
+      ' settleResult(game) {',
+      '   const players = game.standings();',
+      '   game.state.finalResult = game.resultFields("completed");',
+      '   this.commitResult(game.state.finalResult);',
+      ' }',
+      ' commitResult(record) { this.results.commit(record); }',
+      ' async resetArena(game) { game.state.phase = "resetting"; }',
+      '}',
+    ].join("\n"),source);
+    expect(parsed.authoredContentUses).toEqual([]);
+    expect(parsed.waveConfigurations).toEqual([]);
+    const semanticIr = buildInspectionSemanticIr({
+      parsedScripts:[{parsed}], parsedFunctions:[],
+    });
+    const model = buildGameplayIntentModel({
+      id:"intent:terminal",artifactId:source.artifactId,
+      parsedScripts:[{parsed}],semanticIr,
+    });
+    const method = (id: string) =>
+      model.nodes.find(node => node.id === id)?.label ?? "";
+    const calls = model.edges.filter(edge =>
+      edge.id.startsWith("source-method-call:"));
+    expect(calls.some(edge =>
+      method(edge.from).includes("prepareRound") &&
+      method(edge.to).includes("finish"))).toBe(true);
+    expect(calls.some(edge =>
+      method(edge.from).includes("finish") &&
+      method(edge.to).includes("settleResult"))).toBe(true);
+    expect(calls.some(edge =>
+      method(edge.from).includes("finish") &&
+      method(edge.to).includes("resetArena"))).toBe(true);
+    expect(calls.some(edge =>
+      method(edge.from).includes("settleResult") &&
+      method(edge.to).includes("commitResult"))).toBe(true);
+    const unresolved = model.evidence.filter(e =>
+      e.id.startsWith("source-unresolved-receiver-site:"));
+    expect(unresolved.some(e => e.summary.includes("game.say()"))).toBe(true);
+    expect(unresolved.some(e => e.summary.includes("game.matchSummary()"))).toBe(true);
+    expect(unresolved.some(e => e.summary.includes("game.standings()"))).toBe(true);
+    expect(unresolved.some(e => e.summary.includes("game.resultFields()"))).toBe(true);
+    expect(unresolved.some(e => e.summary.includes("this.results.commit()"))).toBe(true);
+    expect(model.edges.some(edge =>
+      edge.id.startsWith("source-method-call:") &&
+      edge.kind !== "requires")).toBe(false);
+    const authoredStates = model.edges.filter(edge =>
+      edge.id.startsWith("source-method-state:"));
+    expect(authoredStates.some(edge =>
+      method(edge.from).includes("finish") &&
+      method(edge.to).toLowerCase().includes("match end"))).toBe(true);
+    expect(authoredStates.some(edge =>
+      method(edge.from).includes("resetArena") &&
+      method(edge.to).toLowerCase().includes("resetting"))).toBe(true);
+    // The method calls and object receiver uses do not prove final results.
+    expect(model.edges.filter(edge =>
+      edge.id.startsWith("source-method-call:") ||
+      edge.id.startsWith("source-method-state:"))
+      .every(edge => edge.status === "inferred" &&
+        edge.kind !== "wins-by" && edge.kind !== "loses-by" &&
+        edge.kind !== "transitions-to")).toBe(true);
+  });
+
 });

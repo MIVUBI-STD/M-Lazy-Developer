@@ -19,6 +19,7 @@ import type {
   ScriptBlockMatchGuard,
   ScriptCommandLiteral,
   ScriptAuthoredPropertyMutation,
+  ScriptUnresolvedReceiverCall,
   ScriptImport,
   ScriptImportedSymbol,
   ScriptModuleMemberAccess,
@@ -2293,6 +2294,7 @@ export function parseScriptFile(
   const entityEventTriggers: ScriptEntityEventTrigger[] = [];
   const commandLiterals: ScriptCommandLiteral[] = [];
   const authoredPropertyMutations: ScriptAuthoredPropertyMutation[] = [];
+  const unresolvedReceiverCalls: ScriptUnresolvedReceiverCall[] = [];
   const lifecycleMemberExposures = inferScriptLifecycleMemberExposures(
     file,
     source,
@@ -2491,6 +2493,22 @@ export function parseScriptFile(
 
   const visit = (node: ts.Node): void => {
     if (ts.isCallExpression(node)) {
+      // Calls on method parameters or nested receivers are authored source
+      // attempts, not resolved same-class calls. Retain them separately.
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.expression.kind !== ts.SyntaxKind.ThisKeyword) {
+        const callerRegion = localExecutionRegionId(node, file);
+        if (callerRegion.startsWith("function:")) {
+          unresolvedReceiverCalls.push({
+            executionRegion: callerRegion,
+            receiverExpression: node.expression.expression.getText(file).slice(0,160),
+            method: node.expression.name.text,
+            source: lineSource(file, node, source),
+            lexicalGuards: lexicalBranchGuards(node, file, source),
+            precedenceGuards: precedingEarlyExitGuards(node, file, source),
+          });
+        }
+      }
       const site = resourceSiteKey(lineSource(file, node, source));
       if (site !== undefined) {
         callSiteGuards.set(site, {
@@ -3254,6 +3272,7 @@ export function parseScriptFile(
     authoredContentCollections: extractScriptContentCollections(file, source),
     authoredContentUses: extractScriptContentUseSites(file, source),
     authoredPropertyMutations,
+    unresolvedReceiverCalls,
     blockCustomComponentRegistrations,
     persistentReconciliation,
     arenaAuthorityEvidence,

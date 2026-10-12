@@ -592,4 +592,55 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("keeps match settlement call graph distinct from unresolved presentation receivers", () => {
+    const report: any = {
+      mapVersion:"1.0",evidenceScope:{selectedArtifact:"selected.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const intent: any = {
+      evidence:[
+        {id:"source-method-site:call",origin:"source-code",scope:"selected-artifact",
+          locator:"behavior_packs/demo/scripts/service.js:1130:5",
+          summary:"Exact local call function:finish -> function:settleResult; NOT EXECUTED"},
+        {id:"source-method-state-site:match",origin:"source-code",scope:"selected-artifact",
+          locator:"behavior_packs/demo/scripts/service.js:1126:5",
+          summary:"Direct authored state assignment: match_end. NOT OBSERVED"},
+        {id:"source-unresolved-receiver-site:say",
+          origin:"source-code",scope:"selected-artifact",
+          locator:"behavior_packs/demo/scripts/service.js:1131:8",
+          summary:"Authored receiver call game.say() in function:finish. " +
+            "Receiver implementation, execution, presentation and settlement effect NOT PROVEN."},
+      ],
+      nodes:[
+        {id:"finish",kind:"mechanic",label:"function:finish",
+          evidenceIds:["source-method-state-site:match",
+            "source-unresolved-receiver-site:say"]},
+        {id:"settle",kind:"mechanic",label:"function:settleResult",
+          evidenceIds:["source-method-site:call"]},
+      ],
+      edges:[{
+        id:"source-method-call:finish",from:"finish",to:"settle",
+        kind:"requires",status:"inferred",evidenceIds:["source-method-site:call"],
+      }],
+      unknowns:[],
+    };
+    const brief = formatSelectedMapAuditBrief({
+      report,intent,modelTaskPackets:[],
+    });
+    expect(brief).toContain("Source-local method call graph (NOT PLAY ORDER)");
+    expect(brief).toContain("function:finish");
+    expect(brief).toContain("function:settleResult");
+    expect(brief).toContain("Authored cross-object calls (TARGET UNRESOLVED)");
+    expect(brief).toContain("game.say()");
+    expect(brief).toContain("service.js:1131:8");
+    expect(brief).toContain("No published finding");
+  });
+
 });

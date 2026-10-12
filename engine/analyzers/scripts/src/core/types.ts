@@ -147,6 +147,17 @@ export interface ScriptAuthoredPropertyMutation {
   readonly precedenceGuards?: readonly ScriptLexicalGuard[];
 }
 
+/** Authored method invocation through a non-local receiver. No source
+ * binding to its implementation is implied by its member name. */
+export interface ScriptUnresolvedReceiverCall {
+  readonly executionRegion: string;
+  readonly receiverExpression: string;
+  readonly method: string;
+  readonly source: SourceRef;
+  readonly lexicalGuards?: readonly ScriptLexicalGuard[];
+  readonly precedenceGuards?: readonly ScriptLexicalGuard[];
+}
+
 export interface ScriptPropertyWrite {
   receiverType: ScriptApiReceiverType;
   property: string;
@@ -565,6 +576,8 @@ export interface ParsedScriptFile {
   authoredContentUses?: readonly ScriptContentUseSite[];
   /** Source facts for direct JS property writes, not live state or score proof. */
   authoredPropertyMutations?: readonly ScriptAuthoredPropertyMutation[];
+  /** Calls via another object; target method ownership not proven. */
+  unresolvedReceiverCalls?: readonly ScriptUnresolvedReceiverCall[];
   blockCustomComponentRegistrations?: BlockCustomComponentRegistrationEvidence[];
   persistentReconciliation?: PersistentReconciliationEvidence;
   imports: ScriptImport[];

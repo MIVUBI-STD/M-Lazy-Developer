@@ -1218,12 +1218,6 @@ export function buildGameplayIntentModel(
   for (const script of ownedScripts) {
     if (!input.semanticIr) break;
     const path = script.source.relativePath;
-    const contentAnchorPrefix = "mechanic:source-content-consumer:" +
-      encodeURIComponent(script.source.artifactId + ":" + path + "#");
-    const hasContentAnchor = [...nodes.keys()].some(id =>
-      id.startsWith(contentAnchorPrefix));
-    if (!hasContentAnchor) continue;
-
     const methodCounts = new Map<string,number>();
     for (const member of script.declaredMembers ?? []) {
       if (member.memberKind !== "method" ||
@@ -1259,9 +1253,51 @@ export function buildGameplayIntentModel(
         call.source.relativePath === path &&
         uniqueMethod(call.callerRegion) &&
         uniqueMethod(call.targetRegion));
+    // A game with no authored content pool still has meaningful phases.
+    // Seed navigation from exact, literal source state writes in uniquely
+    // owned methods (e.g. terminal/cleanup), not from English method names.
+    const anchors = new Set<string>(linkedContentRegions.keys());
+    for (const mutation of script.stateMutations ?? []) {
+      if (mutation.source.artifactId === script.source.artifactId &&
+          mutation.source.relativePath === path &&
+          mutation.value.kind === "literal" &&
+          uniqueMethod(mutation.executionRegion)) {
+        anchors.add(mutation.executionRegion);
+      }
+    }
+    if (anchors.size === 0) continue;
+    // This is a bounded *source navigation neighborhood*, not a causal
+    // player sequence. One/two-hop ancestors and callees allow the result
+    // settlement chain to remain visible even when the map has no waves.
+    const visibleRegions = new Set(anchors);
+    for (let depth = 0; depth < 2; depth++) {
+      const current = new Set(visibleRegions);
+      for (const call of sourceCalls) {
+        if (current.has(call.callerRegion)) visibleRegions.add(call.targetRegion);
+        if (current.has(call.targetRegion)) visibleRegions.add(call.callerRegion);
+      }
+    }
+    const relevantCalls = sourceCalls.filter(call =>
+      visibleRegions.has(call.callerRegion) &&
+      visibleRegions.has(call.targetRegion));
     // Retain only individually IR-backed, uniquely owned source sites.
-    // Bound this view; the canonical IR still preserves all source calls.
-    for (const call of sourceCalls.slice(0, 80)) {
+    // Avoid discarding late-file terminal flows behind an arbitrary first
+    // 80 calls. If even the bounded source navigation saturates, expose
+    // that missing scope through the existing unknowns channel.
+    const maxSourceCalls = 512;
+    if (relevantCalls.length > maxSourceCalls) {
+      intentUnknowns.push({
+        id:"unknown:source-method-call-truncation:" +
+          encodeURIComponent(script.source.artifactId + ":" + path),
+        question:"Source method graph has " + relevantCalls.length +
+          " relevant local calls; only " + maxSourceCalls +
+          " were projected. Additional source calls remain available in " +
+          "the canonical Semantic IR; full game design closure is blocked.",
+        blockedSubjectIds:[],
+      });
+    }
+    const acceptedRegions = new Set<string>();
+    for (const call of relevantCalls.slice(0, maxSourceCalls)) {
       const matching = input.semanticIr.execution.edges.filter(edge =>
         edge.kind === "synchronous-call" &&
         edge.resolution === "resolved" &&
@@ -1271,6 +1307,8 @@ export function buildGameplayIntentModel(
         sameExactCallSource(edge.source,call.source));
       if (matching.length !== 1) continue;
       const edge = matching[0]!;
+      acceptedRegions.add(call.callerRegion);
+      acceptedRegions.add(call.targetRegion);
       const from = methodId(call.callerRegion);
       const to = methodId(call.targetRegion);
       const conditions = [
@@ -1329,8 +1367,7 @@ export function buildGameplayIntentModel(
     // property writes occurring in its owned methods. An authored update to
     // player.score is not necessarily the authoritative settled score, but
     // hiding the source mutation makes the player journey unusable.
-    const methodRegions = new Set(sourceCalls.flatMap(call =>
-      [call.callerRegion,call.targetRegion]));
+    const methodRegions = acceptedRegions;
     const propertyCounts = new Map<string,number>();
     for (const mutation of script.authoredPropertyMutations ?? []) {
       if (!methodRegions.has(mutation.executionRegion) ||
@@ -1365,6 +1402,43 @@ export function buildGameplayIntentModel(
       nodes.set(ownerId,{
         ...existing,
         evidenceIds:[...new Set([...existing.evidenceIds,siteId])].sort(),
+      });
+    }
+
+    // Another object may present the match result or write it to a store.
+    // Without an exact receiver binding this is a SOURCE CALL SITE, never
+    // an edge to a guessed implementation or proof of delivered feedback.
+    const unresolvedCounts = new Map<string,number>();
+    for (const call of script.unresolvedReceiverCalls ?? []) {
+      if (!methodRegions.has(call.executionRegion) ||
+          call.source.artifactId !== script.source.artifactId ||
+          call.source.relativePath !== path) continue;
+      const ownerId = methodId(call.executionRegion);
+      const existing = nodes.get(ownerId);
+      if (!existing) continue;
+      const count = unresolvedCounts.get(ownerId) ?? 0;
+      if (count >= 24) continue;
+      unresolvedCounts.set(ownerId,count + 1);
+      const evidenceId = "source-unresolved-receiver-site:" +
+        encodeURIComponent(ownerId + "#" + sourceLocator(call.source));
+      const conditions = [
+        ...(call.lexicalGuards ?? []).map(g => g.branch + ":" + g.conditionText),
+        ...(call.precedenceGuards ?? []).map(g =>
+          "preceding:" + g.branch + ":" + g.conditionText),
+      ];
+      evidence.set(evidenceId,{
+        id:evidenceId,origin:"source-code",scope:"selected-artifact",
+        locator:sourceLocator(call.source),
+        summary:"Authored receiver call " + call.receiverExpression +
+          "." + call.method + "() in " + call.executionRegion +
+          (conditions.length ? "; guards: " +
+            conditions.join(" AND ") : "") +
+          ". Receiver implementation, execution, presentation and " +
+          "settlement effect NOT PROVEN.",
+      });
+      nodes.set(ownerId,{
+        ...existing,
+        evidenceIds:[...new Set([...existing.evidenceIds,evidenceId])].sort(),
       });
     }
 

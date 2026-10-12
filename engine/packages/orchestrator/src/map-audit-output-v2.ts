@@ -982,7 +982,24 @@ export function formatSelectedMapAuditBrief(input: {
       "evidence-backed content reader. It does not prove method execution, " +
       "state activation, gameplay sequence or scoring success.");
     const byNode = new Map(intent.nodes.map(node => [node.id,node]));
-    for (const edge of methodCallEdges.slice(0, 48)) {
+    // Terminal/state-bearing methods and methods with exact property or
+    // unresolved receiver calls are easier to interpret than arbitrary
+    // early-file helpers. Ranking is navigation, NOT semantic proof.
+    const stateOwners = new Set(intent.edges.filter(edge =>
+      edge.id.startsWith("source-method-state:")).map(edge => edge.from));
+    const relevance = (id: string): number => {
+      const node = byNode.get(id);
+      return (stateOwners.has(id) ? 4 : 0) +
+        (node?.evidenceIds.some(e => e.startsWith(
+          "source-method-property-site:")) ? 2 : 0) +
+        (node?.evidenceIds.some(e => e.startsWith(
+          "source-unresolved-receiver-site:")) ? 1 : 0);
+    };
+    const orderedMethodCalls = [...methodCallEdges].sort((a,b) =>
+      relevance(b.from) + relevance(b.to) -
+      relevance(a.from) - relevance(a.to) ||
+      a.id.localeCompare(b.id));
+    for (const edge of orderedMethodCalls.slice(0, 96)) {
       const from = byNode.get(edge.from);
       const to = byNode.get(edge.to);
       if (!from || !to) continue;
@@ -996,9 +1013,10 @@ export function formatSelectedMapAuditBrief(input: {
           "    Source: " + concise(site!.locator));
       }
     }
-    if (methodCallEdges.length > 48) {
+    if (methodCallEdges.length > 96) {
       out.push("Additional source method relationships omitted: " +
-        (methodCallEdges.length - 48));
+        (methodCallEdges.length - 96) +
+        ". Full source topology remains in the canonical Semantic IR.");
     }
   }
   const methodPropertyNodes = intent.nodes.flatMap(node => {
@@ -1029,6 +1047,32 @@ export function formatSelectedMapAuditBrief(input: {
       out.push("Additional source methods omitted: " +
         (methodPropertyNodes.length - 24));
     }
+  }
+  const unresolvedReceiverMethods = intent.nodes.flatMap(node => {
+    const calls = node.evidenceIds
+      .filter(id => id.startsWith("source-unresolved-receiver-site:"))
+      .map(id => evidenceById.get(id))
+      .filter(item => item?.scope === "selected-artifact");
+    return calls.length > 0 ? [{node,calls}] : [];
+  });
+  if (unresolvedReceiverMethods.length > 0) {
+    out.push("", "### Authored cross-object calls (TARGET UNRESOLVED)");
+    out.push("These exact source calls may belong to a session object, UI, " +
+      "repository or external service. Without receiver binding, no " +
+      "cross-module method edge, finished result or delivered player " +
+      "message is established.");
+    for (const item of unresolvedReceiverMethods.slice(0, 24)) {
+      out.push("- **" + concise(item.node.label) + "**");
+      for (const call of item.calls.slice(0, 16)) {
+        out.push("  - " + concise(call!.summary),
+          "    Source: " + concise(call!.locator));
+      }
+      if (item.calls.length > 16) out.push(
+        "  Additional calls omitted: " + (item.calls.length - 16));
+    }
+    if (unresolvedReceiverMethods.length > 24) out.push(
+      "Additional methods omitted: " +
+      (unresolvedReceiverMethods.length - 24));
   }
   const sourceMethodStateEdges = intent.edges.filter(edge =>
     edge.id.startsWith("source-method-state:") &&
