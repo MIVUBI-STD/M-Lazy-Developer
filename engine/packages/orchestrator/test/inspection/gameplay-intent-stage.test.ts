@@ -1574,4 +1574,73 @@ describe("exact authored return-policy source admission", () => {
       edge.id.startsWith("source-content-requires:"))).toEqual([]);
   });
 
+  it("carries exact intra-class calls and state writes into the existing graph without inventing play order", () => {
+    const artifactId = "world:source-graph";
+    const definition = parseScriptFile("content", [
+      'export const PromptPool = [',
+      '  {text:"Camera",difficulty:"easy"},',
+      '  {text:"Globe",difficulty:"hard"}',
+      '];',
+    ].join("\n"), {
+      artifactId, relativePath:"behavior_packs/demo/scripts/content.js",
+    });
+    const consumer = parseScriptFile("manager", [
+      'import { PromptPool } from "./content.js";',
+      'class GameSession {',
+      ' selectRound() {',
+      '   const words = PromptPool.filter(w => w.difficulty === "easy");',
+      '   this.state.phase = "round_countdown";',
+      '   return words;',
+      ' }',
+      ' tick() {',
+      '   if (this.state.phase === "round_countdown") this.activateRound();',
+      '   if (this.state.phase === "playing") this.endRound("complete");',
+      ' }',
+      ' activateRound() { this.state.phase = "playing"; }',
+      ' endRound(reason) { this.state.phase = "round_end"; }',
+      ' guess(valid) { if(valid) this.addContribution(3); }',
+      ' addContribution(points) { this.player.score += points; }',
+      '}',
+    ].join("\n"), {
+      artifactId,relativePath:"behavior_packs/demo/scripts/manager.js",
+    });
+    const ir = buildInspectionSemanticIr({
+      parsedFunctions:[],parsedScripts:[{parsed:definition},{parsed:consumer}],
+    });
+    const model = buildGameplayIntentModel({
+      id:"intent:method-flow", artifactId,
+      parsedScripts:[{parsed:definition},{parsed:consumer}],
+      semanticIr:ir,
+    });
+    const calls = model.edges.filter(e => e.id.startsWith("source-method-call:"));
+    expect(calls).toHaveLength(3);
+    const node = (id: string) => model.nodes.find(n => n.id === id)?.label ?? "";
+    expect(calls.some(e => node(e.from).includes("tick") &&
+      node(e.to).includes("activateRound"))).toBe(true);
+    expect(calls.some(e => node(e.from).includes("tick") &&
+      node(e.to).includes("endRound"))).toBe(true);
+    expect(calls.some(e => node(e.from).includes("guess") &&
+      node(e.to).includes("addContribution"))).toBe(true);
+    const callSourceEvidence = calls.flatMap(e => e.evidenceIds)
+      .flatMap(id => model.evidence.filter(ev => ev.id === id &&
+        ev.id.startsWith("source-method-site:")));
+    expect(callSourceEvidence).toHaveLength(3);
+    expect(callSourceEvidence.some(ev => ev.summary.includes("round_countdown")))
+      .toBe(true);
+    const stateEdges = model.edges.filter(e =>
+      e.id.startsWith("source-method-state:"));
+    expect(stateEdges.some(e =>
+      node(e.from).includes("activateRound") &&
+      node(e.to).toLowerCase().includes("playing"))).toBe(true);
+    expect(stateEdges.some(e =>
+      node(e.from).includes("endRound") &&
+      node(e.to).toLowerCase().includes("round end"))).toBe(true);
+    expect(model.edges.filter(e =>
+      e.id.startsWith("source-method-call:") &&
+      e.kind === "transitions-to")).toEqual([]);
+    expect(model.edges.some(e =>
+      e.id.startsWith("source-method-call:") &&
+      e.status !== "inferred")).toBe(false);
+  });
+
 });

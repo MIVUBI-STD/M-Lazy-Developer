@@ -1210,6 +1210,169 @@ export function buildGameplayIntentModel(
     }
   }
 
+
+  // The Semantic IR already owns exact local method calls. Preserve their
+  // source-side topology in the EXISTING Gameplay Intent Graph when a selected
+  // script has a proven content-reader anchor. Do not classify methods from
+  // their names or manufacture a player journey from their call direction.
+  for (const script of ownedScripts) {
+    if (!input.semanticIr) break;
+    const path = script.source.relativePath;
+    const contentAnchorPrefix = "mechanic:source-content-consumer:" +
+      encodeURIComponent(script.source.artifactId + ":" + path + "#");
+    const hasContentAnchor = [...nodes.keys()].some(id =>
+      id.startsWith(contentAnchorPrefix));
+    if (!hasContentAnchor) continue;
+
+    const methodCounts = new Map<string,number>();
+    for (const member of script.declaredMembers ?? []) {
+      if (member.memberKind !== "method" ||
+          member.source.artifactId !== script.source.artifactId ||
+          member.source.relativePath !== path) continue;
+      methodCounts.set(member.member,
+        (methodCounts.get(member.member) ?? 0) + 1);
+    }
+    const uniqueMethod = (region: string): boolean =>
+      region.startsWith("function:") &&
+      methodCounts.get(region.slice("function:".length)) === 1;
+    const linkedContentRegions = new Map<string,string>();
+    for (const use of script.authoredContentUses ?? []) {
+      if (!use.executionRegion.startsWith("method:") ||
+          use.source.artifactId !== script.source.artifactId ||
+          use.source.relativePath !== path) continue;
+      const methodName = use.executionRegion.slice("method:".length).split(".").at(-1);
+      if (!methodName) continue;
+      const region = "function:" + methodName;
+      if (!uniqueMethod(region)) continue;
+      const id = "mechanic:source-content-consumer:" +
+        encodeURIComponent(script.source.artifactId + ":" +
+          path + "#" + use.executionRegion);
+      if (nodes.has(id)) linkedContentRegions.set(region,id);
+    }
+    const methodId = (region: string): string =>
+      linkedContentRegions.get(region) ??
+        "mechanic:source-method:" +
+          encodeURIComponent(script.source.artifactId + ":" + path + "#" + region);
+    const sourceCalls = (script.localFunctionCalls ?? [])
+      .filter(call =>
+        call.source.artifactId === script.source.artifactId &&
+        call.source.relativePath === path &&
+        uniqueMethod(call.callerRegion) &&
+        uniqueMethod(call.targetRegion));
+    // Retain only individually IR-backed, uniquely owned source sites.
+    // Bound this view; the canonical IR still preserves all source calls.
+    for (const call of sourceCalls.slice(0, 80)) {
+      const matching = input.semanticIr.execution.edges.filter(edge =>
+        edge.kind === "synchronous-call" &&
+        edge.resolution === "resolved" &&
+        edge.from === scriptRegionId(script.source,call.callerRegion) &&
+        edge.to === scriptRegionId(script.source,call.targetRegion) &&
+        edge.targetLabel === call.targetName &&
+        sameExactCallSource(edge.source,call.source));
+      if (matching.length !== 1) continue;
+      const edge = matching[0]!;
+      const from = methodId(call.callerRegion);
+      const to = methodId(call.targetRegion);
+      const conditions = [
+        ...(call.lexicalGuards ?? []).map(g =>
+          g.branch + ":" + g.conditionText),
+        ...(call.precedenceGuards ?? []).map(g =>
+          "preceding:" + g.branch + ":" + g.conditionText),
+      ];
+      const traceId = "source-method-site:" +
+        encodeURIComponent(script.source.artifactId + ":" +
+          sourceLocator(call.source) + "#" +
+          call.callerRegion + "->" + call.targetRegion);
+      evidence.set(traceId,{
+        id:traceId,scope:"selected-artifact",origin:"source-code",
+        locator:sourceLocator(call.source),
+        summary:"Exact local call " + call.callerRegion +
+          " -> " + call.targetRegion +
+          "; source call control: " + (call.controlFlow ?? "unknown") +
+          (conditions.length ? "; lexical guards: " +
+            conditions.join(" AND ") : "") +
+          ". Runtime execution, return policy, effects and play order UNKNOWN.",
+      });
+      evidence.set(edge.id,{
+        id:edge.id,scope:"selected-artifact",origin:"source-code",
+        locator:sourceLocator(edge.source),
+        summary:"Canonical Semantic IR resolved synchronous local call. " +
+          "Neither call reachability nor its gameplay purpose is established.",
+      });
+      for (const [id,region] of [[from,call.callerRegion],[to,call.targetRegion]]) {
+        const existing = nodes.get(id);
+        nodes.set(id,{
+          id,kind:"mechanic",
+          label:existing?.label ??
+            region + " (source method; gameplay purpose UNKNOWN)",
+          status:"inferred",
+          evidenceIds:[...new Set([
+            ...(existing?.evidenceIds ?? []),traceId,edge.id,
+          ])].sort(),
+        });
+      }
+      const relationId = "source-method-call:" +
+        encodeURIComponent(from + "->" + to);
+      const prior = edges.get(relationId);
+      edges.set(relationId,{
+        id:relationId,from,to,kind:"requires",status:"inferred",
+        evidenceIds:[...new Set([
+          ...(prior?.evidenceIds ?? []),traceId,edge.id,
+        ])].sort(),
+        description:"Resolved same-source local method invocation " +
+          "from the canonical Semantic IR. Source guard applies only to " +
+          "the authored call site; no game-stage transition is asserted.",
+      });
+    }
+
+    // Reuse the exact canonical state subject for a source method's literal
+    // assignment. This is not an edge from a *previous* state, and does not
+    // establish reachability, phase duration or runtime player ownership.
+    const methodRegions = new Set(sourceCalls.flatMap(call =>
+      [call.callerRegion,call.targetRegion]));
+    for (const mutation of script.stateMutations ?? []) {
+      if (!methodRegions.has(mutation.executionRegion) ||
+          mutation.source.artifactId !== script.source.artifactId ||
+          mutation.source.relativePath !== path) continue;
+      const from = methodId(mutation.executionRegion);
+      if (!nodes.has(from)) continue;
+      const matches = extracted.signals.filter(signal =>
+        signal.nodeKind === "state" &&
+        nodes.has(signal.subjectKey) &&
+        (signal.stateMutationOrigins ?? []).some(origin =>
+          origin.scriptSource.artifactId === script.source.artifactId &&
+          origin.scriptSource.relativePath === path &&
+          sameExactCallSource(origin.mutation.source,mutation.source)));
+      if (matches.length !== 1) continue;
+      const subject = matches[0]!;
+      const id = "source-method-state:" +
+        encodeURIComponent(from + "->" + subject.subjectKey);
+      const existing = edges.get(id);
+      const sourceId = "source-method-state-site:" +
+        encodeURIComponent(from + ":" + sourceLocator(mutation.source));
+      evidence.set(sourceId,{
+        id:sourceId,origin:"source-code",scope:"selected-artifact",
+        locator:sourceLocator(mutation.source),
+        summary:"Direct authored state assignment in " +
+          mutation.executionRegion + " at " + mutation.target +
+          " = " + (mutation.value.kind === "literal"
+            ? mutation.value.literal : mutation.value.symbol) +
+          ". The resulting player/arena phase and actual execution " +
+          "remain unproven.",
+      });
+      edges.set(id,{
+        id,from,to:subject.subjectKey,kind:"participates-in",
+        status:"inferred",
+        evidenceIds:[...new Set([
+          ...(existing?.evidenceIds ?? []),
+          sourceId,evidenceId(subject),
+        ])].sort(),
+        description:"Same unique source method directly assigns this " +
+          "canonical state value; not proof of a completed gameplay transition.",
+      });
+    }
+  }
+
   const model: GameplayIntentModel = {
     schemaVersion: 1,
     id: input.id,

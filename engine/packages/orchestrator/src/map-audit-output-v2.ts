@@ -972,6 +972,62 @@ export function formatSelectedMapAuditBrief(input: {
         (contentDependencyEdges.length - 30));
     }
   }
+  const methodCallEdges = intent.edges.filter(edge =>
+    edge.id.startsWith("source-method-call:") &&
+    edge.kind === "requires" && edge.status === "inferred");
+  if (methodCallEdges.length > 0) {
+    out.push("", "### Source-local method call graph (NOT PLAY ORDER)");
+    out.push("Each directed call comes from an exact, uniquely resolved " +
+      "Semantic IR source site in a script already containing an " +
+      "evidence-backed content reader. It does not prove method execution, " +
+      "state activation, gameplay sequence or scoring success.");
+    const byNode = new Map(intent.nodes.map(node => [node.id,node]));
+    for (const edge of methodCallEdges.slice(0, 48)) {
+      const from = byNode.get(edge.from);
+      const to = byNode.get(edge.to);
+      if (!from || !to) continue;
+      const sites = edge.evidenceIds.map(id => evidenceById.get(id))
+        .filter(item => item?.scope === "selected-artifact" &&
+          item.id.startsWith("source-method-site:"));
+      out.push("- **" + concise(from.label) + "** --(source call)--> **" +
+        concise(to.label) + "**");
+      for (const site of sites.slice(0, 4)) {
+        out.push("  - " + concise(site!.summary),
+          "    Source: " + concise(site!.locator));
+      }
+    }
+    if (methodCallEdges.length > 48) {
+      out.push("Additional source method relationships omitted: " +
+        (methodCallEdges.length - 48));
+    }
+  }
+  const sourceMethodStateEdges = intent.edges.filter(edge =>
+    edge.id.startsWith("source-method-state:") &&
+    edge.kind === "participates-in" && edge.status === "inferred");
+  if (sourceMethodStateEdges.length > 0) {
+    out.push("", "### Source method → authored state values (NOT OBSERVED)");
+    out.push("The method contains an exact source state-write site. " +
+      "This is not a completed transition, player sequence, or confirmed " +
+      "state lifetime.");
+    const byId = new Map(intent.nodes.map(node => [node.id,node]));
+    for (const edge of sourceMethodStateEdges.slice(0, 32)) {
+      const from = byId.get(edge.from), to = byId.get(edge.to);
+      if (!from || !to) continue;
+      const sources = edge.evidenceIds.map(id=>evidenceById.get(id))
+        .filter(e=>e?.scope === "selected-artifact" &&
+          e.id.startsWith("source-method-state-site:"));
+      out.push("- **" + concise(from.label) +
+        "** --(contains state assignment)--> **" +
+        concise(to.label) + "**");
+      for (const site of sources.slice(0, 3)) {
+        out.push("  Source: " + concise(site!.locator) +
+          "; " + concise(site!.summary));
+      }
+    }
+    if (sourceMethodStateEdges.length > 32) out.push(
+      "Additional method/state records omitted: " +
+      (sourceMethodStateEdges.length - 32));
+  }
   const sourceLocalStateEdges = intent.edges.filter(edge =>
     edge.id.startsWith("source-content-state-context:") &&
     edge.kind === "participates-in" && edge.status === "inferred");
