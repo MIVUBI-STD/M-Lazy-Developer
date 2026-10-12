@@ -17,6 +17,16 @@ export interface CrossFileCallEdge {
   localName: string;
   controlFlow: "unconditional" | "conditional" | "deferred";
   status: "resolved" | "unresolved";
+  /** Direct AST actual/formal parameter correspondence for this exact call.
+   * This is source reference forwarding, NOT live arena/player ownership.
+   */
+  argumentParameterBindings?: readonly {
+    index: number;
+    argumentName: string;
+    parameterName: string;
+    argumentSource: SourceRef;
+    parameterSource: SourceRef;
+  }[];
   source: SourceRef;
 }
 
@@ -334,36 +344,156 @@ function moduleExports(
   };
 }
 
-/**
- * Executable export identity is stronger than an exported symbol name:
- * invoking an exported class, object, or mutable binding is not evidence of
- * a statically resolvable function call.
- */
-function callableRegions(file: ts.SourceFile): ReadonlyMap<string, string> {
-  const declarations = new Map<string, string[]>();
-  const add = (name: string, executionRegion: string): void => {
-    declarations.set(name, [...(declarations.get(name) ?? []), executionRegion]);
+interface CallableSource {
+  region: string;
+  parameters: ts.NodeArray<ts.ParameterDeclaration>;
+  body: ts.Node;
+}
+
+/** Only unambiguous executable top-level exports own cross-file parameters. */
+function callableSource(file: ts.SourceFile): ReadonlyMap<string, CallableSource> {
+  const declarations = new Map<string, CallableSource[]>();
+  const add = (name: string, candidate: CallableSource): void => {
+    declarations.set(name, [...(declarations.get(name) ?? []), candidate]);
   };
   for (const statement of file.statements) {
     if (ts.isFunctionDeclaration(statement) && statement.name && statement.body) {
-      add(statement.name.text, "function:" + statement.name.text);
+      add(statement.name.text, {
+        region: "function:" + statement.name.text,
+        parameters: statement.parameters, body: statement.body,
+      });
     }
     if (ts.isVariableStatement(statement) &&
         (statement.declarationList.flags & ts.NodeFlags.Const)) {
       for (const declaration of statement.declarationList.declarations) {
-        const initializer = declaration.initializer;
-        if (!ts.isIdentifier(declaration.name) || !initializer ||
-            !(ts.isFunctionExpression(initializer) || ts.isArrowFunction(initializer))) continue;
-        const position = file.getLineAndCharacterOfPosition(initializer.getStart(file));
-        add(declaration.name.text,
-          "callback@" + (position.line + 1) + ":" + (position.character + 1));
+        const fn = declaration.initializer;
+        if (!ts.isIdentifier(declaration.name) || !fn ||
+            !(ts.isFunctionExpression(fn) || ts.isArrowFunction(fn))) continue;
+        const pos = file.getLineAndCharacterOfPosition(fn.getStart(file));
+        add(declaration.name.text, {
+          region: "callback@" + (pos.line + 1) + ":" + (pos.character + 1),
+          parameters: fn.parameters, body: fn.body,
+        });
       }
     }
   }
   return new Map([...declarations]
-    .filter(([, regions]) => regions.length === 1)
-    .map(([name, regions]) => [name, regions[0]!]));
+    .filter(([, versions]) => versions.length === 1)
+    .map(([name, versions]) => [name, versions[0]!]));
 }
+
+function enclosingCallable(node: ts.Node): CallableSource | undefined {
+  let parent: ts.Node | undefined = node.parent;
+  while (parent) {
+    if (ts.isFunctionDeclaration(parent) && parent.body) {
+      return { region: "", parameters: parent.parameters, body: parent.body };
+    }
+    if ((ts.isFunctionExpression(parent) || ts.isArrowFunction(parent) ||
+         ts.isMethodDeclaration(parent) || ts.isGetAccessorDeclaration(parent) ||
+         ts.isSetAccessorDeclaration(parent) || ts.isConstructorDeclaration(parent)) &&
+        parent.body) {
+      return { region: "", parameters: parent.parameters, body: parent.body };
+    }
+    parent = parent.parent;
+  }
+  return undefined;
+}
+
+function uniqueDirectParameter(
+  callable: CallableSource, name: string,
+): ts.ParameterDeclaration | undefined {
+  const matches = callable.parameters.filter(parameter =>
+    ts.isIdentifier(parameter.name) && parameter.name.text === name &&
+    !parameter.dotDotDotToken && !parameter.initializer);
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+/** Do not assert stable parameter forwarding across a possible reassignment,
+ * destructuring target, loop assignment or lexical redeclaration.
+ */
+function parameterMayBeRebound(body: ts.Node, name: string): boolean {
+  let unstable = false;
+  const isTarget = (node: ts.Node): boolean => {
+    if (ts.isIdentifier(node)) return node.text === name;
+    if (ts.isParenthesizedExpression(node)) return isTarget(node.expression);
+    if (ts.isArrayLiteralExpression(node) || ts.isObjectLiteralExpression(node)) {
+      let found = false;
+      const scan = (candidate: ts.Node): void => {
+        if (found) return;
+        if (ts.isIdentifier(candidate) && candidate.text === name) {
+          found = true;
+          return;
+        }
+        ts.forEachChild(candidate, scan);
+      };
+      scan(node);
+      return found;
+    }
+    return false;
+  };
+  const visit = (node: ts.Node): void => {
+    if (unstable) return;
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) &&
+        ts.isIdentifier(node.name) && node.name.text === name) {
+      unstable = true;
+      return;
+    }
+    if (ts.isBinaryExpression(node) && isTarget(node.left) &&
+        node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+        node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+      unstable = true;
+      return;
+    }
+    if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) &&
+        isTarget(node.initializer)) {
+      unstable = true;
+      return;
+    }
+    if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+        isTarget(node.operand) &&
+        (node.operator === ts.SyntaxKind.PlusPlusToken ||
+         node.operator === ts.SyntaxKind.MinusMinusToken)) {
+      unstable = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return unstable;
+}
+
+/** No constant aliases, computed arguments, mutable identifiers or defaults
+ * are upgraded to exact parameter reference witnesses.
+ */
+function directParameterBindings(
+  call: ts.CallExpression,
+  callerFile: ts.SourceFile,
+  callerSource: SourceRef,
+  target: CallableSource,
+  targetFile: ts.SourceFile,
+  targetSource: SourceRef,
+): NonNullable<CrossFileCallEdge["argumentParameterBindings"]> {
+  const caller = enclosingCallable(call);
+  if (!caller || call.arguments.length !== target.parameters.length) return [];
+  const bindings: NonNullable<CrossFileCallEdge["argumentParameterBindings"]>[number][] = [];
+  for (let index = 0; index < call.arguments.length; index += 1) {
+    const argument = call.arguments[index];
+    const formal = target.parameters[index];
+    if (!argument || !formal || !ts.isIdentifier(argument) ||
+        !ts.isIdentifier(formal.name) || formal.dotDotDotToken ||
+        formal.initializer || !uniqueDirectParameter(caller, argument.text) ||
+        !uniqueDirectParameter(target, formal.name.text) ||
+        parameterMayBeRebound(caller.body, argument.text) ||
+        parameterMayBeRebound(target.body, formal.name.text)) continue;
+    bindings.push({
+      index, argumentName: argument.text, parameterName: formal.name.text,
+      argumentSource: nodeSource(callerFile, argument, callerSource),
+      parameterSource: nodeSource(targetFile, formal.name, targetSource),
+    });
+  }
+  return bindings;
+}
+
 
 function packScope(path: string): string | undefined {
   const segments = normalizePath(path).split("/");
@@ -463,7 +593,7 @@ export function deriveCrossFileCallEdges(
   const parsedFiles = new Map<string, ts.SourceFile>();
   const exportsByModule =
     new Map<string, ParsedModuleExports>();
-  const callableByModule = new Map<string, ReadonlyMap<string, string>>();
+  const callableByModule = new Map<string, ReadonlyMap<string, CallableSource>>();
 
   for (const [path, module] of normalizedModules) {
     const file = ts.createSourceFile(
@@ -475,7 +605,7 @@ export function deriveCrossFileCallEdges(
     );
     parsedFiles.set(path, file);
     exportsByModule.set(path, moduleExports(file));
-    callableByModule.set(path, callableRegions(file));
+    callableByModule.set(path, callableSource(file));
   }
 
   const output: CrossFileCallEdge[] = [];
@@ -582,9 +712,19 @@ export function deriveCrossFileCallEdges(
       const sameOwner = targetSource !== undefined &&
         targetSource.artifactId === module.source.artifactId &&
         packScope(modulePath) === packScope(target!.modulePath);
-      const targetRegion = sameOwner && target
+      const targetCallable = sameOwner && target
         ? callableByModule.get(target.modulePath)?.get(target.exportName)
         : undefined;
+      const targetRegion = targetCallable?.region;
+      const targetFile = target === undefined
+        ? undefined : parsedFiles.get(target.modulePath);
+      const argumentParameterBindings = targetCallable && targetFile && targetSource
+        ? directParameterBindings(
+            node, file, { ...module.source, relativePath: modulePath },
+            targetCallable, targetFile,
+            { ...targetSource, relativePath: target!.modulePath },
+          )
+        : [];
 
       output.push({
         callerModule: modulePath,
@@ -598,6 +738,7 @@ export function deriveCrossFileCallEdges(
           target?.exportName ??
           imported.importedName,
         ...(targetRegion === undefined ? {} : { targetRegion }),
+        ...(argumentParameterBindings.length ? { argumentParameterBindings } : {}),
         localName: imported.localName,
         controlFlow: controlFlow(node),
         status: targetRegion ? "resolved" : "unresolved",

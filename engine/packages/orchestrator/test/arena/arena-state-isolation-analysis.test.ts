@@ -966,3 +966,104 @@ describe("P3 source-owned cross-module arena reachability", () => {
       item.surface === "dynamic-property")).toHaveLength(0);
   });
 });
+
+describe("P3 exact cross-module parameter forwarding", () => {
+  const file = (name: string, lines: string[]) => {
+    const path = "behavior_packs/source/scripts/" + name;
+    return { path, text: lines.join("\n"),
+      source: { artifactId: "selected", relativePath: path } };
+  };
+  const main = file("main.js", [
+    'import { release } from "./cleanup.js";',
+    "function join(arena, player) {",
+    "  arena.members.add(player);",
+    "  release(arena, player);",
+    "}",
+  ]);
+  const cleanup = file("cleanup.js", [
+    'import { world } from "@minecraft/server";',
+    "export function release(ctx, participant) {",
+    "  world.setDynamicProperty('arena:' + ctx.id, participant.id);",
+    "}",
+  ]);
+  const observations = (modules: ReturnType<typeof file>[]) => {
+    const scripts = modules.map(m => parseScriptFile(m.path, m.text, m.source));
+    return analyzeArenaStateIsolation(
+      scripts, [], deriveCrossFileCallEdges(modules)).observations;
+  };
+  it("preserves both exact arena and player source bindings, never isolation", () => {
+    const state = observations([main, cleanup]).find(x =>
+      x.surface === "dynamic-property" &&
+      x.source?.relativePath === cleanup.path);
+    expect(state).toMatchObject({
+      scope: "world-global", status: "partition-proof-required",
+    });
+    expect(state?.reason).toContain("Exact source argument-to-parameter forwarding");
+    expect(state?.reason).toContain("arena parameter arena reaches ctx");
+    expect(state?.reason).toContain("player parameter player reaches participant");
+    expect(state?.reason).toContain("runtime session ownership remain unproven");
+  });
+
+  it("tracks two imported calls with renaming at each boundary", () => {
+    const mid = file("cleanup.js", [
+      'import { finalize } from "./finalize.js";',
+      "export function release(ctx, participant) { finalize(ctx, participant); }",
+    ]);
+    const end = file("finalize.js", [
+      'import { world } from "@minecraft/server";',
+      "export function finalize(finalArena, finalPlayer) {",
+      "  world.setDynamicProperty('arena:' + finalArena.id, finalPlayer.id);",
+      "}",
+    ]);
+    const state = observations([main, mid, end]).find(x =>
+      x.surface === "dynamic-property" && x.source?.relativePath === end.path);
+    expect(state).toMatchObject({ scope: "world-global",
+      status: "partition-proof-required" });
+    expect(state?.reason).toContain("arena parameter arena reaches finalArena");
+    expect(state?.reason).toContain("player parameter player reaches finalPlayer");
+  });
+
+  it("does not treat another arena argument as the current arena authority", () => {
+    const different = file("main.js", [
+      'import { release } from "./cleanup.js";',
+      "function join(arena, otherArena, player) {",
+      "  arena.members.add(player);",
+      "  release(otherArena, player);",
+      "}",
+    ]);
+    const state = observations([different, cleanup]).find(x =>
+      x.surface === "dynamic-property" && x.source?.relativePath === cleanup.path);
+    expect(state?.reason).not.toContain("arena parameter arena reaches ctx");
+    expect(state).toMatchObject({ status: "partition-proof-required" });
+  });
+
+  it("suppresses arena source identity when competing calls disagree", () => {
+    const mixed = file("main.js", [
+      'import { release } from "./cleanup.js";',
+      "function join(arena, otherArena, player) {",
+      "  arena.members.add(player);",
+      "  release(arena, player);",
+      "  release(otherArena, player);",
+      "}",
+    ]);
+    const state = observations([mixed, cleanup]).find(x =>
+      x.surface === "dynamic-property" && x.source?.relativePath === cleanup.path);
+    expect(state?.reason).not.toContain("arena parameter arena reaches ctx");
+    expect(state).toMatchObject({ status: "partition-proof-required" });
+  });
+
+  it("does not forward an arena identity through a mutable target formal", () => {
+    const changed = file("cleanup.js", [
+      'import { world } from "@minecraft/server";',
+      "export function release(ctx, participant) {",
+      "  ctx = { id: 'shared' };",
+      "  world.setDynamicProperty('arena:' + ctx.id, participant.id);",
+      "}",
+    ]);
+    const state = observations([main, changed]).find(x =>
+      x.surface === "dynamic-property" &&
+      x.source?.relativePath === changed.path);
+    expect(state?.reason).not.toContain("arena parameter arena reaches ctx");
+    expect(state).toMatchObject({ status: "partition-proof-required" });
+  });
+});

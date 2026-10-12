@@ -339,3 +339,72 @@ describe("cross-file call resolution", () => {
 
 
 });
+
+describe("exact ESM argument-to-parameter reference evidence", () => {
+  const file = (name: string, text: string) => ({
+    path: "behavior_packs/example/scripts/" + name, text,
+    source: { artifactId: "selected-world",
+      relativePath: "behavior_packs/example/scripts/" + name },
+  });
+  it("binds direct immutable parameters by position even with import aliases", () => {
+    const main = file("main.js", [
+      'import { finish as close } from "./cleanup.js";',
+      "function join(arena, player) { close(arena, player); }",
+    ].join("\n"));
+    const target = file("cleanup.js",
+      "export function finish(ctx, member) { return ctx; }");
+    const edges = deriveCrossFileCallEdges([main, target]);
+    expect(edges[0]).toMatchObject({
+      status: "resolved", targetExport: "finish",
+      argumentParameterBindings: [
+        expect.objectContaining({ index: 0, argumentName: "arena", parameterName: "ctx" }),
+        expect.objectContaining({ index: 1, argumentName: "player", parameterName: "member" }),
+      ],
+    });
+    const bindings = edges[0]?.argumentParameterBindings ?? [];
+    expect(bindings).toHaveLength(2);
+    expect(bindings.every(binding =>
+      binding.argumentSource.relativePath === main.path &&
+      binding.parameterSource.relativePath === target.path &&
+      binding.argumentSource.range !== undefined &&
+      binding.parameterSource.range !== undefined)).toBe(true);
+  });
+
+  it("does not infer identity through local aliases, mutations or default parameters", () => {
+    const target = file("cleanup.js",
+      "export function finish(ctx, member = null) { ctx = member; }");
+    const main = file("main.js", [
+      'import { finish } from "./cleanup.js";',
+      "function join(arena, player) { const other = arena; finish(other, player); }",
+    ].join("\n"));
+    const edge = deriveCrossFileCallEdges([main, target])[0];
+    expect(edge).toMatchObject({ status: "resolved" });
+    expect(edge?.argumentParameterBindings).toBeUndefined();
+  });
+
+  it("rejects a same-named local shadow of a caller parameter", () => {
+    const target = file("cleanup.js", "export function finish(ctx) { return ctx; }");
+    const main = file("main.js", [
+      'import { finish } from "./cleanup.js";',
+      "function join(arena) { { const arena = { id: 4 }; finish(arena); } }",
+    ].join("\n"));
+    const edge = deriveCrossFileCallEdges([main, target])[0];
+    expect(edge).toMatchObject({ status: "resolved" });
+    expect(edge?.argumentParameterBindings).toBeUndefined();
+  });
+
+  it("rejects parameter writes through destructuring or loop assignments", () => {
+    const target = file("cleanup.js", "export function finish(ctx) { return ctx; }");
+    for (const mutation of ["({ arena } = other);", "for (arena of arenas) {}"]) {
+      const main = file("main.js", [
+        'import { finish } from "./cleanup.js";',
+        "function join(arena, other, arenas) {",
+        "  " + mutation,
+        "  finish(arena);",
+        "}",
+      ].join("\n"));
+      const edge = deriveCrossFileCallEdges([main, target])[0];
+      expect(edge?.argumentParameterBindings).toBeUndefined();
+    }
+  });
+});

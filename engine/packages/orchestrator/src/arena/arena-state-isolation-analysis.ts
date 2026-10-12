@@ -102,8 +102,14 @@ function arenaRegions(
 function arenaRegionsAcrossScripts(
   scripts: readonly ParsedScriptFile[],
   calls: readonly CrossFileCallEdge[],
-): Map<ParsedScriptFile, Set<string>> {
+): {
+  regions: Map<ParsedScriptFile, Set<string>>;
+  forwarded: Map<ParsedScriptFile, Map<string, readonly string[]>>;
+} {
   type Region = { script: ParsedScriptFile; region: string };
+  type ImportedRegion = Region & { call: CrossFileCallEdge };
+  type Origin = { role: "arena" | "player"; root: string; rootName: string };
+  type Context = Region & { aliases: ReadonlyMap<string, Origin> };
   const scopes = new Map<ParsedScriptFile, Set<string>>(
     scripts.map(script => [script, new Set<string>()]),
   );
@@ -127,7 +133,7 @@ function arenaRegionsAcrossScripts(
     return candidates.length === 1 ? candidates[0] : undefined;
   };
 
-  const imported = new Map<ParsedScriptFile, Map<string, Region[]>>();
+  const imported = new Map<ParsedScriptFile, Map<string, ImportedRegion[]>>();
   for (const call of calls) {
     if (call.status !== "resolved" || !call.targetModule || !call.targetRegion) {
       continue;
@@ -148,9 +154,9 @@ function arenaRegionsAcrossScripts(
       sameExactCallSite(site.source, call.source));
     if (exactSites.length !== 1) continue;
 
-    const from = imported.get(caller) ?? new Map<string, Region[]>();
+    const from = imported.get(caller) ?? new Map<string, ImportedRegion[]>();
     const links = from.get(call.callerRegion) ?? [];
-    links.push({ script: target, region: call.targetRegion });
+    links.push({ script: target, region: call.targetRegion, call });
     from.set(call.callerRegion, links);
     imported.set(caller, from);
   }
@@ -176,7 +182,125 @@ function arenaRegionsAcrossScripts(
       admit(target);
     }
   }
-  return scopes;
+  // Source argument aliases are propagated over the SAME canonical imported
+  // edge set. Local function calls remain reachable, but without a verified
+  // actual/formal binding they intentionally lose identity evidence.
+  const contexts = new Map<ParsedScriptFile,
+    Map<string, ReadonlyMap<string, Origin>[]>>();
+  const aliasQueue: Context[] = [];
+  const seenAliases = new Set<string>();
+  let exceeded = false;
+  const admitAlias = (next: Context): void => {
+    if (!scopes.get(next.script)?.has(next.region)) return;
+    const signature = JSON.stringify([
+      next.script.source?.artifactId, next.script.source?.relativePath,
+      next.region, [...next.aliases.entries()].sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, origin]) => [name, origin.role, origin.root]),
+    ]);
+    if (seenAliases.has(signature)) return;
+    if (seenAliases.size >= 512) {
+      exceeded = true;
+      return;
+    }
+    seenAliases.add(signature);
+    const byRegion = contexts.get(next.script) ??
+      new Map<string, ReadonlyMap<string, Origin>[]>();
+    byRegion.set(next.region, [
+      ...(byRegion.get(next.region) ?? []), next.aliases,
+    ]);
+    contexts.set(next.script, byRegion);
+    aliasQueue.push(next);
+  };
+  const plain = (name: string) => /^[A-Za-z_$][\w$]*$/.test(name);
+  for (const script of scripts) {
+    for (const root of script.arenaAuthorityPaths ?? []) {
+      const aliases = new Map<string, Origin>();
+      const rootKey = [
+        script.source?.artifactId, script.source?.relativePath,
+        root.executionRegion, root.arenaExpression,
+      ].join(":");
+      if (plain(root.arenaExpression)) {
+        aliases.set(root.arenaExpression, {
+          role: "arena", root: rootKey, rootName: root.arenaExpression,
+        });
+      }
+      const member = root.membershipCommit?.subjectExpression ??
+        root.membershipRelease?.subjectExpression;
+      if (member && plain(member) && member !== root.arenaExpression) {
+        aliases.set(member, {
+          role: "player", root: rootKey + ":" + member, rootName: member,
+        });
+      }
+      admitAlias({ script, region: root.executionRegion, aliases });
+    }
+  }
+  for (let cursor = 0; cursor < aliasQueue.length; cursor += 1) {
+    const entry = aliasQueue[cursor]!;
+    for (const region of local.get(entry.script)?.get(entry.region) ?? []) {
+      admitAlias({ script: entry.script, region, aliases: new Map() });
+    }
+    for (const destination of imported.get(entry.script)?.get(entry.region) ?? []) {
+      const mapped = new Map<string, Origin>();
+      const bindings = destination.call.argumentParameterBindings ?? [];
+      // Duplicated formal parameter bindings are ambiguous, not evidence.
+      const names = bindings.map(binding => binding.parameterName);
+      if (new Set(names).size !== names.length) {
+        admitAlias({ script: destination.script, region: destination.region,
+          aliases: mapped });
+        continue;
+      }
+      for (const binding of bindings) {
+        const origin = entry.aliases.get(binding.argumentName);
+        if (!origin) continue;
+        const outer = destination.call.source.range;
+        const arg = binding.argumentSource.range;
+        if (binding.argumentSource.artifactId !== entry.script.source?.artifactId ||
+            binding.argumentSource.relativePath !== entry.script.source?.relativePath ||
+            binding.parameterSource.artifactId !== destination.script.source?.artifactId ||
+            binding.parameterSource.relativePath !== destination.script.source?.relativePath ||
+            !outer || !arg ||
+            arg.lineStart === undefined || arg.lineEnd === undefined ||
+            outer.lineStart === undefined || outer.lineEnd === undefined ||
+            arg.lineStart < outer.lineStart || arg.lineEnd > outer.lineEnd) {
+          continue;
+        }
+        mapped.set(binding.parameterName, origin);
+      }
+      admitAlias({ script: destination.script, region: destination.region,
+        aliases: mapped });
+    }
+  }
+
+  const forwarded = new Map<ParsedScriptFile, Map<string, readonly string[]>>();
+  // Every incoming path must carry the same source root for an identity note.
+  // Any alternative missing/contradicting it (or a path-budget overflow)
+  // eliminates this witness, without losing ordinary arena reachability.
+  if (!exceeded) {
+    for (const [script, regions] of contexts) {
+      const perRegion = new Map<string, readonly string[]>();
+      for (const [region, values] of regions) {
+        const names = new Set(values.flatMap(aliases => [...aliases.keys()]));
+        const messages: string[] = [];
+        for (const name of [...names].sort()) {
+          if (!values.every(aliases => aliases.has(name))) continue;
+          const origins = values.map(aliases => aliases.get(name)!);
+          if (!origins.every(item => item.role === origins[0]!.role &&
+              item.root === origins[0]!.root)) continue;
+          const origin = origins[0]!;
+          messages.push(
+            "Exact source argument-to-parameter forwarding: " +
+            origin.role + " parameter " + origin.rootName +
+            " reaches " + name + " (origin " + origin.root +
+            "). This is source reference association only; live instance, " +
+            "storage key uniqueness and runtime partition are unverified."
+          );
+        }
+        if (messages.length) perRegion.set(region, messages.slice(0, 4));
+      }
+      if (perRegion.size) forwarded.set(script, perRegion);
+    }
+  }
+  return { regions: scopes, forwarded };
 }
 
 /**
@@ -527,6 +651,7 @@ function commandObservation(
 function analyzeScript(
   script: ParsedScriptFile,
   regions: Set<string> = arenaRegions(script),
+  forwarded: ReadonlyMap<string, readonly string[]> = new Map(),
 ): {
   regions: Set<string>;
   observations: ArenaStateIsolationObservation[];
@@ -705,8 +830,11 @@ function analyzeScript(
       ...(importedOnly.has(item.region) ? {
         reason: item.reason +
           " An exact source-resolved imported call reaches this region from " +
-          "arena-associated code; cross-module argument identity, arena " +
-          "membership and session ownership remain unproven.",
+          "arena-associated code. " +
+          (forwarded.get(item.region)?.join(" ") ??
+            "Source argument-to-parameter identity is unproven.") +
+          " Arena membership, key partition and runtime session " +
+          "ownership remain unproven.",
       } : {}),
     })),
   };
@@ -855,7 +983,9 @@ export function analyzeArenaStateIsolation(
   const scoped = crossFileCalls.length > 0
     ? arenaRegionsAcrossScripts(scripts, crossFileCalls) : undefined;
   const analyzed = scripts.map(script =>
-    analyzeScript(script, scoped?.get(script) ?? arenaRegions(script)));
+    analyzeScript(script,
+      scoped?.regions.get(script) ?? arenaRegions(script),
+      scoped?.forwarded.get(script)));
   const observations = applyAuthorityContracts(
     analyzed.flatMap(
       (item) => item.observations,

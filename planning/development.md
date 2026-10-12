@@ -1,3 +1,15 @@
+## P3 bounded integration — direct cross-module actual/formal parameter identity (2026-10-12)
+
+**Observed source gap:** cross-file resolver proved a callable target but exposed no exact actual-argument/formal-parameter identity. Arena State Isolation could reach a helper module, but could not differentiate passing authored `arena` from `otherArena`, renamed parameters, or mutable/colliding objects. A resolved function call alone does not prove parameter identity.
+
+**One canonical correction:** reuse `engine/analyzers/scripts/src/parser/cross-file-call.ts` to emit optional direct AST actual/formal parameter pair evidence with both source ranges. Reject computed arguments, local alias expressions, shadowing, reassignments, default/rest formals and ambiguous exports. The existing Arena State Isolation traverses these same imported-call edges with bounded source-parameter forwarding from exact authored arena/membership roots, suppressing ambiguous multi-path and truncated proofs. Existing `scope/status/reason` flows unchanged through Gameplay World, Scenario Graph, Map Audit V2 and handoff; only source explanation is enriched. No separate binding registry, graph, analyzer, status, schema or map-specific rule.
+
+**Acceptance authored, NOT EXECUTED:** existing cross-file and arena suites now cover positive renamed and two-hop parameter forwarding, different arena arguments, multiple competing calls, local shadows, mutable parameters, destructuring/loop reassignments and default parameters. Source architecture and consumer wiring checked statically; no TypeScript/Vitest, genuine `.mcworld`, independent cross-style score or Minecraft runtime execution. P3 stays PARTIAL and per-instance isolation remains UNKNOWN.
+
+**Next:** investigate independently proven within-file parameter flow and stable const alias chains at existing parser/dataflow owners, then independent full-map acceptance. Never infer runtime instance partition from a source forwarding witness.
+
+---
+
 ## P3 source integration — cross-module arena reachability without instance alias claims (2026-10-12)
 
 **First observed source gap:** production Semantic IR already receives exact resolved cross-file executable calls from the canonical scripts analyzer, while `analyzeArenaStateIsolation()` traversed only `localFunctionCalls`. A shared dynamic-property mutation inside a separately imported, arena-reachable helper disappeared from the multi-arena isolation assessment. The runtime inspection also independently derived cross-file calls a second time.
