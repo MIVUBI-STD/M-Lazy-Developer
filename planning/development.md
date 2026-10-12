@@ -1,3 +1,15 @@
+## P3 corrective integration — receiver shadowing and contract partition proof (2026-10-12)
+
+**Verified static failure paths:** untyped alias/local/callback shadowing in the canonical receiver inference could retain an imported Minecraft world type; `world` spelling bypassed lexical type lookup. Arena isolation could promote a `World`-typed call with no stable Minecraft singleton evidence and same-file `StateAuthorityContract` declarations could promote shared keys to `isolated`. Literal dynamic-property observation keys retained quotes and failed matching against unquoted contract IDs.
+
+**Bounded fix:** reuse `engine/analyzers/scripts/src/parser/receiver-inference.ts` for lexical unknown shadows and existing `arena-state-isolation-analysis.ts` for stable-singleton source partition candidates and non-promoting sourced contract association. Preserve consumer fields and static-source status semantics, with no new type registry, graph, manager, schema, map-specific rules, or runtime authority.
+
+**Tests authored, NOT EXECUTED:** adjust existing sourced-contract expectations and add contrasting parameter, local, callback and custom-World-type negatives to the current suite. Source/consumer review only; TypeScript/Vitest, real `.mcworld`, cross-style scoring and live Minecraft are NOT EXECUTED. P3 stays PARTIAL.
+
+**Next:** independently prove cross-module object identity/value rebinding and per-arena/session partition keys; evaluate the actual selected-map audit against independent frozen expectations when accessible.
+
+---
+
 ## P3 bounded fourth integration — exact typed dynamic-property receiver evidence (2026-10-12)
 
 **Source defect and opportunity:** `DynamicPropertyAccess` already has

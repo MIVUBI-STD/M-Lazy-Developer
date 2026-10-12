@@ -161,6 +161,12 @@ per-arena scope mapping, cross-module aliasing, live storage separation and
 behavior at runtime remain UNKNOWN without independent evidence; downstream
 `arenaSessionMapping` remains `NOT_YET_ESTABLISHED`.
 
+### P3 receiver and authored-contract proof ceiling
+
+The same-source receiver parser now blocks untyped lexical parameters, callback arguments, local bindings and catch/loop variables from inheriting Minecraft singleton identities. Dynamic-property source-only `isolated` partition candidates require a uniquely proven unshadowed imported Minecraft `world` receiver, not merely a parser-inferred `World` type. A custom declaration also named `World` can still be classified as a source-type candidate but never proves the real SDK object or a live instance. Mutable receiver rebinding and cross-module aliases remain unproven.
+
+A sourced `StateAuthorityContract` only associates an authored ownership declaration with a file. It does not prove the storage key is partitioned, nor that a player/arena instance is unique; matching contracts are now preserved as evidence IDs without promoting unresolved observations into `isolated`. Literal dynamic-property key observations use the parsed unquoted key to match those source contracts correctly. The original scope/status/reason pipeline through Gameplay World, Scenario Graph, Map Audit V2, brief and bounded handoff stays unchanged. Existing source-only `isolated` labels must never be presented as live multiplayer isolation proof.
+
 ### Scope provenance before player/arena/session interpretation (P3)
 
 **Existing state-isolation owner**: `engine/packages/orchestrator/src/arena/arena-state-isolation-analysis.ts`. The script parser's `DynamicPropertyAccess.receiverHint` is an **expression string**, NOT a resolved `Player`, `Entity` or arena instance type. Receiver spellings such as `player`, `group.player`, `session`, `arena`, `round`, or `serverWorld` cannot by themselves establish partition, even when an inferred arena-related function contains that access. Only the directly authored Minecraft `world` root is treated as a known world-global receiver; where an exact same-region authored authority expression partitions the *key* of a world dynamic property, that is a static source partition candidate and **not** proof that live arena IDs are unique.

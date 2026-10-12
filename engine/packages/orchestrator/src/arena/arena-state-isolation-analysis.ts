@@ -480,7 +480,7 @@ function analyzeScript(
       access.propertyId;
 
     const authorityPartitioned =
-      receiver.scope === "world-global" &&
+      receiver.basis === "STABLE_WORLD_IMPORT" &&
       expressionUsesAuthority(
         keyExpression,
         authoritiesForRegion(region),
@@ -496,8 +496,8 @@ function analyzeScript(
         (access.receiverHint ?? "unknown") +
         ":" +
         (
-          access.propertyExpression ??
           access.propertyId ??
+          access.propertyExpression ??
           "*"
         ),
       scope,
@@ -737,36 +737,15 @@ function applyAuthorityContracts(
       };
     }
 
+    // Same-file source metadata establishes attribution, not unique live
+    // storage partitions; do not promote unresolved/shared surfaces.
     return {
       ...observation,
-      scope:
-        matches.some(
-          (item) =>
-            item.scope === "arena" ||
-            item.scope === "round",
-        )
-          ? "arena-local"
-          : matches.some(
-              (item) =>
-                item.scope === "player",
-            )
-            ? "player-local"
-            : "entity-local",
-      status: "isolated",
-      reason:
-        "Authored state-authority contract proves this surface is partitioned by " +
-        [
-          ...new Set(
-            matches.map(
-              (item) => item.scope,
-            ),
-          ),
-        ].join("/") +
-        " scope.",
-      authorityContractIds:
-        matches.map(
-          (item) => item.id,
-        ).sort(),
+      reason: observation.reason +
+        " Matching sourced state-authority contract declares " +
+        scopes[0] +
+        " ownership; file provenance is not per-instance partition proof.",
+      authorityContractIds: [...new Set(matches.map((item) => item.id))].sort(),
     };
   });
 }

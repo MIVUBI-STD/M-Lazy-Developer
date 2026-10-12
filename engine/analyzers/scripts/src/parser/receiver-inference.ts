@@ -14,7 +14,7 @@ type ReceiverValueType =
   | `${ScriptApiReceiverType}[]`;
 
 interface Scope {
-  values: Map<string, ReceiverValueType>;
+  values: Map<string, ReceiverValueType | null>;
   parent?: Scope;
 }
 
@@ -73,8 +73,8 @@ function lineSource(
 
 function childScope(parent?: Scope): Scope {
   return parent
-    ? { values: new Map<string, ReceiverValueType>(), parent }
-    : { values: new Map<string, ReceiverValueType>() };
+    ? { values: new Map<string, ReceiverValueType | null>(), parent }
+    : { values: new Map<string, ReceiverValueType | null>() };
 }
 
 function minecraftSingletonBindings(
@@ -119,11 +119,45 @@ function seedMinecraftSingletons(
 function lookup(scope: Scope, name: string): ReceiverValueType | undefined {
   let current: Scope | undefined = scope;
   while (current) {
-    const value = current.values.get(name);
-    if (value) return value;
+    // Untyped lexical declarations mask parent/imported Minecraft bindings.
+    if (current.values.has(name)) return current.values.get(name) ?? undefined;
     current = current.parent;
   }
   return undefined;
+}
+
+/** Local bindings with no supported type are shadows, not inherited aliases. */
+function bindName(scope: Scope, name: ts.BindingName, type?: ReceiverValueType): void {
+  if (ts.isIdentifier(name)) {
+    scope.values.set(name.text, type ?? null);
+    return;
+  }
+  for (const element of name.elements) {
+    if (ts.isBindingElement(element)) bindName(scope, element.name);
+  }
+}
+
+function parameterScope(outer: Scope, parameters: ts.NodeArray<ts.ParameterDeclaration>): Scope {
+  const scope = childScope(outer);
+  for (const parameter of parameters) {
+    bindName(scope, parameter.name, typeFromAnnotation(parameter.type));
+  }
+  return scope;
+}
+
+function directSingletonType(
+  scope: Scope,
+  identifier: ts.Identifier,
+  receiver: ScriptApiReceiverType,
+  bindings: ReadonlyMap<string, ScriptApiReceiverType>,
+): boolean {
+  let current = scope;
+  while (current.parent) {
+    if (current.values.has(identifier.text)) return false;
+    current = current.parent;
+  }
+  return bindings.get(identifier.text) === receiver &&
+    current.values.get(identifier.text) === receiver;
 }
 
 function receiverElement(
@@ -528,11 +562,7 @@ function inferExpressionType(
   scope: Scope,
   functionReturns: ReadonlyMap<string, ReceiverValueType>,
 ): ReceiverValueType | undefined {
-  if (ts.isIdentifier(node)) {
-    if (node.text === "world") return "World";
-    if (node.text === "system") return "System";
-    return lookup(scope, node.text);
-  }
+  if (ts.isIdentifier(node)) return lookup(scope, node.text);
 
   if (ts.isPropertyAccessExpression(node)) {
     const receiver = receiverObject(
@@ -629,7 +659,7 @@ export function inferScriptMethodCalls(
     const method = call.expression.name.text;
     const direct =
       ts.isIdentifier(receiverExpression) &&
-      singletonBindings.get(receiverExpression.text) === receiver;
+      directSingletonType(scope, receiverExpression, receiver, singletonBindings);
 
     calls.push({
       receiverType: receiver,
@@ -653,30 +683,47 @@ export function inferScriptMethodCalls(
   };
 
   const visit = (node: ts.Node, scope: Scope): void => {
-    if (ts.isFunctionDeclaration(node)) {
-      const fnScope = childScope(scope);
-      for (const parameter of node.parameters) {
-        if (!ts.isIdentifier(parameter.name)) continue;
-        const type = typeFromAnnotation(parameter.type);
-        if (type) fnScope.values.set(parameter.name.text, type);
-      }
+    if (ts.isFunctionDeclaration(node) ||
+        ts.isFunctionExpression(node) ||
+        ts.isArrowFunction(node) ||
+        ts.isMethodDeclaration(node) ||
+        ts.isGetAccessorDeclaration(node) ||
+        ts.isSetAccessorDeclaration(node) ||
+        ts.isConstructorDeclaration(node)) {
+      const fnScope = parameterScope(scope, node.parameters);
       if (node.body) visit(node.body, fnScope);
       return;
     }
 
     if (ts.isBlock(node)) {
       const blockScope = childScope(scope);
+      // Block declarations mask outer singleton names before type refinement.
+      for (const statement of node.statements) {
+        if (ts.isVariableStatement(statement)) {
+          for (const declaration of statement.declarationList.declarations) {
+            bindName(blockScope, declaration.name);
+          }
+        } else if (ts.isFunctionDeclaration(statement) && statement.name) {
+          blockScope.values.set(statement.name.text, null);
+        }
+      }
       for (const statement of node.statements) visit(statement, blockScope);
       return;
     }
 
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+    if (ts.isCatchClause(node)) {
+      const catchScope = childScope(scope);
+      if (node.variableDeclaration) bindName(catchScope, node.variableDeclaration.name);
+      visit(node.block, catchScope);
+      return;
+    }
+
+    if (ts.isVariableDeclaration(node)) {
       const explicit = typeFromAnnotation(node.type);
       const inferred = node.initializer
         ? inferExpressionType(node.initializer, scope, functionReturns)
         : undefined;
-      const type = explicit ?? inferred;
-      if (type) scope.values.set(node.name.text, type);
+      bindName(scope, node.name, explicit ?? inferred);
       if (node.initializer) visit(node.initializer, scope);
       return;
     }
@@ -688,14 +735,12 @@ export function inferScriptMethodCalls(
       );
       const loopScope = childScope(scope);
       const declaration = node.initializer;
-      if (
-        element &&
-        ts.isVariableDeclarationList(declaration) &&
-        declaration.declarations.length === 1
-      ) {
-        const item = declaration.declarations[0];
-        if (item && ts.isIdentifier(item.name)) {
-          loopScope.values.set(item.name.text, element);
+      if (ts.isVariableDeclarationList(declaration)) {
+        for (const item of declaration.declarations) bindName(loopScope, item.name);
+        const item = declaration.declarations.length === 1
+          ? declaration.declarations[0] : undefined;
+        if (element && item && ts.isIdentifier(item.name)) {
+          bindName(loopScope, item.name, element);
         }
       }
       visit(node.statement, loopScope);
@@ -723,7 +768,7 @@ export function inferScriptMethodCalls(
           callback &&
           (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))
         ) {
-          const callbackScope = childScope(scope);
+          const callbackScope = parameterScope(scope, callback.parameters);
           const parameter = callback.parameters[0];
           if (parameter && ts.isIdentifier(parameter.name)) {
             callbackScope.values.set(parameter.name.text, element);
@@ -800,7 +845,7 @@ export function inferScriptPropertyAccesses(
 
     const direct =
       ts.isIdentifier(receiverExpression) &&
-      singletonBindings.get(receiverExpression.text) === receiver;
+      directSingletonType(scope, receiverExpression, receiver, singletonBindings);
 
     accesses.push({
       receiverType: receiver,
@@ -815,30 +860,47 @@ export function inferScriptPropertyAccesses(
   };
 
   const visit = (node: ts.Node, scope: Scope): void => {
-    if (ts.isFunctionDeclaration(node)) {
-      const fnScope = childScope(scope);
-      for (const parameter of node.parameters) {
-        if (!ts.isIdentifier(parameter.name)) continue;
-        const type = typeFromAnnotation(parameter.type);
-        if (type) fnScope.values.set(parameter.name.text, type);
-      }
+    if (ts.isFunctionDeclaration(node) ||
+        ts.isFunctionExpression(node) ||
+        ts.isArrowFunction(node) ||
+        ts.isMethodDeclaration(node) ||
+        ts.isGetAccessorDeclaration(node) ||
+        ts.isSetAccessorDeclaration(node) ||
+        ts.isConstructorDeclaration(node)) {
+      const fnScope = parameterScope(scope, node.parameters);
       if (node.body) visit(node.body, fnScope);
       return;
     }
 
     if (ts.isBlock(node)) {
       const blockScope = childScope(scope);
+      // Block declarations mask outer singleton names before type refinement.
+      for (const statement of node.statements) {
+        if (ts.isVariableStatement(statement)) {
+          for (const declaration of statement.declarationList.declarations) {
+            bindName(blockScope, declaration.name);
+          }
+        } else if (ts.isFunctionDeclaration(statement) && statement.name) {
+          blockScope.values.set(statement.name.text, null);
+        }
+      }
       for (const statement of node.statements) visit(statement, blockScope);
       return;
     }
 
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+    if (ts.isCatchClause(node)) {
+      const catchScope = childScope(scope);
+      if (node.variableDeclaration) bindName(catchScope, node.variableDeclaration.name);
+      visit(node.block, catchScope);
+      return;
+    }
+
+    if (ts.isVariableDeclaration(node)) {
       const explicit = typeFromAnnotation(node.type);
       const inferred = node.initializer
         ? inferExpressionType(node.initializer, scope, functionReturns)
         : undefined;
-      const type = explicit ?? inferred;
-      if (type) scope.values.set(node.name.text, type);
+      bindName(scope, node.name, explicit ?? inferred);
       if (node.initializer) visit(node.initializer, scope);
       return;
     }
@@ -850,14 +912,12 @@ export function inferScriptPropertyAccesses(
       );
       const loopScope = childScope(scope);
       const declaration = node.initializer;
-      if (
-        element &&
-        ts.isVariableDeclarationList(declaration) &&
-        declaration.declarations.length === 1
-      ) {
-        const item = declaration.declarations[0];
-        if (item && ts.isIdentifier(item.name)) {
-          loopScope.values.set(item.name.text, element);
+      if (ts.isVariableDeclarationList(declaration)) {
+        for (const item of declaration.declarations) bindName(loopScope, item.name);
+        const item = declaration.declarations.length === 1
+          ? declaration.declarations[0] : undefined;
+        if (element && item && ts.isIdentifier(item.name)) {
+          bindName(loopScope, item.name, element);
         }
       }
       visit(node.statement, loopScope);
@@ -886,7 +946,7 @@ export function inferScriptPropertyAccesses(
         callback &&
         (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))
       ) {
-        const callbackScope = childScope(scope);
+        const callbackScope = parameterScope(scope, callback.parameters);
         const parameter = callback.parameters[0];
         if (parameter && ts.isIdentifier(parameter.name)) {
           callbackScope.values.set(parameter.name.text, element);
@@ -974,30 +1034,47 @@ export function inferScriptPropertyWrites(
   };
 
   const visit = (node: ts.Node, scope: Scope): void => {
-    if (ts.isFunctionDeclaration(node)) {
-      const fnScope = childScope(scope);
-      for (const parameter of node.parameters) {
-        if (!ts.isIdentifier(parameter.name)) continue;
-        const type = typeFromAnnotation(parameter.type);
-        if (type) fnScope.values.set(parameter.name.text, type);
-      }
+    if (ts.isFunctionDeclaration(node) ||
+        ts.isFunctionExpression(node) ||
+        ts.isArrowFunction(node) ||
+        ts.isMethodDeclaration(node) ||
+        ts.isGetAccessorDeclaration(node) ||
+        ts.isSetAccessorDeclaration(node) ||
+        ts.isConstructorDeclaration(node)) {
+      const fnScope = parameterScope(scope, node.parameters);
       if (node.body) visit(node.body, fnScope);
       return;
     }
 
     if (ts.isBlock(node)) {
       const blockScope = childScope(scope);
+      // Block declarations mask outer singleton names before type refinement.
+      for (const statement of node.statements) {
+        if (ts.isVariableStatement(statement)) {
+          for (const declaration of statement.declarationList.declarations) {
+            bindName(blockScope, declaration.name);
+          }
+        } else if (ts.isFunctionDeclaration(statement) && statement.name) {
+          blockScope.values.set(statement.name.text, null);
+        }
+      }
       for (const statement of node.statements) visit(statement, blockScope);
       return;
     }
 
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+    if (ts.isCatchClause(node)) {
+      const catchScope = childScope(scope);
+      if (node.variableDeclaration) bindName(catchScope, node.variableDeclaration.name);
+      visit(node.block, catchScope);
+      return;
+    }
+
+    if (ts.isVariableDeclaration(node)) {
       const explicit = typeFromAnnotation(node.type);
       const inferred = node.initializer
         ? inferExpressionType(node.initializer, scope, functionReturns)
         : undefined;
-      const type = explicit ?? inferred;
-      if (type) scope.values.set(node.name.text, type);
+      bindName(scope, node.name, explicit ?? inferred);
       if (node.initializer) visit(node.initializer, scope);
       return;
     }
