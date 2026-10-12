@@ -93,7 +93,7 @@ describe("Map Audit Output V2 projection", () => {
       },
     };
 
-    const report = projectMapAuditOutputV2({
+    const projectionInput: Parameters<typeof projectMapAuditOutputV2>[0] = {
       inspection,
       identity: {
         artifactId: "artifact:1",
@@ -177,7 +177,8 @@ describe("Map Audit Output V2 projection", () => {
         missingProvenProjectionIds: [],
         reasons: ["All findings visible."],
       },
-    });
+    };
+    const report = projectMapAuditOutputV2(projectionInput);
 
     expect(report.schemaVersion).toBe(2);
     expect(report.artifactFingerprint).toBe("a".repeat(64));
@@ -229,5 +230,89 @@ describe("Map Audit Output V2 projection", () => {
           item.domain === "SCORE_RESULT_INTEGRITY",
       )?.status,
     ).toBe("DETECTION_GAP");
+
+    // Several modes can have genuinely different source-backed objectives
+    // and terminal rules. Their names must survive the summary, while
+    // unresolved mode/player scope must not become an authored global claim.
+    const multiModeInspection: any = {
+      ...inspection,
+      gameplayIntent: {
+        model: {
+          ...inspection.gameplayIntent.model,
+          evidence: [
+            ...inspection.gameplayIntent.model.evidence,
+            { id: "e:second", origin: "game-design-spec",
+              scope: "selected-artifact", locator: "other-mode.json",
+              summary: "Second mode objective." },
+            { id: "e:win-1", origin: "source-code",
+              scope: "selected-artifact", locator: "modes/defense.js:1",
+              summary: "Defense completion event." },
+            { id: "e:win-2", origin: "source-code",
+              scope: "selected-artifact", locator: "modes/rescue.js:1",
+              summary: "Rescue completion event." },
+            { id: "e:lose-1", origin: "source-code",
+              scope: "selected-artifact", locator: "modes/defense.js:2",
+              summary: "Defense failure event." },
+            { id: "e:lose-2", origin: "source-code",
+              scope: "selected-artifact", locator: "modes/rescue.js:2",
+              summary: "Rescue failure event." },
+            { id: "e:external", origin: "historical-diff",
+              scope: "external-reference", locator: "old-map.json",
+              summary: "Not part of selected map." },
+          ],
+          nodes: [
+            ...inspection.gameplayIntent.model.nodes,
+            { id: "objective:2", kind: "objective", label: "Rescue villagers",
+              status: "authored", evidenceIds: ["e:second"] },
+            { id: "objective:historical", kind: "objective",
+              label: "Historical objective", status: "authored",
+              evidenceIds: ["e:external"] },
+            ...[
+              ["defense-win", "Flag held", "e:win-1"],
+              ["rescue-win", "Villagers rescued", "e:win-2"],
+              ["defense-lose", "Flag destroyed", "e:lose-1"],
+              ["rescue-lose", "Rescue timed out", "e:lose-2"],
+            ].map(([id, label, evidenceId]) => ({
+              id: "outcome:" + id, kind: "outcome", label,
+              status: "authored", evidenceIds: [evidenceId],
+            })),
+          ],
+          edges: [
+            { id: "edge:win-1", kind: "wins-by", status: "authored",
+              from: "objective:1", to: "outcome:defense-win",
+              description: "Hold the flag to win",
+              evidenceIds: ["e:objective", "e:win-1"] },
+            { id: "edge:win-2", kind: "wins-by", status: "authored",
+              from: "objective:2", to: "outcome:rescue-win",
+              description: "Rescue villagers to win",
+              evidenceIds: ["e:second", "e:win-2"] },
+            { id: "edge:lose-1", kind: "loses-by", status: "authored",
+              from: "objective:1", to: "outcome:defense-lose",
+              description: "Flag destroyed means defeat",
+              evidenceIds: ["e:objective", "e:lose-1"] },
+            { id: "edge:lose-2", kind: "loses-by", status: "authored",
+              from: "objective:2", to: "outcome:rescue-lose",
+              description: "Rescue timeout means defeat",
+              evidenceIds: ["e:second", "e:lose-2"] },
+          ],
+        },
+      },
+    };
+    const multiModeReport = projectMapAuditOutputV2({
+      ...projectionInput,
+      inspection: multiModeInspection,
+    });
+    expect(multiModeReport.gameDesign.objective).toContain("Complete objective");
+    expect(multiModeReport.gameDesign.objective).toContain("Rescue villagers");
+    expect(multiModeReport.gameDesign.objective).not.toContain("Historical objective");
+    expect(multiModeReport.gameDesign.objectiveGrounding).toBe("unresolved");
+    expect(multiModeReport.gameDesign.winCondition).toContain("Hold the flag to win");
+    expect(multiModeReport.gameDesign.winCondition).toContain("Rescue villagers to win");
+    expect(multiModeReport.gameDesign.loseCondition).toContain("Flag destroyed means defeat");
+    expect(multiModeReport.gameDesign.loseCondition).toContain("Rescue timeout means defeat");
+    expect(multiModeReport.gameDesign.winConditionGrounding).toBe("unresolved");
+    expect(multiModeReport.gameDesign.loseConditionGrounding).toBe("unresolved");
+    expect(multiModeReport.bugs.map(item => item.status))
+      .toEqual(["PROVEN", "NEED_VALIDATION"]);
   });
 });

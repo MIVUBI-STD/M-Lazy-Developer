@@ -278,6 +278,25 @@ function independentlyAuthoredDesign(
   });
 }
 
+/**
+ * Preserve a bounded view of distinct selected-artifact design candidates.
+ * Their source identity is retained in the original GameplayIntentModel;
+ * textual alternatives do not establish mutual reachability or mode scope.
+ */
+function summarizeSourceAlternatives(
+  subject: string,
+  missingScope: string,
+  statements: readonly string[],
+): string {
+  const shown = statements.slice(0, 3).map(statement =>
+    JSON.stringify(statement.replace(/\s+/g, " ").trim().slice(0, 65)),
+  );
+  const omitted = statements.length - shown.length;
+  return "Multiple source-backed " + subject + " (" + statements.length +
+    "; " + missingScope + " unresolved): " + shown.join("; ") +
+    (omitted > 0 ? "; +" + omitted + " further candidates." : ".");
+}
+
 function summarizeSourceObjectives(model: GameplayIntentModel): {
   readonly text: string;
   readonly grounding: "authored" | "inferred" | "unresolved";
@@ -291,11 +310,15 @@ function summarizeSourceObjectives(model: GameplayIntentModel): {
     text: "Unresolved from selected artifact.",
     grounding: "unresolved",
   };
-  // No version-wide preferred objective: several maps/modes/levels may each
-  // have a separate goal, with no proved map-wide ordering or scope.
+  // Multiple real modes can have different objectives. Do not collapse
+  // their selected-source statements to an unhelpful count, and do not imply
+  // that any candidate is the one map-wide/player-wide objective.
   if (candidates.length > 1) return {
-    text: "Multiple source-backed objective candidates (" +
-      candidates.length + "); player/mode scope unresolved.",
+    text: summarizeSourceAlternatives(
+      "objective candidates",
+      "player/mode scope",
+      candidates.map(node => nodeText(node) ?? node.id),
+    ),
     grounding: "unresolved",
   };
   const node = candidates[0]!;
@@ -339,8 +362,11 @@ function outcomeFor(
     current(nodes.get(edge.to)?.evidenceIds ?? []))
     .sort((left, right) => left.id.localeCompare(right.id));
   if (candidates.length > 1) return {
-    text: "Multiple source-backed " + kind +
-      " relations (" + candidates.length + "); mode/player scope unresolved.",
+    text: summarizeSourceAlternatives(
+      kind + " relations",
+      "mode/player scope",
+      candidates.map(edge => edgeStatement(edge, nodes)),
+    ),
     grounding: "unresolved",
   };
   const edge = candidates[0];
