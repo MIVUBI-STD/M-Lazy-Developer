@@ -1058,6 +1058,132 @@ export function buildGameplayIntentModel(
     source.relativePath + (source.range === undefined ? "" :
       ":" + source.range.lineStart + ":" +
       (source.range.columnStart ?? 1));
+  // Authored content tree is source OWNERSHIP, not a runtime transition.
+  // Reuse canonical Gameplay Intent subjects and explicit "owns" relations,
+  // including scripts without a source-content reader or player-state method.
+  // Never infer cross-pack/mode/locale joins from coincidentally equal names.
+  const authoredContentId = (
+    source: SourceRef, kind: string, sourceKey: string,
+  ): string => kind + ":authored-source:" +
+    encodeURIComponent(source.artifactId + ":" +
+      source.relativePath + "#" + sourceKey);
+  const addContentSubject = (
+    source: SourceRef, kind: GameplayIntentNode["kind"],
+    id: string, label: string, description: string,
+  ): string | undefined => {
+    if (input.artifactId !== undefined &&
+        source.artifactId !== input.artifactId) return undefined;
+    const evidenceId = "authored-content-evidence:" +
+      encodeURIComponent(id + "#" + sourceLocator(source));
+    evidence.set(evidenceId, {
+      id: evidenceId, origin: "source-code", scope: "selected-artifact",
+      locator: sourceLocator(source),
+      summary: description + " Source-authored content only; gameplay " +
+        "activation, completion and presentation are NOT OBSERVED.",
+    });
+    const existing = nodes.get(id);
+    nodes.set(id, {
+      id, kind, label, status: "inferred",
+      evidenceIds: [...new Set([
+        ...(existing?.evidenceIds ?? []), evidenceId,
+      ])].sort(),
+    });
+    return evidenceId;
+  };
+  const linkAuthoredContent = (
+    parentId: string, childId: string, evidenceIds: string[],
+  ): void => {
+    const id = "authored-content-owns:" +
+      encodeURIComponent(parentId + "->" + childId);
+    const existing = edges.get(id);
+    edges.set(id, {
+      id, from: parentId, to: childId, kind: "owns",
+      status: "inferred",
+      evidenceIds: [...new Set([
+        ...(existing?.evidenceIds ?? []), ...evidenceIds,
+      ])].sort(),
+      description: "Literal nested source ownership only. Not gameplay " +
+        "order, phase activation, player/arena scope, or runtime completion.",
+    });
+  };
+  for (const script of ownedScripts) {
+    const owner = script.source;
+    const selected = (ref: SourceRef): boolean =>
+      ref.artifactId === owner.artifactId &&
+      ref.relativePath === owner.relativePath;
+    for (const stage of script.waveConfigurations ?? []) {
+      if (!selected(stage.source)) continue;
+      const stageId = authoredContentId(owner,"phase",
+        "config:" + stage.sourceCollection + ":" +
+        sourceLocator(stage.source) + "#" + stage.id);
+      const stageEvidence = addContentSubject(stage.source,"phase",
+        stageId,stage.name ? stage.id + " — " + stage.name : stage.id,
+        "Direct " + stage.sourceCollection +
+        " entry with authored stage ID " + stage.id + ".");
+      if (!stageEvidence) continue;
+      for (const wave of stage.waves) {
+        if (!selected(wave.source)) continue;
+        const waveId = authoredContentId(owner,"phase",
+          "wave:" + sourceLocator(wave.source) + "#" + wave.number);
+        const waveEvidence = addContentSubject(wave.source,"phase",
+          waveId,"Wave " + wave.number,
+          "Nested literal wave number " + wave.number +
+          " of stage " + stage.id +
+          "; recipe count " + wave.recipes.length +
+          (wave.recipeListIncomplete ? " (incomplete)" : "") +
+          (wave.delaySpawn === undefined ? "" :
+            "; configured delay " + wave.delaySpawn) +
+          (wave.nextWaveMinMob === undefined ? "" :
+            "; configured next-wave threshold " + wave.nextWaveMinMob) + ".");
+        if (!waveEvidence) continue;
+        linkAuthoredContent(stageId,waveId,[stageEvidence,waveEvidence]);
+        const maxRecipes = 128;
+        for (const [i,recipe] of wave.recipes.slice(0,maxRecipes).entries()) {
+          if (!selected(recipe.source)) continue;
+          const recipeId = authoredContentId(owner,"resource",
+            "spawn:" + sourceLocator(recipe.source) + "#" + i);
+          const type = recipe.typeId ?? recipe.typeExpression ?? "UNKNOWN";
+          const pos = recipe.coordinates
+            ? [recipe.coordinates.x,recipe.coordinates.y,
+              recipe.coordinates.z].join(" ")
+            : recipe.coordinateExpression ?? "UNKNOWN";
+          const recipeEvidence = addContentSubject(
+            recipe.source,"resource",recipeId,
+            "Spawn recipe " + (i+1) + ": " + type.slice(0,110),
+            "Authored spawn recipe; identifier " + type.slice(0,160) +
+              (recipe.typeExpression ? " (unresolved expression)" : "") +
+              "; configured position " + pos.slice(0,160) +
+              (recipe.coordinateExpression ? " (unresolved)" : "") +
+              (recipe.event ? "; authored event " + recipe.event : "") +
+              (recipe.tag ? "; authored tag " + recipe.tag : "") + ".");
+          if (recipeEvidence)
+            linkAuthoredContent(waveId,recipeId,[waveEvidence,recipeEvidence]);
+        }
+        if (wave.recipes.length>maxRecipes) {
+          intentUnknowns.push({
+            id:"unknown:authored-content-truncation:"+
+              encodeURIComponent(waveId),
+            question: "Wave " + wave.number + " has " +
+              wave.recipes.length + " authored recipes; only the first " +
+              maxRecipes + " were projected into the navigation graph. " +
+              "The original parsed script remains authoritative.",
+            blockedSubjectIds:[waveId],evidenceIds:[waveEvidence],
+          });
+        }
+      }
+    }
+    for (const entry of script.authoredGameplayCatalog ?? []) {
+      if (!selected(entry.source)) continue;
+      const id=authoredContentId(owner,"game",
+        "catalog:"+sourceLocator(entry.source)+"#"+entry.kind+
+          ":"+entry.id);
+      addContentSubject(entry.source,"game",id,
+        entry.name + (entry.number===undefined?"":" (#"+entry.number+")"),
+        "Authored "+entry.kind+" catalog ID "+entry.id+
+        ". No evidence this source entry is playable.");
+    }
+  }
+
   const resourceNodeId = (script: ParsedScriptFile, name: string) =>
     "resource:authored-content:" +
     encodeURIComponent(script.source.artifactId + ":" +
@@ -1099,6 +1225,49 @@ export function buildGameplayIntentModel(
         id: nodeId,kind:"resource",label:collection.name,
         status:"inferred",evidenceIds:[evidenceId],
       });
+      const categories = new Map<string,string>();
+      const maxChoices = 128;
+      for (const [index,choice] of
+        collection.entries.slice(0,maxChoices).entries()) {
+        if (choice.source.artifactId !== script.source.artifactId ||
+            choice.source.relativePath !== script.source.relativePath) continue;
+        let categoryId=categories.get(choice.classification);
+        if (!categoryId) {
+          categoryId=authoredContentId(script.source,"resource",
+            "category:"+nodeId+"#"+choice.classification);
+          const catEvidence=addContentSubject(
+            collection.source,"resource",categoryId,
+            choice.classification,
+            "Literal authored category "+choice.classification+
+            " from collection "+collection.name+".");
+          if (!catEvidence) continue;
+          linkAuthoredContent(nodeId,categoryId,
+            [evidenceId,catEvidence]);
+          categories.set(choice.classification,categoryId);
+        }
+        const choiceId=authoredContentId(script.source,"resource",
+          "choice:"+nodeId+"#"+sourceLocator(choice.source)+"#"+index);
+        const choiceEvidence=addContentSubject(
+          choice.source,"resource",choiceId,choice.text.slice(0,180),
+          "Categorized authored content choice from "+collection.name+
+          "; category "+choice.classification+".");
+        const categoryNode=nodes.get(categoryId);
+        if (choiceEvidence && categoryNode)
+          linkAuthoredContent(categoryId,choiceId,[
+            ...(categoryNode.evidenceIds ?? []),choiceEvidence,
+          ]);
+      }
+      if (collection.entries.length>maxChoices) {
+        intentUnknowns.push({
+          id:"unknown:authored-content-truncation:"+
+            encodeURIComponent(nodeId),
+          question:collection.name+" has "+
+            collection.entries.length+" source choices; "+
+            "only the first "+maxChoices+
+            " were materialized as navigable nodes.",
+          blockedSubjectIds:[nodeId],evidenceIds:[evidenceId],
+        });
+      }
     }
   }
   const importedModules = resolveScriptImports(ownedScripts);

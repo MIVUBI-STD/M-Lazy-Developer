@@ -1924,4 +1924,82 @@ describe("exact authored return-policy source admission", () => {
       edge.kind==="transitions-to")).toBe(false);
   });
 
+  it("preserves three incompatible authored content styles as separate canonical source ownership trees", () => {
+    const artifactId="selected-three-styles";
+    const pillager=parseScriptFile("stage-wave", [
+      'const game = { stages: [{ id:"stage_1", name:"Outpost", mobs:[',
+      ' {wave:1,spawn:[',
+      '  {type:"demo:melee",coordinates:"1 2 3"},',
+      '  {type:spawnType("ranged"),coordinates:"3 4 5"}',
+      ' ]},',
+      ' {wave:2,spawn:[{type:"demo:boss",coordinates:"8 9 10"}]}',
+      '] }] };',
+    ].join("\n"), {
+      artifactId,relativePath:"behavior_packs/combat/scripts/main.js",
+    });
+    const circuit=parseScriptFile("gameplay-modes", [
+      'export const games = [',
+      ' {gameplayId:"combat_trial",gameplayName:"Combat Trial",gameplayNumber:1},',
+      ' {gameplayId:"capture_run",gameplayName:"Capture Run",gameplayNumber:5},',
+      '];',
+      'const hud = {level:"Level",wave:"Wave"};',
+    ].join("\n"), {
+      artifactId,relativePath:"behavior_packs/challenge/scripts/modes.js",
+    });
+    const builder=parseScriptFile("guess-choices", [
+      'export const GuessText = [',
+      ' {text:"Camera",difficulty:"easy"},',
+      ' {text:"Cart",difficulty:"easy"},',
+      ' {text:"Globe",difficulty:"medium"},',
+      '];',
+    ].join("\n"), {
+      artifactId,relativePath:"behavior_packs/guess/scripts/data.js",
+    });
+    const model=buildGameplayIntentModel({
+      id:"intent:three-styles",artifactId,
+      parsedScripts:[
+        {parsed:pillager},{parsed:circuit},{parsed:builder},
+      ],
+    });
+    const nodes=new Map(model.nodes.map(node=>[node.id,node]));
+    const owns=model.edges.filter(e=>e.id.startsWith("authored-content-owns:"));
+    const owned=(from:string)=>owns.filter(e=>e.from===from)
+      .map(e=>nodes.get(e.to)?.label);
+    const stage=model.nodes.find(node =>
+      node.id.includes(":authored-source:") && node.label.includes("Outpost"));
+    expect(stage).toBeDefined();
+    const waves=owned(stage!.id);
+    expect(waves).toEqual(["Wave 1","Wave 2"]);
+    const firstWave=owns.find(e=>e.from===stage!.id &&
+      nodes.get(e.to)?.label==="Wave 1");
+    expect(owned(firstWave!.to).length).toBe(2);
+    const modes=model.nodes.filter(node=>node.kind==="game" &&
+      node.id.includes(":authored-source:"));
+    expect(modes.map(m=>m.label)).toEqual([
+      "Combat Trial (#1)","Capture Run (#5)",
+    ]);
+    expect(owns.some(e=>modes.some(mode=>mode.id===e.from))).toBe(false);
+    const pool=model.nodes.find(n=>
+      n.id.startsWith("resource:authored-content:") &&
+      n.label==="GuessText");
+    expect(pool).toBeDefined();
+    expect(owned(pool!.id)).toEqual(["easy","medium"]);
+    const easy=owns.find(e=>e.from===pool!.id &&
+      nodes.get(e.to)?.label==="easy");
+    expect(owned(easy!.to)).toEqual(["Camera","Cart"]);
+    expect(model.edges.some(e=>e.kind==="transitions-to" &&
+      e.id.startsWith("authored-content-owns:"))).toBe(false);
+    expect(model.nodes.some(node=>node.label==="Wave 15")).toBe(false);
+    expect(model.nodes.every(node=>
+      node.id.startsWith("phase:authored-source:") ||
+      node.id.startsWith("resource:authored-source:") ||
+      node.id.startsWith("game:authored-source:") ||
+      node.id.startsWith("resource:authored-content:") ||
+      !node.id.includes(":authored-source:"))).toBe(true);
+    expect(model.edges.filter(e=>e.id.startsWith("authored-content-owns:"))
+      .every(e=>e.status==="inferred" &&
+        e.evidenceIds.every(id=>model.evidence.some(ev=>
+          ev.id===id && ev.scope==="selected-artifact")))).toBe(true);
+  });
+
 });

@@ -156,6 +156,22 @@ Do not treat the tree as a new schema, source of truth, publication authority or
 
 ---
 
+## Contrasting selected-source content graph comparison (2026-10-12)
+
+The Game Design Graph needs to preserve a source-owned content tree in the **canonical Gameplay Intent model**, not merely print separate source inventories in the read-only audit brief. A nested `stages → mobs/waves → spawn` configuration proves stage owns wave and wave owns source spawn recipes. A `gameplayId/gameplayName` record proves a selected-source gameplay catalogue entry, **not** that it owns an unrelated wave list. A source `GuessText` array proves pool → category → literal choice and **not** that any one choice is assigned to a player. The canonical `owns` edge is `inferred` in gameplay meaning and only attests to literal source nesting. It does **not** mean player phase activation, temporal sequencing, real mob spawning, puzzle completion or outcome.
+
+Three independently inspected, read-only real artifact controls (ChatGPT local ZIP inspection, **not** an executed `runSelectedMapAudit()`):
+
+| Selected Minecraft archive | SHA-256 | Concrete source content | Source-only navigation expectation |
+|---|---|---|---|
+| Fall of the Pillager L1 v1.1.0 | `6df1be2f50404a0b89c2fb08f4d90a4c02eb4d51123ff9c5e03e9860b99938b1` | `behavior_packs/offense-level-1_bp/scripts/main.js` has 4 authored stage configurations, 9 numbered wave configurations and 68 spawn-recipe objects. `resource_packs/offense-level-1_rp/texts/en_US.lang` separately has 17 stage guide/task/success entries | Four script stage roots, each with its actual numbered waves and nested authored recipes; locale cues remain separate until an exact dependency proves their ownership |
+| The Circuit v1.0.2 | `19e2eb038b0b01fe756715c725df7e39d74e8cf2de8c45705d1897ea3ffb6151` | `behavior_packs/BP/scripts/chunks/chunk-Q3G2HLCJ.js` defines five named `gameplayId/gameplayName/gameplayNumber` challenge descriptors | Five distinct authored gameplay catalogue nodes; do not invent levels or waves from HUD terms, and do not turn a named catalogue into proven playable order |
+| Build & Decode v1.1.3 | `6ccbaa4889749982131f4dc641598bc3ad0a1026e2c583a2e5994a1b60eaa7d0` | `behavior_packs/Build_Decode_BP/scripts/modules/guessthebuild/GuessTheBuildData.js` has 24 authored `GuessText` choices split into 8 Easy, 8 Medium and 8 Hard; other modules author role/session/state/scoring/finish methods | Source pool → category → individual choices, with separate evidence-backed method/state/score graph. No fabricated `Wave` path and no automatic pool→score causation |
+
+**Product limit:** these are source comparison controls, not proof that the TypeScript repo parser, Intent graph, CLI, or Minecraft gameplay executed. Keep actual full selected-map design closure `PARTIAL` until the user-facing production output is observed, missing mode/round/state relations are resolved or explicitly bounded, and the contrasting source relationships remain correct. This comparison is evidence for the **same existing graph owner**, not a benchmark service, duplicate registry or second design model.
+
+---
+
 ## Discovery independence rule
 
 Game Reconstruction is one operator process with the ordered internal responsibilities

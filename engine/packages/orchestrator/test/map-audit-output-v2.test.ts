@@ -787,4 +787,65 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("shows stage-wave and categorized-choice ownership in one source graph without inferring play order", () => {
+    const report:any={
+      mapVersion:"selected",evidenceScope:{selectedArtifact:"demo.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const p="behavior_packs/demo/scripts/main.js:11:4";
+    const nodes=[
+      {id:"phase:authored-source:stage",kind:"phase",label:"stage_1",
+        evidenceIds:["stage"]},
+      {id:"phase:authored-source:wave",kind:"phase",label:"Wave 1",
+        evidenceIds:["wave"]},
+      {id:"resource:authored-content:pool",kind:"resource",
+        label:"GuessText",evidenceIds:["pool"]},
+      {id:"resource:authored-source:category",kind:"resource",
+        label:"easy",evidenceIds:["category"]},
+      {id:"resource:authored-source:choice",kind:"resource",
+        label:"Camera",evidenceIds:["choice"]},
+      {id:"game:authored-source:mode",kind:"game",
+        label:"Capture Run (#5)",evidenceIds:["mode"]},
+    ];
+    const links=[["stage","wave"],["pool","category"],["category","choice"]]
+      .map(([from,to])=>{
+        const fromId=nodes.find(n=>n.id.endsWith(":"+from))!.id;
+        const toId=nodes.find(n=>n.id.endsWith(":"+to))!.id;
+        return {
+          id:"authored-content-owns:"+from+":"+to,from:fromId,to:toId,
+          kind:"owns",status:"inferred",evidenceIds:[from,to],
+        };
+      });
+    const intent:any={
+      nodes,edges:links,unknowns:[],
+      evidence:["stage","wave","pool","category","choice","mode"]
+        .map(id=>({id,origin:"source-code",scope:"selected-artifact",
+          locator:p,summary:"Authored selected source."})),
+    };
+    const brief=formatSelectedMapAuditBrief({
+      report,intent,modelTaskPackets:[],
+    });
+    const start=brief.indexOf("### Game design content graph (SOURCE HIERARCHY ONLY)");
+    expect(start).toBeGreaterThan(0);
+    const section=brief.slice(start,brief.indexOf("### Other mechanics",start));
+    expect(section).toContain("stage_1");
+    expect(section).toContain("Wave 1");
+    expect(section).toContain("GuessText");
+    expect(section).toContain("easy");
+    expect(section).toContain("Camera");
+    expect(section).toContain("Capture Run (#5)");
+    expect(section).toContain("NOT OBSERVED");
+    expect(section).not.toContain("Stage 15");
+    expect(section.indexOf("stage_1")).toBeLessThan(section.indexOf("Wave 1"));
+    expect(section.indexOf("GuessText")).toBeLessThan(section.indexOf("easy"));
+    expect(brief).toContain("No published finding");
+  });
+
 });

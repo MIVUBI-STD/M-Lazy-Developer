@@ -899,6 +899,87 @@ export function formatSelectedMapAuditBrief(input: {
       concise(report.gameDesign.loseCondition),
     "",
   ];
+  // Navigation over the EXISTING canonical Intent owns edges. This is
+  // source-structure containment, never a chronological player journey.
+  // Show the discovered shape first, before technical evidence inventories.
+  const authoredNodes=intent.nodes.filter(node =>
+    (node.id.includes(":authored-source:") ||
+     node.id.startsWith("resource:authored-content:")) &&
+    node.evidenceIds.some(id=>
+      evidenceById.get(id)?.scope==="selected-artifact"));
+  const authoredIds=new Set(authoredNodes.map(node=>node.id));
+  const authoredOwnership=intent.edges.filter(edge =>
+    edge.id.startsWith("authored-content-owns:") &&
+    edge.kind==="owns" && edge.status==="inferred" &&
+    authoredIds.has(edge.from) && authoredIds.has(edge.to) &&
+    edge.evidenceIds.some(id=>
+      evidenceById.get(id)?.scope==="selected-artifact"));
+  const children=new Map<string,typeof authoredOwnership>();
+  const contained=new Set<string>();
+  for(const edge of authoredOwnership){
+    children.set(edge.from,[...(children.get(edge.from)??[]),edge]);
+    contained.add(edge.to);
+  }
+  const authoredById=new Map(authoredNodes.map(node=>[node.id,node]));
+  const sourceRef=(id:string):string=>{
+    const node=authoredById.get(id);
+    const site=node?.evidenceIds.map(x=>evidenceById.get(x))
+      .find(e=>e?.scope==="selected-artifact");
+    return site?.locator??"UNKNOWN";
+  };
+  const rootNodes=authoredNodes.filter(node=>!contained.has(node.id))
+    .sort((a,b)=>sourceRef(a.id).localeCompare(sourceRef(b.id)) ||
+      a.label.localeCompare(b.label));
+  if(rootNodes.length>0){
+    out.push("", "### Game design content graph (SOURCE HIERARCHY ONLY)");
+    out.push("Parent-child relations below are literal authored source "+
+      "containment. Different packs/modes are NOT joined by matching names. "+
+      "No entry proves play order, wave completion, actual spawn count, "+
+      "selection, or runtime effects.");
+    let shown=0;
+    const limit=180;
+    const visit=(id:string,depth:number,seen:Set<string>):void=>{
+      if(shown>=limit)return;
+      const node=authoredById.get(id);
+      if(!node)return;
+      shown++;
+      const prefix="  ".repeat(Math.min(depth,5));
+      out.push(prefix+"- **"+concise(node.label)+"**"+
+        " ["+node.kind+"; source-labelled; NOT OBSERVED]");
+      if(depth<=1 || (children.get(id)?.length??0)===0){
+        out.push(prefix+"  Source: "+concise(sourceRef(id)));
+      }
+      if(seen.has(id))return;
+      const next=new Set(seen);next.add(id);
+      const edges=children.get(id)??[];
+      for(const edge of edges){
+        if(shown>=limit)break;
+        if(depth>=4)break;
+        visit(edge.to,depth+1,next);
+      }
+      if(depth>=4 && edges.length>0)
+        out.push(prefix+"  Additional nested source items: "+
+          edges.length+" (not expanded)");
+    };
+    for(const root of rootNodes){
+      if(shown>=limit)break;
+      visit(root.id,0,new Set());
+    }
+    if(shown<authoredNodes.length){
+      out.push("Additional authored content graph nodes omitted by "+
+        "presentation limit: "+(authoredNodes.length-shown)+
+        ". Source records remain in the canonical Intent Graph.");
+    }
+    const unjoined=(
+      waveStages.length>0 && orderedGroups.length>0
+    ) || (gameplayCatalog.length>0 && waveStages.length>0);
+    if(unjoined){
+      out.push("Cross-source content relationships (e.g. localized "+
+        "stage labels versus script stage definitions, or mode versus wave "+
+        "ownership) remain UNKNOWN unless exact selected-source dependency "+
+        "evidence connects them.");
+    }
+  }
   if (gameplayCatalog.length > 0) {
     out.push("", "### Script-authored gameplay/mode catalog (NOT OBSERVED)");
     out.push("These are independently labelled source catalog entries, not " +
