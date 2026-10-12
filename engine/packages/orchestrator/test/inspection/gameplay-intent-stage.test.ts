@@ -1497,6 +1497,11 @@ describe("exact authored return-policy source admission", () => {
       relativePath:"behavior_packs/a/scripts/round-manager.js",
     });
     expect(definition.authoredContentCollections?.[0]?.exported).toBe(true);
+    expect(consumer.authoredContentUses?.[0]?.sourceContextWrites).toEqual([
+      expect.objectContaining({
+        target:"this.state.phase",expression:'"round_countdown"',operator:"=",
+      }),
+    ]);
     expect(consumer.authoredContentUses).toEqual([
       expect.objectContaining({
         importedName:"PromptPool",localName:"words",method:"filter",
@@ -1518,6 +1523,17 @@ describe("exact authored return-policy source admission", () => {
     expect(edge?.evidenceIds.every(id =>
       model.evidence.some(record =>
         record.id === id && record.scope === "selected-artifact"))).toBe(true);
+    const contextual = model.edges.filter(item =>
+      item.id.startsWith("source-content-state-context:"));
+    expect(contextual).toHaveLength(1);
+    expect(contextual[0]).toMatchObject({
+      from: edge?.from,kind:"participates-in",status:"inferred",
+    });
+    expect(model.nodes.find(node => node.id === contextual[0]?.to)?.kind)
+      .toBe("state");
+    expect(model.nodes.find(node => node.id === edge?.from)?.evidenceIds.some(id =>
+      model.evidence.some(record => record.id === id &&
+        record.summary.includes("Same-method source assignment")))).toBe(true);
     expect(model.edges.some(item =>
       item.kind === "transitions-to" && item.id.startsWith("source-content-")))
       .toBe(false);

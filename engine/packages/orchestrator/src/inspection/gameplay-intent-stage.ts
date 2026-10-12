@@ -1136,13 +1136,61 @@ export function buildGameplayIntentModel(
           " content access in " + use.executionRegion +
           ". No call reachability, phase or score effect proven.",
       });
+      // Retain direct method-local assignments as context on the SAME
+      // consumer node, without turning "source-after" into causal order.
+      // The parser is responsible for exact AST assignment sites.
+      const contextIds: string[] = [];
+      for (const write of use.sourceContextWrites ?? []) {
+        if (write.source.artifactId !== script.source.artifactId ||
+            write.source.relativePath !== script.source.relativePath) continue;
+        const writeId = "source-content-context:" +
+          encodeURIComponent(consumerId + "#" +
+            sourceLocator(write.source) + "#" + write.target);
+        contextIds.push(writeId);
+        evidence.set(writeId, {
+          id:writeId,scope:"selected-artifact",origin:"source-code",
+          locator:sourceLocator(write.source),
+          summary:"Same-method source assignment (NOT CAUSAL): " +
+            write.target + " " + write.operator + " " + write.expression +
+            (write.branchConditions.length > 0
+              ? "; lexical conditions: " +
+                write.branchConditions.join(" AND ") : "") +
+            ". Lexical source order does not prove branch reachability " +
+            "or downstream runtime state.",
+        });
+        // Match only an existing Gameplay Intent state, and only through
+        // the SAME exact mutation site. No second state model or alias guess.
+        const matched = extracted.signals.filter(signal =>
+          signal.nodeKind === "state" && nodes.has(signal.subjectKey) &&
+          (signal.stateMutationOrigins ?? []).some(origin =>
+            origin.scriptSource.artifactId === script.source.artifactId &&
+            origin.scriptSource.relativePath === script.source.relativePath &&
+            sameExactCallSource(origin.mutation.source, write.source)));
+        if (matched.length !== 1) continue;
+        const target = matched[0]!.subjectKey;
+        const stateId = "source-content-state-context:" +
+          encodeURIComponent(consumerId + "->" + target);
+        const previous = edges.get(stateId);
+        edges.set(stateId, {
+          id:stateId,from:consumerId,to:target,
+          kind:"participates-in",status:"inferred",
+          evidenceIds: [...new Set([
+            ...(previous?.evidenceIds ?? []),
+            siteId,writeId,evidenceId(matched[0]!),
+          ])].sort(),
+          description:"Content reader and authored state write occur in the " +
+            "same source method, with the assignment after the source read. " +
+            "Conditional source-context association ONLY; not proof that " +
+            "content selection causes the state write or a gameplay transition.",
+        });
+      }
       const existing = nodes.get(consumerId);
       nodes.set(consumerId, {
         id:consumerId,kind:"mechanic",
         label:use.executionRegion + " (source content reader)",
         status:"inferred",
         evidenceIds: [...new Set([
-          ...(existing?.evidenceIds ?? []),siteId,
+          ...(existing?.evidenceIds ?? []),siteId,...contextIds,
         ])].sort(),
       });
       const edgeId = "source-content-requires:" +

@@ -439,6 +439,14 @@ export interface ScriptContentUseSite {
   readonly localName: string;
   readonly method: "filter" | "find" | "map" | "some" | "every" | "forEach";
   readonly executionRegion: string;
+  /** Authored later assignments in this SAME method; not dataflow/reachability. */
+  readonly sourceContextWrites: readonly {
+    readonly source: SourceRef;
+    readonly target: string;
+    readonly expression: string;
+    readonly operator: "=" | "+=" | "-=";
+    readonly branchConditions: readonly string[];
+  }[];
 }
 
 export function extractScriptContentUseSites(
@@ -518,6 +526,57 @@ export function extractScriptContentUseSites(
     }
     return "module";
   };
+  // The AST owns exact source context; lexical order is NOT actual control
+  // flow. Never recast same-method writes as executed gameplay consequences.
+  const sourceContextWrites = (call: ts.CallExpression) => {
+    let method: ts.MethodDeclaration | ts.FunctionDeclaration | undefined;
+    for (let parent = call.parent; parent; parent = parent.parent) {
+      if (ts.isMethodDeclaration(parent) ||
+          ts.isFunctionDeclaration(parent)) {
+        method = parent;
+        break;
+      }
+    }
+    if (!method?.body) return [];
+    const result: ScriptContentUseSite["sourceContextWrites"][number][] = [];
+    const walk = (node: ts.Node) => {
+      if (result.length >= 32 ||
+          (node !== method && ts.isFunctionLike(node))) return;
+      if (ts.isBinaryExpression(node) && node.getStart(file) > call.getStart(file)) {
+        const operator = node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+          ? "=" : node.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken
+            ? "+=" : node.operatorToken.kind === ts.SyntaxKind.MinusEqualsToken
+              ? "-=" : undefined;
+        if (operator && (ts.isPropertyAccessExpression(node.left) ||
+            ts.isElementAccessExpression(node.left))) {
+          const conditions: string[] = [];
+          for (let parent = node.parent; parent && parent !== method;
+            parent = parent.parent) {
+            if (ts.isIfStatement(parent)) {
+              const inThen = node.getStart(file) >= parent.thenStatement.getStart(file) &&
+                node.getEnd() <= parent.thenStatement.getEnd();
+              const inElse = parent.elseStatement !== undefined &&
+                node.getStart(file) >= parent.elseStatement.getStart(file) &&
+                node.getEnd() <= parent.elseStatement.getEnd();
+              if (inThen || inElse) {
+                conditions.push((inThen ? "if " : "else not ") +
+                  parent.expression.getText(file).slice(0, 130));
+              }
+            }
+          }
+          result.push({
+            source: source(node),
+            target: node.left.getText(file).slice(0, 160),
+            expression: node.right.getText(file).slice(0, 160),
+            operator, branchConditions: conditions.reverse(),
+          });
+        }
+      }
+      ts.forEachChild(node, walk);
+    };
+    walk(method.body);
+    return result;
+  };
   const allowed = new Set(["filter", "find", "map", "some", "every", "forEach"]);
   const output: ScriptContentUseSite[] = [];
   const visit = (node: ts.Node): void => {
@@ -535,6 +594,7 @@ export function extractScriptContentUseSites(
           localName: local,
           method: node.expression.name.text as ScriptContentUseSite["method"],
           executionRegion: region(node),
+          sourceContextWrites: sourceContextWrites(node),
         });
       }
     }

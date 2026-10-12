@@ -518,14 +518,22 @@ describe("Map Audit Output V2 projection", () => {
           locator:"behavior_packs/a/scripts/words.js:28:1"},
         {id:"use",scope:"selected-artifact",origin:"source-code",
           locator:"behavior_packs/a/scripts/round.js:246:19"},
+        {id:"source-content-context:assignment",scope:"selected-artifact",origin:"source-code",
+          locator:"behavior_packs/a/scripts/round.js:274:9",
+          summary:'Same-method source assignment (NOT CAUSAL): s.phase = "round_countdown"'},
       ],
       nodes:[
         {id:"r",kind:"resource",label:"GuessText"},
-        {id:"c",kind:"mechanic",label:"method:Round.selectRound (source content reader)"},
+        {id:"c",kind:"mechanic",label:"method:Round.selectRound (source content reader)",
+          evidenceIds:["use","source-content-context:assignment"]},
+        {id:"phase",kind:"state",label:"Round Countdown"},
       ],
       edges:[{id:"source-content-requires:current",kind:"requires",
         status:"inferred",from:"c",to:"r",
-        evidenceIds:["definition","use"]}],
+        evidenceIds:["definition","use"]},
+        {id:"source-content-state-context:phase",kind:"participates-in",
+          status:"inferred",from:"c",to:"phase",
+          evidenceIds:["use","source-content-context:assignment"]}],
       unknowns:[],
     };
     const brief = formatSelectedMapAuditBrief({
@@ -537,6 +545,10 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("GuessText");
     expect(brief).toContain("words.js:28:1");
     expect(brief).toContain("round.js:246:19");
+    expect(brief).toContain("Source-local assignments (NOT execution/causation)");
+    expect(brief).toContain('s.phase = "round_countdown"');
+    expect(brief).toContain("Source-local state association (NOT CAUSAL)");
+    expect(brief).toContain("Round Countdown");
     expect(brief).toContain("No published finding");
   });
 

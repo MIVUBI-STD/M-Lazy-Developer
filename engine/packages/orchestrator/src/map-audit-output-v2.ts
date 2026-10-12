@@ -951,10 +951,46 @@ export function formatSelectedMapAuditBrief(input: {
       out.push("- **" + concise(from.label) + "** --(requires; SOURCE ONLY)--> " +
         "**" + concise(to.label) + "**",
         "  Source: " + [...new Set(sites)].slice(0, 4).join("; "));
+      const writes = from.evidenceIds
+        .filter(id => id.startsWith("source-content-context:"))
+        .map(id => evidenceById.get(id))
+        .filter(record => record?.scope === "selected-artifact");
+      if (writes.length > 0) {
+        out.push("  Source-local assignments (NOT execution/causation):");
+        for (const write of writes.slice(0, 12)) {
+          out.push("  - " + concise(write!.summary),
+            "    Source: " + concise(write!.locator));
+        }
+        if (writes.length > 12) {
+          out.push("  Additional source-local assignments omitted: " +
+            (writes.length - 12));
+        }
+      }
     }
     if (contentDependencyEdges.length > 30) {
       out.push("Additional authored source-content references omitted: " +
         (contentDependencyEdges.length - 30));
+    }
+  }
+  const sourceLocalStateEdges = intent.edges.filter(edge =>
+    edge.id.startsWith("source-content-state-context:") &&
+    edge.kind === "participates-in" && edge.status === "inferred");
+  if (sourceLocalStateEdges.length > 0) {
+    const byNode = new Map(intent.nodes.map(node => [node.id,node]));
+    out.push("", "### Source-local state association (NOT CAUSAL)");
+    out.push("A content access and state mutation occur in the same source " +
+      "method; neither an effective phase transition nor selected " +
+      "player/arena owner is established.");
+    for (const edge of sourceLocalStateEdges.slice(0, 20)) {
+      const from = byNode.get(edge.from);
+      const to = byNode.get(edge.to);
+      if (!from || !to) continue;
+      out.push("- " + concise(from.label) +
+        " --(same-method source assignment)--> " + concise(to.label));
+    }
+    if (sourceLocalStateEdges.length > 20) {
+      out.push("Additional state associations omitted: " +
+        (sourceLocalStateEdges.length - 20));
     }
   }
   if (contentCollections.length > 0) {
