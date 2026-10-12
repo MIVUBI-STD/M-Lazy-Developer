@@ -118,3 +118,59 @@ describe("local function call control flow", () => {
   });
 
 });
+
+
+describe("source-only local helper argument/formal forwarding", () => {
+  const source = { artifactId: "local-parameter-source", relativePath: "scripts/main.js" };
+
+  it("matches a local helper through a stable const alias chain", () => {
+    const parsed = parseScriptFile("main", [
+      "function cleanup(ctx, member) { ctx.state = member; }",
+      "function join(arena, player) {",
+      "  const first = arena;",
+      "  const second = first;",
+      "  cleanup(second, player);",
+      "}",
+    ].join("\n"), source);
+    const call = parsed.localFunctionCalls.find(item =>
+      item.callerRegion === "function:join" && item.targetName === "cleanup");
+    expect(call?.argumentParameterBindings).toEqual([
+      expect.objectContaining({
+        argumentName: "arena", parameterName: "ctx",
+        viaConstAliases: [
+          expect.objectContaining({ name: "first" }),
+          expect.objectContaining({ name: "second" }),
+        ],
+      }),
+      expect.objectContaining({ argumentName: "player", parameterName: "member" }),
+    ]);
+    expect(call?.argumentParameterBindings?.every(item =>
+      item.argumentSource.relativePath === source.relativePath &&
+      item.parameterSource.relativePath === source.relativePath)).toBe(true);
+  });
+
+  it("rejects a shadowed local function and mutated caller parameter", () => {
+    const parsed = parseScriptFile("main", [
+      "function cleanup(ctx) { return ctx; }",
+      "function join(arena) {",
+      "  { const cleanup = (ctx) => ctx; cleanup(arena); }",
+      "  arena = { id: 2 };",
+      "  cleanup(arena);",
+      "}",
+    ].join("\n"), source);
+    const calls = parsed.localFunctionCalls.filter(item =>
+      item.targetName === "cleanup" && item.callerRegion === "function:join");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.argumentParameterBindings).toBeUndefined();
+  });
+
+  it("refuses ambiguous local declarations with the same executable name", () => {
+    const parsed = parseScriptFile("main", [
+      "function cleanup(ctx) {}",
+      "function cleanup(ctx) {}",
+      "function join(arena) { cleanup(arena); }",
+    ].join("\n"), source);
+    expect(parsed.localFunctionCalls.filter(item =>
+      item.targetName === "cleanup")).toHaveLength(0);
+  });
+});

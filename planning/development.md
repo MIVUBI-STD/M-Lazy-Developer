@@ -1,3 +1,15 @@
+## P3 bounded source integration — immutable const aliases and local helper parameter forwarding (2026-10-12)
+
+**First wrong source owner:** the canonical ESM resolver had exact parameter pairs but no immutable local alias chains, and `ParsedScriptFile.localFunctionCalls` carried only reachable function regions without actual/formal source identity. A local helper followed by an imported helper therefore lost direct source-parameter continuity. Additionally, shadowed or duplicate function declarations could still be emitted as same-file call edges based on lexical naming.
+
+**One source-authoritative correction:** define one `ScriptArgumentParameterBinding` in existing parser types and reuse `inferExactCallArgumentParameterBindings()` for both unique, unshadowed local callable sites and resolved ESM calls. The static matcher admits original parameters and bounded same-function, preceding, single-owner `const alias = identifier` chains only when no lexical shadowing, assignment, unsupported argument expression or ambiguous target invalidates the evidence. Every accepted actual/formal pair owns exact SourceRefs and alias declaration sites. Existing Arena State Isolation propagates these sources along already-established local/imported region links and emits a bounded reason only, without promoting `scope/status`, importing arena authority into other source files, or inferring player/arena/session runtime identities. No parallel registry, graph, engine, report, map sample condition or new status class.
+
+**Acceptance authored, NOT EXECUTED:** existing cross-file call, local-call control flow and arena-state-isolation tests now include direct and const-alias positives, local→ESM multi-hop forwarding, shadowed helper names, mutable roots/aliases, duplicate declarations, nested alias collisions, temporal inversions, computed arguments and missing source identity. Source-level producer→consumer review only; TypeScript/Vitest, real `.mcworld`, independent cross-map scoring and Minecraft runtime were NOT EXECUTED. P3 remains IN PROGRESS; this is not a live multiplayer isolation PASS.
+
+**Next:** validate unknown/rebind/branch handling on independent source styles; advance P1/P5 full-map acceptance before adding more general alias inference. If source behavior conflicts with a real observed map, repair its existing owner without introducing map-specific rules.
+
+---
+
 ## P3 bounded integration — direct cross-module actual/formal parameter identity (2026-10-12)
 
 **Observed source gap:** cross-file resolver proved a callable target but exposed no exact actual-argument/formal-parameter identity. Arena State Isolation could reach a helper module, but could not differentiate passing authored `arena` from `otherArena`, renamed parameters, or mutable/colliding objects. A resolved function call alone does not prove parameter identity.

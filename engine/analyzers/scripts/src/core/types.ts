@@ -159,10 +159,23 @@ export interface ScriptLexicalGuard {
   source: SourceRef;
 }
 
+/** Exact source-side actual/formal forwarding, never runtime instance identity. */
+export interface ScriptArgumentParameterBinding {
+  index: number;
+  /** Original caller parameter after zero or more immutable const aliases. */
+  argumentName: string;
+  parameterName: string;
+  argumentSource: SourceRef;
+  parameterSource: SourceRef;
+  viaConstAliases?: readonly { name: string; source: SourceRef }[];
+}
+
 export interface ScriptLocalFunctionCall {
   callerRegion: string;
   targetRegion: string;
   targetName: string;
+  /** Unique AST source parameter binding at this local call, when proven. */
+  argumentParameterBindings?: readonly ScriptArgumentParameterBinding[];
   controlFlow?: "unconditional" | "conditional" | "deferred";
   lexicalGuards?: readonly ScriptLexicalGuard[];
   /** Necessary branch decisions from preceding single-statement exits. */

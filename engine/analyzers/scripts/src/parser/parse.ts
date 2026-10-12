@@ -39,6 +39,7 @@ import {
   inferScriptPropertyAccesses,
   inferScriptPropertyWrites,
 } from "./receiver-inference.js";
+import { inferExactCallArgumentParameterBindings } from "./cross-file-call.js";
 import { findScriptExecutionPrivilegeRule } from "../../../../packages/compatibility/src/index.js";
 import { inferScriptLifecycleMemberExposures } from "../domains/lifecycle/lifecycle-exposure.js";
 import {
@@ -2119,6 +2120,15 @@ export function parseScriptFile(
       .filter(ts.isFunctionDeclaration)
       .flatMap((statement) => statement.name ? [statement.name.text] : []),
   );
+  // Only a unique, authored top-level function body can own local-call
+  // parameter evidence. Same-spelled shadowed callables do not qualify.
+  const localCallableDeclarations = new Map(
+    file.statements
+      .filter((statement): statement is ts.FunctionDeclaration =>
+        ts.isFunctionDeclaration(statement) && statement.name !== undefined &&
+        statement.body !== undefined && uniqueModuleBinding(statement.name.text))
+      .map(statement => [statement.name!.text, statement] as const),
+  );
 
   const relativeImportedNames = new Set<string>();
   const relativeImportedNamespaces = new Set<string>();
@@ -2845,14 +2855,21 @@ export function parseScriptFile(
     if (
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&
-      topLevelFunctionNames.has(node.expression.text)
+      localCallableDeclarations.has(node.expression.text) &&
+      !isShadowed(node.expression)
     ) {
+      const target = localCallableDeclarations.get(node.expression.text)!;
+      const bindings = inferExactCallArgumentParameterBindings(
+        node, file, source,
+        { parameters: target.parameters, body: target.body! },
+        file, source);
       const lexicalGuards = lexicalBranchGuards(node, file, source);
       const precedenceGuards = precedingEarlyExitGuards(node, file, source);
       localFunctionCalls.push({
         callerRegion: localExecutionRegionId(node, file),
         targetRegion: "function:" + node.expression.text,
         targetName: node.expression.text,
+        ...(bindings.length ? { argumentParameterBindings: bindings } : {}),
         controlFlow: lexicalGuards.length || precedenceGuards.length
           ? "conditional" : localCallControlFlow(node),
         lexicalGuards,

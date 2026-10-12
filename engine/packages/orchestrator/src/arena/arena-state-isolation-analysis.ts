@@ -2,6 +2,7 @@ import type {
   ParsedScriptFile,
   ScriptMethodCall,
   CrossFileCallEdge,
+  ScriptArgumentParameterBinding,
 } from "../../../../analyzers/scripts/src/index.js";
 import type {
   SourceRef,
@@ -236,36 +237,72 @@ function arenaRegionsAcrossScripts(
   }
   for (let cursor = 0; cursor < aliasQueue.length; cursor += 1) {
     const entry = aliasQueue[cursor]!;
-    for (const region of local.get(entry.script)?.get(entry.region) ?? []) {
-      admitAlias({ script: entry.script, region, aliases: new Map() });
-    }
-    for (const destination of imported.get(entry.script)?.get(entry.region) ?? []) {
+    const mappedAliases = (
+      target: ParsedScriptFile,
+      source: SourceRef,
+      bindings: readonly ScriptArgumentParameterBinding[],
+    ): Map<string, Origin> => {
       const mapped = new Map<string, Origin>();
-      const bindings = destination.call.argumentParameterBindings ?? [];
-      // Duplicated formal parameter bindings are ambiguous, not evidence.
-      const names = bindings.map(binding => binding.parameterName);
-      if (new Set(names).size !== names.length) {
-        admitAlias({ script: destination.script, region: destination.region,
-          aliases: mapped });
-        continue;
+      const names = bindings.map(item => item.parameterName);
+      const indices = bindings.map(item => item.index);
+      if (new Set(names).size !== names.length ||
+          new Set(indices).size !== indices.length) return mapped;
+      const callerSource = entry.script.source;
+      const targetSource = target.source;
+      const outer = source.range;
+      if (!callerSource || !targetSource || !outer ||
+          source.artifactId !== callerSource.artifactId ||
+          pathOf(source.relativePath) !== pathOf(callerSource.relativePath) ||
+          outer.lineStart === undefined || outer.lineEnd === undefined ||
+          outer.columnStart === undefined || outer.columnEnd === undefined) {
+        return mapped;
       }
       for (const binding of bindings) {
         const origin = entry.aliases.get(binding.argumentName);
-        if (!origin) continue;
-        const outer = destination.call.source.range;
-        const arg = binding.argumentSource.range;
-        if (binding.argumentSource.artifactId !== entry.script.source?.artifactId ||
-            binding.argumentSource.relativePath !== entry.script.source?.relativePath ||
-            binding.parameterSource.artifactId !== destination.script.source?.artifactId ||
-            binding.parameterSource.relativePath !== destination.script.source?.relativePath ||
-            !outer || !arg ||
-            arg.lineStart === undefined || arg.lineEnd === undefined ||
-            outer.lineStart === undefined || outer.lineEnd === undefined ||
-            arg.lineStart < outer.lineStart || arg.lineEnd > outer.lineEnd) {
+        const a = binding.argumentSource;
+        const p = binding.parameterSource;
+        const ar = a.range;
+        const pr = p.range;
+        if (!origin || !plain(binding.argumentName) ||
+            !plain(binding.parameterName) ||
+            !Number.isInteger(binding.index) || binding.index < 0 ||
+            a.artifactId !== callerSource.artifactId ||
+            pathOf(a.relativePath) !== pathOf(callerSource.relativePath) ||
+            a.jsonPointer !== source.jsonPointer ||
+            p.artifactId !== targetSource.artifactId ||
+            pathOf(p.relativePath) !== pathOf(targetSource.relativePath) ||
+            !ar || !pr ||
+            ar.lineStart === undefined || ar.lineEnd === undefined ||
+            ar.columnStart === undefined || ar.columnEnd === undefined ||
+            pr.lineStart === undefined || pr.lineEnd === undefined ||
+            pr.columnStart === undefined || pr.columnEnd === undefined ||
+            ar.lineStart < outer.lineStart || ar.lineEnd > outer.lineEnd ||
+            (ar.lineStart === outer.lineStart &&
+             ar.columnStart < outer.columnStart) ||
+            (ar.lineEnd === outer.lineEnd &&
+             ar.columnEnd > outer.columnEnd) ||
+            (binding.viaConstAliases ?? []).some(alias =>
+              alias.source.artifactId !== callerSource.artifactId ||
+              pathOf(alias.source.relativePath) !==
+                pathOf(callerSource.relativePath) ||
+              alias.source.range?.lineStart === undefined)) {
           continue;
         }
         mapped.set(binding.parameterName, origin);
       }
+      return mapped;
+    };
+    for (const call of entry.script.localFunctionCalls) {
+      if (call.callerRegion !== entry.region) continue;
+      // Local reachability is not an actual/formal alias by itself.
+      const mapped = mappedAliases(entry.script, call.source,
+        call.argumentParameterBindings ?? []);
+      admitAlias({ script: entry.script, region: call.targetRegion,
+        aliases: mapped });
+    }
+    for (const destination of imported.get(entry.script)?.get(entry.region) ?? []) {
+      const mapped = mappedAliases(destination.script, destination.call.source,
+        destination.call.argumentParameterBindings ?? []);
       admitAlias({ script: destination.script, region: destination.region,
         aliases: mapped });
     }
@@ -279,6 +316,9 @@ function arenaRegionsAcrossScripts(
     for (const [script, regions] of contexts) {
       const perRegion = new Map<string, readonly string[]>();
       for (const [region, values] of regions) {
+        // Root authority is not a forwarded parameter witness.
+        if ((script.arenaAuthorityPaths ?? [])
+          .some(path => path.executionRegion === region)) continue;
         const names = new Set(values.flatMap(aliases => [...aliases.keys()]));
         const messages: string[] = [];
         for (const name of [...names].sort()) {
@@ -827,10 +867,11 @@ function analyzeScript(
     observations: observations.map(item => ({
       ...item,
       ...(script.source === undefined ? {} : { source: script.source }),
-      ...(importedOnly.has(item.region) ? {
+      ...(importedOnly.has(item.region) || forwarded.has(item.region) ? {
         reason: item.reason +
-          " An exact source-resolved imported call reaches this region from " +
-          "arena-associated code. " +
+          (importedOnly.has(item.region)
+            ? " An exact imported source call reaches this arena-associated region. "
+            : " An exact local helper call forwards a source parameter into this region. ") +
           (forwarded.get(item.region)?.join(" ") ??
             "Source argument-to-parameter identity is unproven.") +
           " Arena membership, key partition and runtime session " +
@@ -980,7 +1021,9 @@ export function analyzeArenaStateIsolation(
   contracts: readonly StateAuthorityContract[] = [],
   crossFileCalls: readonly CrossFileCallEdge[] = [],
 ): ArenaStateIsolationAnalysis {
-  const scoped = crossFileCalls.length > 0
+  const scoped = crossFileCalls.length > 0 ||
+    scripts.some(script => script.localFunctionCalls.some(call =>
+      (call.argumentParameterBindings?.length ?? 0) > 0))
     ? arenaRegionsAcrossScripts(scripts, crossFileCalls) : undefined;
   const analyzed = scripts.map(script =>
     analyzeScript(script,

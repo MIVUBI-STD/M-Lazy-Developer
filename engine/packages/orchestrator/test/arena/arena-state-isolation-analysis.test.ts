@@ -1067,3 +1067,86 @@ describe("P3 exact cross-module parameter forwarding", () => {
     expect(state).toMatchObject({ status: "partition-proof-required" });
   });
 });
+
+
+describe("P3 bounded local helper and const alias source ownership", () => {
+  const moduleInput = (name: string, lines: readonly string[]) => {
+    const path = "behavior_packs/alias/scripts/" + name;
+    return { path, text: lines.join("\n"),
+      source: { artifactId: "selected-local-alias", relativePath: path } };
+  };
+  const analyze = (inputs: ReturnType<typeof moduleInput>[]) => {
+    const scripts = inputs.map(input =>
+      parseScriptFile(input.path, input.text, input.source));
+    return analyzeArenaStateIsolation(scripts, [],
+      deriveCrossFileCallEdges(inputs)).observations;
+  };
+
+  it("carries a stable arena/player source origin through a local and ESM helper", () => {
+    const main = moduleInput("main.js", [
+      'import { finalize } from "./finalize.js";',
+      "function localRelease(ctx, member) { finalize(ctx, member); }",
+      "function join(arena, player) {",
+      "  arena.members.add(player);",
+      "  const selected = arena;",
+      "  localRelease(selected, player);",
+      "}",
+    ]);
+    const final = moduleInput("finalize.js", [
+      'import { world } from "@minecraft/server";',
+      "export function finalize(currentArena, currentPlayer) {",
+      "  world.setDynamicProperty('shared', currentPlayer.id);",
+      "}",
+    ]);
+    const state = analyze([main, final]).find(item =>
+      item.surface === "dynamic-property" &&
+      item.source?.relativePath === final.path);
+    expect(state).toMatchObject({
+      scope: "world-global", status: "partition-proof-required",
+    });
+    expect(state?.reason).toContain("arena parameter arena reaches currentArena");
+    expect(state?.reason).toContain("player parameter player reaches currentPlayer");
+    expect(state?.reason).toContain("runtime session ownership remain unproven");
+  });
+
+  it("preserves local-only helper source continuity without any ESM call", () => {
+    const main = moduleInput("main.js", [
+      'import { world } from "@minecraft/server";',
+      "function release(ctx) { world.setDynamicProperty('shared', ctx.id); }",
+      "function join(arena, player) {",
+      "  arena.members.add(player);",
+      "  const selected = arena;",
+      "  release(selected);",
+      "}",
+    ]);
+    const state = analyze([main]).find(item =>
+      item.surface === "dynamic-property" &&
+      item.region === "function:release");
+    expect(state).toMatchObject({
+      scope: "world-global", status: "partition-proof-required",
+    });
+    expect(state?.reason).toContain("local helper call");
+    expect(state?.reason).toContain("arena parameter arena reaches ctx");
+  });
+
+  it("does not invent reference continuity for mutable or unrelated source aliases", () => {
+    const main = moduleInput("main.js", [
+      'import { finalize } from "./finalize.js";',
+      "function localRelease(ctx) { finalize(ctx); }",
+      "function join(arena, player, otherArena) {",
+      "  arena.members.add(player);",
+      "  let selected = otherArena;",
+      "  localRelease(selected);",
+      "}",
+    ]);
+    const final = moduleInput("finalize.js", [
+      'import { world } from "@minecraft/server";',
+      "export function finalize(target) { world.setDynamicProperty('shared', 1); }",
+    ]);
+    const state = analyze([main, final]).find(item =>
+      item.surface === "dynamic-property" &&
+      item.source?.relativePath === final.path);
+    expect(state).toMatchObject({ status: "partition-proof-required" });
+    expect(state?.reason).not.toContain("arena parameter arena reaches target");
+  });
+});

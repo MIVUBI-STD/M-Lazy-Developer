@@ -1,5 +1,6 @@
 import ts from "typescript";
 import type { SourceRef } from "../../../../packages/project-model/src/index.js";
+import type { ScriptArgumentParameterBinding } from "../core/types.js";
 
 export interface ScriptModuleSourceInput {
   path: string;
@@ -17,16 +18,8 @@ export interface CrossFileCallEdge {
   localName: string;
   controlFlow: "unconditional" | "conditional" | "deferred";
   status: "resolved" | "unresolved";
-  /** Direct AST actual/formal parameter correspondence for this exact call.
-   * This is source reference forwarding, NOT live arena/player ownership.
-   */
-  argumentParameterBindings?: readonly {
-    index: number;
-    argumentName: string;
-    parameterName: string;
-    argumentSource: SourceRef;
-    parameterSource: SourceRef;
-  }[];
+  /** Direct or bounded immutable-const source forwarding, never instance proof. */
+  argumentParameterBindings?: readonly ScriptArgumentParameterBinding[];
   source: SourceRef;
 }
 
@@ -411,7 +404,9 @@ function uniqueDirectParameter(
 /** Do not assert stable parameter forwarding across a possible reassignment,
  * destructuring target, loop assignment or lexical redeclaration.
  */
-function parameterMayBeRebound(body: ts.Node, name: string): boolean {
+function parameterMayBeRebound(
+  body: ts.Node, name: string, except?: ts.VariableDeclaration,
+): boolean {
   let unstable = false;
   const isTarget = (node: ts.Node): boolean => {
     if (ts.isIdentifier(node)) return node.text === name;
@@ -432,7 +427,7 @@ function parameterMayBeRebound(body: ts.Node, name: string): boolean {
     return false;
   };
   const visit = (node: ts.Node): void => {
-    if (unstable) return;
+    if (unstable || node === except) return;
     if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) &&
         ts.isIdentifier(node.name) && node.name.text === name) {
       unstable = true;
@@ -462,33 +457,125 @@ function parameterMayBeRebound(body: ts.Node, name: string): boolean {
   return unstable;
 }
 
-/** No constant aliases, computed arguments, mutable identifiers or defaults
- * are upgraded to exact parameter reference witnesses.
+/** The caller formal or same-body const chain must be visible at the call.
+ * Nested block/loop/catch shadowing makes a spelling ambiguous.
  */
-function directParameterBindings(
+function shadowedAtCall(
+  call: ts.CallExpression,
+  body: ts.Node,
+  name: string,
+): boolean {
+  const binds = (binding: ts.BindingName): boolean =>
+    ts.isIdentifier(binding) ? binding.text === name :
+    binding.elements.some(element =>
+      ts.isBindingElement(element) && binds(element.name));
+  let current: ts.Node = call;
+  while (current !== body) {
+    const parent = current.parent;
+    if (!parent) return true;
+    if (parent === body) return false;
+    if (ts.isBlock(parent) && parent.statements.some(statement =>
+      (ts.isVariableStatement(statement) &&
+       statement.declarationList.declarations.some(decl => binds(decl.name))) ||
+      (ts.isFunctionDeclaration(statement) && statement.name?.text === name))) {
+      return true;
+    }
+    if (ts.isCatchClause(parent) && parent.variableDeclaration &&
+        binds(parent.variableDeclaration.name)) return true;
+    if ((ts.isForStatement(parent) || ts.isForOfStatement(parent) ||
+         ts.isForInStatement(parent)) && parent.initializer &&
+        ts.isVariableDeclarationList(parent.initializer) &&
+        parent.initializer.declarations.some(decl => binds(decl.name))) {
+      return true;
+    }
+    current = parent;
+  }
+  return false;
+}
+
+/** Only a direct parameter or a preceding, unique, stable const-id chain.
+ * This is deliberately not general reaching definitions or JS object identity.
+ */
+function stableParameterOrigin(
+  argument: ts.Expression,
+  call: ts.CallExpression,
+  caller: CallableSource,
+  file: ts.SourceFile,
+  source: SourceRef,
+): { parameterName: string; aliases: { name: string; source: SourceRef }[] } | undefined {
+  if (!ts.isIdentifier(argument)) return undefined;
+  let name = argument.text;
+  let preceding = argument.getStart(file);
+  const aliases: { name: string; source: SourceRef }[] = [];
+  const visited = new Set<string>();
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (visited.has(name) || shadowedAtCall(call, caller.body, name)) {
+      return undefined;
+    }
+    visited.add(name);
+    if (uniqueDirectParameter(caller, name)) {
+      if (parameterMayBeRebound(caller.body, name)) return undefined;
+      return { parameterName: name, aliases: aliases.reverse() };
+    }
+    if (!ts.isBlock(caller.body)) return undefined;
+    const declarations = caller.body.statements.flatMap(statement => {
+      if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) {
+        return [{ declaration: undefined, isConst: false }];
+      }
+      if (!ts.isVariableStatement(statement)) return [];
+      return statement.declarationList.declarations
+        .filter(declaration =>
+          ts.isIdentifier(declaration.name) && declaration.name.text === name)
+        .map(declaration => ({
+          declaration,
+          isConst: !!(statement.declarationList.flags & ts.NodeFlags.Const),
+        }));
+    });
+    if (declarations.length !== 1) return undefined;
+    const item = declarations[0]!;
+    const declaration = item.declaration;
+    if (!item.isConst || !declaration ||
+        declaration.getStart(file) >= preceding ||
+        !declaration.initializer || !ts.isIdentifier(declaration.initializer) ||
+        parameterMayBeRebound(caller.body, name, declaration)) return undefined;
+    aliases.push({ name, source: nodeSource(file, declaration, source) });
+    preceding = declaration.getStart(file);
+    name = declaration.initializer.text;
+  }
+  return undefined;
+}
+
+/** Same source AST rule for a local call and a resolved ESM call.
+ * A value-reference forwarding witness never proves an arena/player instance.
+ */
+export function inferExactCallArgumentParameterBindings(
   call: ts.CallExpression,
   callerFile: ts.SourceFile,
   callerSource: SourceRef,
   target: CallableSource,
   targetFile: ts.SourceFile,
   targetSource: SourceRef,
-): NonNullable<CrossFileCallEdge["argumentParameterBindings"]> {
+): readonly ScriptArgumentParameterBinding[] {
   const caller = enclosingCallable(call);
   if (!caller || call.arguments.length !== target.parameters.length) return [];
-  const bindings: NonNullable<CrossFileCallEdge["argumentParameterBindings"]>[number][] = [];
+  const bindings: ScriptArgumentParameterBinding[] = [];
   for (let index = 0; index < call.arguments.length; index += 1) {
     const argument = call.arguments[index];
     const formal = target.parameters[index];
-    if (!argument || !formal || !ts.isIdentifier(argument) ||
-        !ts.isIdentifier(formal.name) || formal.dotDotDotToken ||
-        formal.initializer || !uniqueDirectParameter(caller, argument.text) ||
+    if (!argument || !formal || !ts.isIdentifier(formal.name) ||
+        formal.dotDotDotToken || formal.initializer ||
         !uniqueDirectParameter(target, formal.name.text) ||
-        parameterMayBeRebound(caller.body, argument.text) ||
         parameterMayBeRebound(target.body, formal.name.text)) continue;
+    const origin = stableParameterOrigin(
+      argument, call, caller, callerFile, callerSource);
+    if (!origin) continue;
     bindings.push({
-      index, argumentName: argument.text, parameterName: formal.name.text,
+      index,
+      argumentName: origin.parameterName,
+      parameterName: formal.name.text,
       argumentSource: nodeSource(callerFile, argument, callerSource),
       parameterSource: nodeSource(targetFile, formal.name, targetSource),
+      ...(origin.aliases.length ? { viaConstAliases: origin.aliases } : {}),
     });
   }
   return bindings;
@@ -719,7 +806,7 @@ export function deriveCrossFileCallEdges(
       const targetFile = target === undefined
         ? undefined : parsedFiles.get(target.modulePath);
       const argumentParameterBindings = targetCallable && targetFile && targetSource
-        ? directParameterBindings(
+        ? inferExactCallArgumentParameterBindings(
             node, file, { ...module.source, relativePath: modulePath },
             targetCallable, targetFile,
             { ...targetSource, relativePath: target!.modulePath },

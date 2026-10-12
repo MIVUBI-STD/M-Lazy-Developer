@@ -408,3 +408,87 @@ describe("exact ESM argument-to-parameter reference evidence", () => {
     }
   });
 });
+
+
+describe("bounded immutable const alias forwarding into ESM calls", () => {
+  const source = (name: string, lines: readonly string[]) => {
+    const path = "behavior_packs/alias/scripts/" + name;
+    return { path, text: lines.join("\n"),
+      source: { artifactId: "selected-alias", relativePath: path } };
+  };
+  const target = source("helper.js", [
+    "export function release(ctx, member) { return ctx; }",
+  ]);
+
+  it("resolves preceding immutable identifier alias chains to their original parameter", () => {
+    const main = source("main.js", [
+      'import { release } from "./helper.js";',
+      "function join(arena, player) {",
+      "  const first = arena;",
+      "  const second = first;",
+      "  release(second, player);",
+      "}",
+    ]);
+    const call = deriveCrossFileCallEdges([main, target])[0];
+    expect(call).toMatchObject({ status: "resolved",
+      argumentParameterBindings: [
+        expect.objectContaining({
+          argumentName: "arena", parameterName: "ctx",
+          viaConstAliases: [
+            expect.objectContaining({ name: "first" }),
+            expect.objectContaining({ name: "second" }),
+          ],
+        }),
+        expect.objectContaining({ argumentName: "player", parameterName: "member" }),
+      ],
+    });
+    expect(call?.argumentParameterBindings?.[0]?.viaConstAliases?.every(alias =>
+      alias.source.relativePath === main.path &&
+      alias.source.range?.lineStart !== undefined)).toBe(true);
+  });
+
+  it("refuses let aliases, parameter writes, temporal inversions and computed objects", () => {
+    const cases = [
+      ["let chosen = arena;", "release(chosen, player);"],
+      ["const chosen = arena;", "arena = otherArena;", "release(chosen, player);"],
+      ["release(chosen, player);", "const chosen = arena;"],
+      ["const chosen = arena;", "release(chosen.id, player);"],
+    ];
+    for (const statements of cases) {
+      const main = source("main.js", [
+        'import { release } from "./helper.js";',
+        "function join(arena, player, otherArena) {",
+        ...statements.map(statement => "  " + statement),
+        "}",
+      ]);
+      const call = deriveCrossFileCallEdges([main, target])[0];
+      expect(call).toMatchObject({ status: "resolved" });
+      expect(call?.argumentParameterBindings?.some(binding =>
+        binding.parameterName === "ctx")).toBe(false);
+    }
+  });
+
+  it("rejects a nested shadow and cyclic declaration without inventing identity", () => {
+    const cases = [
+      [
+        "const chosen = arena;",
+        "if (flag) { const chosen = otherArena; release(chosen, player); }",
+      ],
+      [
+        "const chosen = chosen;",
+        "release(chosen, player);",
+      ],
+    ];
+    for (const statements of cases) {
+      const main = source("main.js", [
+        'import { release } from "./helper.js";',
+        "function join(arena, player, otherArena, flag) {",
+        ...statements.map(statement => "  " + statement),
+        "}",
+      ]);
+      const call = deriveCrossFileCallEdges([main, target])[0];
+      expect(call?.argumentParameterBindings?.some(binding =>
+        binding.parameterName === "ctx")).toBe(false);
+    }
+  });
+});
