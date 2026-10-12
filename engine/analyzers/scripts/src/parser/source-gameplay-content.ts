@@ -203,3 +203,100 @@ export function extractScriptWaveStages(
     (a.source.range?.lineStart ?? 0) - (b.source.range?.lineStart ?? 0) ||
     (a.source.range?.columnStart ?? 0) - (b.source.range?.columnStart ?? 0));
 }
+
+
+/**
+ * Content catalogs are a different authored shape than nested wave recipes.
+ * Recognize bounded id/name pairs with one matching semantic namespace.
+ * A catalog entry is NOT evidence that a player can select or complete it.
+ */
+export interface ScriptAuthoredGameplayEntry {
+  readonly source: SourceRef;
+  readonly kind: "gameplay" | "mode" | "challenge";
+  readonly id: string;
+  readonly name: string;
+  readonly number?: number;
+}
+
+export function extractScriptGameplayCatalog(
+  file: ts.SourceFile,
+  owner: SourceRef,
+): ScriptAuthoredGameplayEntry[] {
+  const fields = [
+    { kind: "gameplay", id: "gameplayId", name: "gameplayName", number: "gameplayNumber" },
+    { kind: "mode", id: "modeId", name: "modeName", number: "modeNumber" },
+    { kind: "challenge", id: "challengeId", name: "challengeName", number: "challengeNumber" },
+  ] as const;
+  const keyName = (key: ts.PropertyName): string | undefined =>
+    ts.isIdentifier(key) || ts.isStringLiteralLike(key)
+      ? key.text : undefined;
+  const uniqueProperty = (node: ts.ObjectLiteralExpression, key: string):
+    ts.Expression | undefined => {
+    const found = node.properties.filter((property):
+      property is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(property) && keyName(property.name) === key);
+    return found.length === 1 ? found[0]!.initializer : undefined;
+  };
+  const literal = (value?: ts.Expression): string | undefined =>
+    value && ts.isStringLiteralLike(value) ? value.text.trim() || undefined
+      : undefined;
+  const numberLiteral = (value?: ts.Expression): number | undefined =>
+    value && ts.isNumericLiteral(value) && Number.isSafeInteger(Number(value.text)) &&
+      Number(value.text) > 0 ? Number(value.text) : undefined;
+  const source = (node: ts.Node): SourceRef => {
+    const start = file.getLineAndCharacterOfPosition(node.getStart(file));
+    const end = file.getLineAndCharacterOfPosition(node.getEnd());
+    return { ...owner, range: {
+      lineStart: start.line + 1, columnStart: start.character + 1,
+      lineEnd: end.line + 1, columnEnd: end.character + 1,
+    } };
+  };
+  const found: ScriptAuthoredGameplayEntry[] = [];
+  const walk = (node: ts.Node): void => {
+    if (ts.isObjectLiteralExpression(node)) {
+      for (const fieldsForKind of fields) {
+        const id = literal(uniqueProperty(node, fieldsForKind.id));
+        const displayName = literal(uniqueProperty(node, fieldsForKind.name));
+        if (!id || !displayName) continue;
+        const ordinal = numberLiteral(uniqueProperty(node, fieldsForKind.number));
+        found.push({
+          source: source(node), kind: fieldsForKind.kind,
+          id, name: displayName,
+          ...(ordinal === undefined ? {} : { number: ordinal }),
+        });
+      }
+    }
+    ts.forEachChild(node, walk);
+  };
+  walk(file);
+
+  // Compiled bundles may repeat one named mode in both catalog and UI
+  // projection. Prefer an exact numbered definition over an unnumbered
+  // duplicate *within one selected source*. Do not join different packs,
+  // different IDs, or contradictory numbered declarations by guesswork.
+  const groups = new Map<string, ScriptAuthoredGameplayEntry[]>();
+  for (const item of found) {
+    const key = [item.source.artifactId, item.source.relativePath,
+      item.kind, item.id, item.name].join("\u0000");
+    const list = groups.get(key) ?? [];
+    list.push(item);
+    groups.set(key, list);
+  }
+  const result: ScriptAuthoredGameplayEntry[] = [];
+  for (const entries of groups.values()) {
+    const numbered = entries.filter(entry => entry.number !== undefined);
+    if (numbered.length) {
+      const uniqueOrdinals = new Set(numbered.map(entry => entry.number));
+      for (const ordinal of uniqueOrdinals) {
+        result.push(numbered.find(entry => entry.number === ordinal)!);
+      }
+    } else {
+      result.push(entries[0]!);
+    }
+  }
+  return result.sort((a, b) =>
+    a.source.relativePath.localeCompare(b.source.relativePath) ||
+    (a.number ?? Number.MAX_SAFE_INTEGER) - (b.number ?? Number.MAX_SAFE_INTEGER) ||
+    a.id.localeCompare(b.id) ||
+    (a.source.range?.lineStart ?? 0) - (b.source.range?.lineStart ?? 0));
+}

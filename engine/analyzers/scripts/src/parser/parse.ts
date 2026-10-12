@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { extractScriptWaveStages } from "./source-wave-config.js";
+import { extractScriptWaveStages, extractScriptGameplayCatalog } from "./source-gameplay-content.js";
 
 export const SCRIPT_PARSER_REVISION =
   "m-bedrock-script-parser:2:typescript:" +
@@ -3226,6 +3226,7 @@ export function parseScriptFile(
     source,
     controlFlowRegions: deriveScriptControlFlow(file, source),
     waveConfigurations: extractScriptWaveStages(file, source),
+    authoredGameplayCatalog: extractScriptGameplayCatalog(file, source),
     blockCustomComponentRegistrations,
     persistentReconciliation,
     arenaAuthorityEvidence,

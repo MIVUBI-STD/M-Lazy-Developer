@@ -698,6 +698,8 @@ export function buildInspectionResult(
     ).length,
     authoredWaveStages: parsedScripts.flatMap(item =>
       item.parsed.waveConfigurations ?? []),
+    authoredGameplayCatalog: parsedScripts.flatMap(item =>
+      item.parsed.authoredGameplayCatalog ?? []),
     scriptApiUsage,
     scriptSafeConfig,
     scriptSpatial,

@@ -1,5 +1,5 @@
 import { parseLocalizedStageKey } from "./inspection/gameplay-intent-resource-text.js";
-import type { ScriptWaveStage } from "../../../analyzers/scripts/src/index.js";
+import type { ScriptWaveStage, ScriptAuthoredGameplayEntry } from "../../../analyzers/scripts/src/index.js";
 import type {
   GameDesignMapClassification,
 } from "../../game-design-spec/src/index.js";
@@ -792,10 +792,12 @@ export function formatSelectedMapAuditBrief(input: {
   readonly intent: GameplayIntentModel;
   /** Selected-archive source recipes, never a claim of spawning. */
   readonly waveStages?: readonly ScriptWaveStage[];
+  readonly gameplayCatalog?: readonly ScriptAuthoredGameplayEntry[];
   readonly modelTaskPackets: readonly AuditModelTaskPacket[];
 }): string {
   const { report, intent, modelTaskPackets } = input;
   const waveStages = input.waveStages ?? [];
+  const gameplayCatalog = input.gameplayCatalog ?? [];
   const concise = (value: string): string =>
     value.replace(/\s+/g, " ").trim().slice(0, 300) || "unresolved";
   const evidenceById = new Map(
@@ -895,6 +897,36 @@ export function formatSelectedMapAuditBrief(input: {
       concise(report.gameDesign.loseCondition),
     "",
   ];
+  if (gameplayCatalog.length > 0) {
+    out.push("", "### Script-authored gameplay/mode catalog (NOT OBSERVED)");
+    out.push("These are independently labelled source catalog entries, not " +
+      "proof of a playable mode, active challenge, wave, player progression, " +
+      "or implementation of its described mechanics.");
+    const ordered = [...gameplayCatalog].sort((a,b) =>
+      a.source.relativePath.localeCompare(b.source.relativePath) ||
+      (a.number ?? Number.MAX_SAFE_INTEGER) -
+        (b.number ?? Number.MAX_SAFE_INTEGER) ||
+      a.id.localeCompare(b.id));
+    for (const entry of ordered.slice(0, 50)) {
+      const ordinal = entry.number === undefined ? "" : " #" + entry.number;
+      const source = entry.source.relativePath +
+        (entry.source.range === undefined ? "" :
+          ":" + entry.source.range.lineStart + ":" +
+          (entry.source.range.columnStart ?? 1));
+      out.push("- **" + entry.kind + ordinal + ": " +
+        concise(entry.name) + "** / id=" + concise(entry.id) +
+        " [source-labelled; gameplay semantics UNKNOWN]",
+        "  Source: " + concise(source));
+    }
+    if (ordered.length > 50) {
+      out.push("Additional source catalog entries omitted: " +
+        (ordered.length - 50));
+    }
+    if (waveStages.length === 0) {
+      out.push("No direct nested stage/wave recipes were extracted in this " +
+        "view. This is not evidence that the map contains no waves.");
+    }
+  }
   if (orderedGroups.length > 0) {
     out.push("", "### Source-labelled level/stage hierarchy (NOT OBSERVED)");
     out.push("Grouping follows exact selected-artifact locale keys; neither " +

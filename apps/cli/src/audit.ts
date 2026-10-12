@@ -135,6 +135,7 @@ async function main(): Promise<void> {
           report: resolvedAudit.mapAuditReport,
           intent: resolvedAudit.inspection.gameplayIntent.model,
           waveStages: resolvedAudit.inspection.authoredWaveStages,
+          gameplayCatalog: resolvedAudit.inspection.authoredGameplayCatalog,
           modelTaskPackets: resolvedAudit.modelTaskPackets,
         })
       : JSON.stringify(resolvedAudit.mapAuditReport, null, 2) + "\n";

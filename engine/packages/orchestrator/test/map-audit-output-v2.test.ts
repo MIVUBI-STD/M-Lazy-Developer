@@ -430,4 +430,36 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("keeps source-authored gameplay catalogs distinct from wave recipes", () => {
+    const src = { artifactId: "selected", relativePath:
+      "behavior_packs/a/scripts/chunks/catalog.js",
+      range: { lineStart: 11, lineEnd: 11, columnStart: 1, columnEnd: 99 }};
+    const report: any = {
+      mapVersion:"1", evidenceScope:{selectedArtifact:"demo.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{ objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      multiArena:{isolationRules:[]},gameplayClosure:{status:"PARTIAL",surfaceInventory:[]},
+      stateTransitions:[],bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const brief = formatSelectedMapAuditBrief({
+      report, intent:{evidence:[],unknowns:[]} as any,
+      modelTaskPackets:[],
+      gameplayCatalog:[
+        {source:src,kind:"gameplay",id:"combat_trial",name:"Combat Trial",number:1},
+        {source:src,kind:"gameplay",id:"capture_run",name:"Capture Run",number:5},
+      ],
+      waveStages:[],
+    });
+    expect(brief).toContain("Script-authored gameplay/mode catalog");
+    expect(brief).toContain("gameplay #1: Combat Trial");
+    expect(brief).toContain("gameplay #5: Capture Run");
+    expect(brief).toContain("catalog.js:11:1");
+    expect(brief).toContain("not evidence that the map contains no waves");
+    expect(brief).not.toContain("**Wave 1**");
+    expect(brief).toContain("No published finding");
+  });
+
 });

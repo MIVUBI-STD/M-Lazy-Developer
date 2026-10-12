@@ -1251,4 +1251,39 @@ const arenas = joins.map((entry, index) => {
       source).waveConfigurations).toHaveLength(0);
   });
 
+  it("discovers independently authored mode catalogs without inventing waves", () => {
+    const source = {
+      artifactId: "selected-world",
+      relativePath: "behavior_packs/demo/scripts/chunks/content.js",
+    };
+    const script = [
+      'const modes = {',
+      ' combat: Object.freeze({ gameplayId: "combat_trial", gameplayName: "Combat Trial", gameplayNumber: 1 }),',
+      ' capture: Object.freeze({ gameplayId: "capture_run", gameplayName: "Capture Run", gameplayNumber: 5 }),',
+      '};',
+      'const menu = [',
+      ' { gameplayId: "combat_trial", gameplayName: "Combat Trial" },',
+      ' { gameplayId: "capture_run", gameplayName: "Capture Run" },',
+      '];',
+      'const independent = { modeId: "builder", modeName: "Builder", modeNumber: 2 };',
+      'const dynamic = { gameplayId: requestedMode, gameplayName: "User selection" };',
+      'const hud = { level: "Level", wave: "Wave" };',
+    ].join("\n");
+    const parsed = parseScriptFile("content", script, source);
+    expect(parsed.waveConfigurations).toEqual([]);
+    expect(parsed.authoredGameplayCatalog?.map(item => [
+      item.kind, item.id, item.name, item.number,
+    ])).toEqual([
+      ["gameplay", "combat_trial", "Combat Trial", 1],
+      ["mode", "builder", "Builder", 2],
+      ["gameplay", "capture_run", "Capture Run", 5],
+    ]);
+    expect(parsed.authoredGameplayCatalog?.every(item =>
+      item.source.artifactId === source.artifactId &&
+      item.source.relativePath === source.relativePath &&
+      item.source.range !== undefined)).toBe(true);
+    expect(parsed.authoredGameplayCatalog?.some(item =>
+      item.id === "User selection")).toBe(false);
+  });
+
 });
