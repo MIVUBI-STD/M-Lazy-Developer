@@ -222,6 +222,19 @@ function add(
   domains.add(domain);
 }
 
+/**
+ * Content authored in literal catalogues, stage/wave recipes and content
+ * pools is navigation-only evidence, not a runtime gameplay resource.
+ * Keep these canonical Intent nodes intact, but do not allow them to
+ * silently create scenario obligations or connect unrelated mechanics.
+ */
+export function isAuthoredSourceContentNode(
+  node: GameplayIntentNode,
+): boolean {
+  return node.id.includes(":authored-source:") ||
+    node.id.startsWith("resource:authored-content:");
+}
+
 const SCENARIO_STRUCTURAL_EDGE_KINDS =
   new Set<GameplayIntentEdgeKind>([
     "owns",
@@ -325,7 +338,8 @@ export function gameplayScenarioNeighborhoodNodeIds(
   anchorId: string,
 ): readonly string[] {
   const known = new Set(
-    model.nodes.map((node) => node.id),
+    model.nodes.filter(node => !isAuthoredSourceContentNode(node))
+      .map((node) => node.id),
   );
   if (!known.has(anchorId)) return [];
 

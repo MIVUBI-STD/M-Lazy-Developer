@@ -16,6 +16,7 @@ import {
   gameplayScenarioNeighborhoodNodeIds,
   requiredKnowledgeDomainsForIntentScenario,
   requiredKnowledgeDomainsForPreset,
+  isAuthoredSourceContentNode,
 } from "./gameplay-scenario-knowledge.js";
 import type {
   GameplayScenarioComponent,
@@ -342,7 +343,8 @@ function presetAnchorIds(
   const authored = intent.nodes.filter(
     (node) =>
       preferredKinds.includes(node.kind) &&
-      node.status !== "hypothesis",
+      node.status !== "hypothesis" &&
+      !isAuthoredSourceContentNode(node),
   );
 
   const ranked = authored.sort((a, b) => {
@@ -2345,6 +2347,7 @@ export function reconstructAuthoredJourneyCandidates(
   // are not newly inferred mechanics or proof that effects occurred.
   const nodes = new Map(intent.nodes.filter(node =>
     node.status !== "hypothesis" &&
+    !isAuthoredSourceContentNode(node) &&
     isCurrent(node.evidenceIds) &&
     (featureIds.has(node.id) ||
       node.kind === "state" || node.kind === "resource"))
@@ -2698,7 +2701,8 @@ export function compileGameplayScenarioGraph(
   // scenario until other selected-artifact evidence grounds that subject.
   const scenarioNodes = input.intent.nodes.filter(
     (node) => SCENARIO_NODE_KINDS.has(node.kind) &&
-      node.status !== "hypothesis",
+      node.status !== "hypothesis" &&
+      !isAuthoredSourceContentNode(node),
   );
   const runtime = runtimeComponents(input.world);
   const runtimeIds = new Set(
@@ -2716,7 +2720,9 @@ export function compileGameplayScenarioGraph(
     };
     const addIntentKinds = (...kinds: GameplayIntentNode["kind"][]) => {
       for (const node of input.intent.nodes) {
-        if (kinds.includes(node.kind) && node.status !== "hypothesis") {
+        if (kinds.includes(node.kind) &&
+            node.status !== "hypothesis" &&
+            !isAuthoredSourceContentNode(node)) {
           selected.add(node.id);
         }
       }
@@ -3021,8 +3027,13 @@ export function compileGameplayScenarioGraph(
 
   // Declaration-only hypotheses belong to Intent's unconfirmed candidate
   // inventory, not gameplay component ownership or orphan/closure accounting.
+  // Canonical authored content trees belong to the selected-source
+  // Game Design navigation, not to gameplay scenario proof components.
+  // Their presence must not inflate closure, generic resource scenarios,
+  // causal links or operator proof requirements.
   const components: GameplayScenarioComponent[] = input.intent.nodes
-    .filter(node => node.status !== "hypothesis")
+    .filter(node => node.status !== "hypothesis" &&
+      !isAuthoredSourceContentNode(node))
     .map((node) => {
     const usedBy = [...(scenarioIdsBySubject.get(node.id) ?? [])].sort();
     return {

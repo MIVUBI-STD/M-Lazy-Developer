@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   requiredKnowledgeDomainsForPreset,
+  gameplayScenarioNeighborhoodNodeIds,
+  isAuthoredSourceContentNode,
 } from "../../src/inspection/gameplay-scenario-knowledge.js";
 import type {
   GameplayWorldModel,
 } from "../../src/inspection/gameplay-world-model.js";
+import type { GameplayIntentModel } from
+  "../../../../packages/gameplay-intent/src/index.js";
 
 function world(): GameplayWorldModel {
   return {
@@ -165,4 +169,55 @@ describe("conditional gameplay knowledge dependencies", () => {
       "economy-reward",
     );
   });
+  it("keeps source-only stage/wave/choice ownership outside causal scenarios while preserving real resources", () => {
+    const evidence = {id:"e:source",origin:"source-code" as const,
+      locator:"behavior_packs/example/scripts/game.js:20:2",
+      summary:"Authored selected source",scope:"selected-artifact" as const};
+    const nodes: GameplayIntentModel["nodes"] = [{
+      id:"mechanic:selectRound",kind:"mechanic",label:"Select round",
+      status:"inferred",evidenceIds:[evidence.id],
+    },{
+      id:"resource:team-score",kind:"resource",label:"Team score",
+      status:"authored",evidenceIds:[evidence.id],
+    },{
+      id:"resource:authored-source:stage-one",kind:"resource",
+      label:"Stage 1",status:"inferred",evidenceIds:[evidence.id],
+    },{
+      id:"resource:authored-source:wave-one",kind:"resource",
+      label:"Wave 1",status:"inferred",evidenceIds:[evidence.id],
+    },{
+      id:"resource:authored-content:guess-pool",kind:"resource",
+      label:"GuessText",status:"inferred",evidenceIds:[evidence.id],
+    }];
+    const model:GameplayIntentModel = {
+      schemaVersion:1,id:"graph:content-not-scenario",
+      evidence:[evidence],nodes,unknowns:[],invariants:[],
+      edges:[{
+        id:"edge:score",from:"mechanic:selectRound",
+        to:"resource:team-score",kind:"requires",
+        status:"inferred",evidenceIds:[evidence.id],
+      },{
+        id:"edge:pool",from:"mechanic:selectRound",
+        to:"resource:authored-content:guess-pool",kind:"requires",
+        status:"inferred",evidenceIds:[evidence.id],
+      },{
+        id:"authored-content-owns:one",
+        from:"resource:authored-source:stage-one",
+        to:"resource:authored-source:wave-one",kind:"owns",
+        status:"inferred",evidenceIds:[evidence.id],
+      }],
+    };
+    expect(isAuthoredSourceContentNode(nodes[2]!)).toBe(true);
+    expect(isAuthoredSourceContentNode(nodes[3]!)).toBe(true);
+    expect(isAuthoredSourceContentNode(nodes[4]!)).toBe(true);
+    expect(isAuthoredSourceContentNode(nodes[1]!)).toBe(false);
+    expect(gameplayScenarioNeighborhoodNodeIds(model,"mechanic:selectRound"))
+      .toEqual(["mechanic:selectRound","resource:team-score"]);
+    expect(gameplayScenarioNeighborhoodNodeIds(
+      model,"resource:authored-source:stage-one")).toEqual([]);
+    // Source catalogue and wave tree are NOT deleted from the canonical Intent.
+    expect(model.nodes).toHaveLength(5);
+    expect(model.edges).toHaveLength(3);
+  });
+
 });
