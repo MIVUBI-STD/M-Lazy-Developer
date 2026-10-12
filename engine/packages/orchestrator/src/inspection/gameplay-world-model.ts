@@ -1690,8 +1690,11 @@ export function deriveGameplayWorldModel(
       source.arena.capacity?.evidence
         .requestedConcurrentArenas !== undefined
     );
+  // Missing boundary inventory is unknown, not an empty complete inventory.
+  // Normal artifact inspection supplies an explicit registry, including zero records.
   const genericBoundariesExtracted =
-    (source.boundaries?.unresolvedNames.length ?? 0) === 0;
+    source.boundaries !== undefined &&
+    source.boundaries.unresolvedNames.length === 0;
   const boundariesExtracted =
     arenaBoundariesExtracted &&
     genericBoundariesExtracted;

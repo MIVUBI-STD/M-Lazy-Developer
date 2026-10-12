@@ -16,6 +16,8 @@ export interface GameplayStateClosureResult {
   /** Source-state graph connectivity, not an executable player journey. */
   readonly sourceRouteCoverageComplete: boolean;
   readonly structuralEntryStateId?: string;
+  /** All authored, structurally distinct roots; they are not proven selectable gameplay modes. */
+  readonly structuralEntryStateIds: readonly string[];
   /** Graph sinks are candidates, never implicit win/loss conditions. */
   readonly sourceSinkStateIds: readonly string[];
   readonly authoredTerminalOutcomeIds: readonly string[];
@@ -91,9 +93,10 @@ export function assessGameplayStateClosure(
     (outgoing.get(node.id)?.length ?? 0) > 0 &&
     node.status === "authored" &&
     node.evidenceIds.some(id => selectedEvidenceIds.has(id)));
-  const entryId = entryCandidates.length === 1
-    ? entryCandidates[0]!.id
-    : undefined;
+  const entryIds = entryCandidates.map(node => node.id).sort();
+  // Multiple independently rooted authored flows are legitimate source shapes.
+  // They do not, by themselves, prove separate playable modes or player access.
+  const entryId = entryIds.length === 1 ? entryIds[0] : undefined;
 
   const walk = (
     starts: readonly string[],
@@ -110,19 +113,29 @@ export function assessGameplayStateClosure(
     }
     return visited;
   };
-  const fromEntry = walk(entryId === undefined ? [] : [entryId], outgoing);
+  const fromEntry = walk(entryIds, outgoing);
   const toTerminal = walk([...terminalIds], incoming);
   const routeEndIds = new Set([...sinkIds, ...terminalIds]);
   const toRouteEnd = walk([...routeEndIds], incoming);
   const unknownSubjects = new Set(model.unknowns
     .flatMap(unknown => unknown.blockedSubjectIds));
+  // A source question without a valid selected-model owner cannot silently
+  // disappear from state understanding merely because it lacks state IDs.
+  const unownedUnknown = model.unknowns.some(unknown =>
+    unknown.blockedSubjectIds.length === 0 ||
+    unknown.blockedSubjectIds.some(id => !byId.has(id)));
+  // An unresolved authored outcome affects terminal knowledge even when
+  // it does not change the structural state-transition topology.
+  const terminalUnknown = model.unknowns.some(unknown =>
+    unknown.blockedSubjectIds.some(id => byId.get(id)?.kind === "outcome"));
   // Source-only route coverage is distinct from terminal game authority.
   // The existence of a directed path does NOT prove guard feasibility,
   // runtime activation or eventual termination of cyclic play.
   const sourceRouteCoverageComplete =
     states.length > 0 &&
-    entryId !== undefined &&
+    entryIds.length > 0 &&
     routeEndIds.size > 0 &&
+    !unownedUnknown &&
     states.every(node =>
       node.status === "authored" &&
       node.evidenceIds.some(id => selectedEvidenceIds.has(id)) &&
@@ -131,23 +144,26 @@ export function assessGameplayStateClosure(
       toRouteEnd.has(node.id));
   const terminalOutcomeGrounded =
     terminalIds.size > 0 &&
+    !unownedUnknown &&
+    !terminalUnknown &&
     [...sinkIds].every(id => terminalIds.has(id)) &&
     states.every(node => fromEntry.has(node.id) && toTerminal.has(node.id));
 
   const records = states.map(node => {
     const hasEntry = (incoming.get(node.id)?.length ?? 0) > 0 ||
-      node.id === entryId;
+      entryIds.includes(node.id);
     const hasExit = (outgoing.get(node.id)?.length ?? 0) > 0 ||
       terminalIds.has(node.id);
-    const unknown = unknownSubjects.has(node.id) ||
+    const unknown = unownedUnknown ||
+      unknownSubjects.has(node.id) ||
       node.status !== "authored";
     const reachableFromEntry = fromEntry.has(node.id);
     const reachesTerminal = toTerminal.has(node.id);
     const reasons: string[] = [];
 
-    if (entryId === undefined) {
+    if (entryIds.length === 0) {
       reasons.push(
-        "No unique source-grounded structural entry candidate exists; a cycle or multiple entry roots cannot establish the initial state.",
+        "No source-grounded structural entry candidate exists; a cycle alone cannot establish the initial state.",
       );
     } else if (!reachableFromEntry) {
       reasons.push(
@@ -168,7 +184,9 @@ export function assessGameplayStateClosure(
       );
     }
     if (unknown) {
-      reasons.push("State intent is inferred, hypothetical or explicitly unresolved.");
+      reasons.push(unownedUnknown
+        ? "A gameplay question has no valid selected-model owner; source-state closure cannot discard it."
+        : "State intent is inferred, hypothetical or explicitly unresolved.");
     }
 
     const status: GameplayStateClosureRecord["status"] =
@@ -191,6 +209,7 @@ export function assessGameplayStateClosure(
   return {
     sourceRouteCoverageComplete,
     ...(entryId === undefined ? {} : { structuralEntryStateId: entryId }),
+    structuralEntryStateIds: entryIds,
     sourceSinkStateIds: [...sinkIds].sort(),
     authoredTerminalOutcomeIds: [...new Set(terminalEdges.map(edge => edge.to))].sort(),
     terminalOutcomeGrounded,

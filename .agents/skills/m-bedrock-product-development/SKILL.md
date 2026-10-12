@@ -50,6 +50,18 @@ unknown-preservation behavior into the first wrong existing owner, not a new man
 or a production dependency. Distinguish a source comparison, an executed isolated
 upstream function, a full REA CLI/MCP run and actual Minecraft observations.
 
+
+## ChatGPT-native reverse engineering without REA MCP
+
+For any selected-map analysis or source-graph blindspot investigation, apply
+[the existing ChatGPT-native reverse-engineering procedure](../m-bedrock-map-bug-audit/references/game-design-contract.md)
+inside the current owner and stage. In particular, inventory the exact
+selected artifact, trace a mechanic forwards and backwards, challenge
+unexplained raw source effects, and retain failed cross-source joins as unknown
+rather than inventing REA evidence receipts. This skill remains SYSTEM
+DEVELOPMENT; following the procedure does not authorize a target-map audit,
+a parallel interpreter or untested runtime claims.
+
 ## Output contract
 
 Report changed canonical owner(s), achieved outcome, evidence and limitations, verified commit SHA, and bounded unresolved issue if any. No separate development status database or skill-specific persisted report.
