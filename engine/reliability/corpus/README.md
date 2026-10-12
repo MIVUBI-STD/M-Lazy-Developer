@@ -40,6 +40,25 @@ The production `runSelectedMapAudit()` already computes the selected `.mcworld` 
 
 A frozen receipt proves only that the supplied report declares the same selected artifact byte identity. Its `execution.gitCommit` is the Git checkout when **freezing**, not independent proof of which code built the report. Claiming full-map gameplay accuracy additionally requires genuine canonical engine execution, independently frozen map-scoped expectations, matching edition/version/proof tier, and blind-evaluation integrity where applicable. This change does not make the current Defense multi-claim oracle scoreable, upgrade reduced fixtures, or verify Minecraft runtime.
 
+## Current artifact verification (metadata, not audit execution)
+
+On 2026-10-12 a ChatGPT-accessible Google Drive source delivered
+`Defense Challenge v1.1.5.mcworld` (24,032,943 bytes) at the file ID
+already present in `calibration.json`. Independent byte hashing in the
+ChatGPT analysis environment matched the pinned
+`eb554476d26b7b9de949628d8efe00f12beb95669f6c424a2eb754b52d39f45c`.
+The archive contained 529 entries including the named script-chunk path
+referenced by the existing frozen oracle. The original binary is NOT
+committed to GitHub and no artifact transferability, source correctness,
+canonical engine execution, or runtime effect is inferred from this check.
+
+The frozen `cal-defense-challenge-1-1-5` oracle remains a multi-claim
+historical document with unresolved target edition; no matching observed
+`runSelectedMapAudit()` V2 output exists at the current `Local` commit.
+Thus it remains **candidate / UNSCORABLE**, even though the exact external
+artifact was available and its SHA verified. Never promote metadata
+availability into semantic recall.
+
 ## Rules
 
 - Map binaries remain outside Git unless they are explicitly safe, minimized fixtures.

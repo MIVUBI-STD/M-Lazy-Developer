@@ -72,3 +72,43 @@ The corpus must retain generic regression pressure for these failure families wh
 - deprecated/compatibility residue is present but has no proven gameplay consequence (negative case: must not be auto-promoted).
 
 Expectations describe observable semantics, never a map name, symbol name, or one historical implementation. A detector that only recognizes the historical object is a benchmark failure.
+
+## Generic frozen full-map source claims (P5)
+
+An independently approved full-map expectation can use the **existing**
+`expected.claims` alternative to a one-disposition expectation. Do not
+rewrite a frozen historical oracle into this format merely to pass a benchmark;
+get separately approved independent source-grounded claims first.
+
+Each claim requires `id`, `subject`, `expectedClass` (`supported`,
+`rejected` or `unknown`), `sourceRefs`, and `proofCeiling`. The
+`rejected` class must be an independently evidenced counterexample—not a
+missing bug report. `unknown` means evidence genuinely cannot decide the
+claim at its proof tier; correct abstention counts separately rather than
+being relabeled as a true negative.
+
+Full-map source-review scoring uses the **existing**
+`scripts/score-benchmark.mjs` with `evaluationScope:
+"full-map-claim-review"`, `fullMapReview.frozenExpectationFile`,
+`fullMapReview.frozenObservationFile`, independently declared reviewer and
+review timestamp, and exactly one reviewed decision per frozen claim.
+Decisions use `observedClass` from the same three classes plus a reason
+and `observedEvidenceIds`. Positive observations must cite actual evidence
+IDs in the frozen canonical MapAuditOutputV2. Aggregate TP/TN/FP/FN/unknown
+must equal the per-claim adjudications; entered counts never authorize scores.
+
+The scorer rejects missing/mismatched archive SHA-256; malformed or unfrozen
+canonical audit receipts; edition/version mismatch, unknown configured
+Minecraft target, missing expectation approval chronology, incomplete/duplicate
+claims, invented evidence IDs, and unsupported blind-acceptance declarations.
+A frozen output's Git commit remains **freezer checkout provenance**, not
+independently attested engine execution. A full-map PASS here means only
+reviewed **static-source claim consistency**, not reliable live gameplay,
+universal source coverage, first-pass recall or a runtime multiplayer PASS.
+Blind independence remains reviewer-declared until independently attested;
+do not claim blind acceptance from self-declaration alone.
+
+When no canonical full-map output or compatible independently reviewed
+expectation exists, keep the case `candidate`/`UNSCORABLE`. A map file
+hash and an archived source review are not a substitute.
+

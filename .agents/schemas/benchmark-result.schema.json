@@ -16,6 +16,40 @@
       "type": "string",
       "minLength": 1
     },
+    "evaluationScope": {
+      "enum": ["reduced-fixture", "full-map-claim-review"]
+    },
+    "fullMapReview": {
+      "type": "object",
+      "required": ["frozenObservationFile", "frozenExpectationFile", "reviewedBy", "reviewedAt", "decisions"],
+      "properties": {
+        "frozenObservationFile": { "type": "string", "minLength": 1 },
+        "frozenExpectationFile": { "type": "string", "minLength": 1 },
+        "reviewedBy": { "type": "string", "minLength": 1 },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "blindDeclared": { "type": "boolean" },
+        "outputFrozenBeforeReveal": { "type": "boolean" },
+        "decisions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["claimId", "observedClass", "reason", "observedEvidenceIds"],
+            "properties": {
+              "claimId": { "type": "string", "minLength": 1 },
+              "observedClass": { "enum": ["supported", "rejected", "unknown"] },
+              "reason": { "type": "string", "minLength": 10 },
+              "observedEvidenceIds": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "resultClass": {
       "enum": [
         "pass",

@@ -35,6 +35,16 @@
       "pattern": "^[a-f0-9]{64}$",
       "description": "Selected archive SHA-256; optional for legacy V2, benchmark freeze requires it."
     },
+    "auditTarget": {
+      "type": "object",
+      "required": ["edition", "source"],
+      "properties": {
+        "edition": { "enum": ["bedrock", "education", "unknown"] },
+        "minecraftVersion": { "type": "string", "minLength": 1 },
+        "source": { "const": "selected-audit-runtime-target-not-live-observation" }
+      },
+      "additionalProperties": false
+    },
     "mapVersion": {
       "type": "string",
       "minLength": 1

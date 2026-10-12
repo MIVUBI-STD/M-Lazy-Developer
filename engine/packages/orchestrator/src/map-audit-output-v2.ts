@@ -123,6 +123,12 @@ export interface MapAuditOutputV2 {
    * Optional for legacy V2 data, not an attestation of executable Git commit.
    */
   readonly artifactFingerprint?: string;
+  /** Configured audit target, not a verified Minecraft runtime platform. */
+  readonly auditTarget?: {
+    readonly edition: "bedrock" | "education" | "unknown";
+    readonly minecraftVersion?: string;
+    readonly source: "selected-audit-runtime-target-not-live-observation";
+  };
   readonly mapVersion: string;
   readonly control: MapAuditOutputControl;
   readonly userIntent?: AuditUserIntentEnvelope;
@@ -624,6 +630,13 @@ export function projectMapAuditOutputV2(input: {
     schemaVersion: 2,
     artifactId: input.identity.artifactId,
     artifactFingerprint: input.identity.artifactFingerprint,
+    auditTarget: {
+      edition: input.inspection.targetCompatibility?.edition ?? "unknown",
+      ...(input.inspection.targetCompatibility?.version === undefined
+        ? {}
+        : { minecraftVersion: input.inspection.targetCompatibility.version }),
+      source: "selected-audit-runtime-target-not-live-observation",
+    },
     control: input.control,
     ...(input.userIntent === undefined
       ? {}

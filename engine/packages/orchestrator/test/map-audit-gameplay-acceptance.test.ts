@@ -148,6 +148,9 @@ function expectReconstructionContract(
     .toBe(result.inspection.fingerprint);
   expect(result.mapAuditReport.artifactFingerprint)
     .toMatch(/^[a-f0-9]{64}$/);
+  expect(result.mapAuditReport.auditTarget).toMatchObject({
+    source: "selected-audit-runtime-target-not-live-observation",
+  });
   expect(view).toBeDefined();
 
   const schema = JSON.parse(readFileSync(

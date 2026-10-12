@@ -113,6 +113,25 @@ Reusable mismatch → bounded handoff to m-bedrock-detection-development. Never 
 
 A benchmark failure is evidence for investigation, not permission to broaden the detector blindly.
 
+## Full-map source-claim evidence gate (P5)
+
+For `evaluationScope="full-map-claim-review"`, the canonical scorer requires
+an exact SHA-matched frozen `MapAuditOutputV2`, matching configured Minecraft
+edition/version, an independently approved frozen expectation with explicit
+positive, negative and allowed-UNKNOWN source claims, and reviewer decisions
+covering **every claim ID**. It recomputes confusion counts and refuses totals
+without their source review. Missing runtime proof stays missing; a frozen
+report's Git SHA identifies the freezer checkout, not verified audit execution.
+A manually declared blind flag is **not** independent blind verification.
+Historical metrics-only results are now explicitly labeled
+`AGGREGATE_INPUT_ONLY_NOT_CURRENT_FULL_MAP_EVIDENCE`, never full-map proof.
+
+The original Defense 1.1.5 multi-claim static oracle remains immutable,
+candidate and UNSCORABLE until its target edition/version and an actual
+current-engine audit output are independently established. Do not adapt a
+current detector to blind expectations or silently call a calibration case
+blind acceptance.
+
 ## Map Audit quality mapping
 
 For selected-map audit evaluation, also apply:

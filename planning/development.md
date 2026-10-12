@@ -1,3 +1,17 @@
+## P5 claim-level full-map source-evaluation admissibility (2026-10-12)
+
+**Observed failure mode:** the generic `score-benchmark.mjs` accepted manually supplied TP/TN/FP/FN/UNKNOWN totals without any original full-map observation, independent frozen expected claims, SHA-256 equality or full-map target edition/version. A fabricated count could be displayed as precision/recall and a multi-claim Defense oracle could not be checked by the existing single-disposition expectation contract.
+
+**Completed source integration:** extend the EXISTING benchmark expectation schema/validator with an optional `expected.claims` source-grounded alternative (`supported/rejected/unknown`) and the benchmark result schema with an opt-in `full-map-claim-review`. The canonical scorer now requires both exact frozen observation and frozen independent expectation files, same selected artifact SHA, configured Minecraft edition/version, approved-before-output chronology, each expected claim reviewed exactly once, and canonical observed evidence IDs for positive claims. Raw metrics and resultClass are checked against the per-claim adjudications; correct UNKNOWN is explicit, not counted as a TN, and positive abstentions count as FN for recall. Legacy reduced-fixture normalization is preserved but explicitly marked **aggregate-input only**. A report source/target provenance is a static review, NOT live Minecraft or independently verified audit Git commit/blindness.
+
+**Exact external source check:** via connected Google Drive, `Defense Challenge v1.1.5.mcworld` was read as 24,032,943 bytes and hashed in the ChatGPT analysis environment; SHA-256 exactly matched the frozen calibration oracle: `eb554476d26b7b9de949628d8efe00f12beb95669f6c424a2eb754b52d39f45c`. ZIP contains 529 entries and the pinned script-chunk locator. This **verifies current access and byte identity only**, not engine behavior or reusable runtime availability. The original frozen Defense multi-claim oracle is unchanged, its target edition remains unresolved and no exact current-commit `runSelectedMapAudit()` output exists. Case status **candidate / UNSCORABLE**.
+
+**Acceptance authored, NOT EXECUTED:** new dependency-free `node:test` regression covers three independent generic claims, right-source report evidence IDs, correct abstention, rejection of wrong SHA/target/claim count/reviewer time/fabricated totals/misclassified result, blind declaration ceiling and legacy metric preservation. JSON schemas are parseable in static review. Node source evaluator, TypeScript/Vitest, authentic current-engine full map audit, independent source-style score and Minecraft runtime **NOT EXECUTED**. No precision/recall or full-map PASS is claimed.
+
+**STOP / Next:** retain this one admissibility/scorer route; obtain an exact current-commit canonical audit output tied to the verified artifact and a compatible independently approved scoped oracle with known edition/version, then adjudicate each claim before publishing any precision/recall. Do not create map-name rules or a second scoring engine.
+
+---
+
 ## P5 exact selected-map archive identity gate for evaluation (2026-10-12)
 
 **First wrong owner:** `SelectedMapAuditIdentity` already carries the selected .mcworld SHA-256, but `MapAuditOutputV2` omitted it; the benchmark `freeze-observed-map-audit.mjs` accepted a structurally valid audit report for any supplied archive without checking the output's map version identity against actual bytes.

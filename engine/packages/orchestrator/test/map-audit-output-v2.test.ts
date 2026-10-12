@@ -181,6 +181,10 @@ describe("Map Audit Output V2 projection", () => {
 
     expect(report.schemaVersion).toBe(2);
     expect(report.artifactFingerprint).toBe("a".repeat(64));
+    expect(report.auditTarget).toEqual({
+      edition: "unknown",
+      source: "selected-audit-runtime-target-not-live-observation",
+    });
     expect(report.bugs.map((item) => item.status))
       .toEqual(["PROVEN", "NEED_VALIDATION"]);
     expect(report.bugs[1]?.missingProof)
