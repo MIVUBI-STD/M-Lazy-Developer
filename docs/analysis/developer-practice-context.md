@@ -223,6 +223,28 @@ explicit action-bar API site can select the HUD presentation reference,
 but it does not prove feedback delivery. These examples are historical
 **source-only** calibration, never prewritten conclusions for future maps.
 
+## Bounded Script API receiver handoff from playerSpawn
+
+The canonical receiver extractor now also recognizes a narrow,
+**source-grounded** `PlayerSpawnAfterEvent.player` path. A
+`world.afterEvents.playerSpawn.subscribe(event => ...)` callback may
+provide a Player receiver for direct calls or for a same-file local helper
+only when the `@minecraft/server` world import is exact, the event binding
+is stable and the helper has one unambiguous direct caller, an unexported
+declaration and an unmodified forwarded parameter. Any shadow, additional
+caller, external alias or reassignment retains UNKNOWN. `playerJoin`
+is deliberately not equivalent to `playerSpawn`.
+
+The source/validation owner is
+[Script API Static Analysis](./script-api.md), not this REFERENCE.
+The historical [BlitzBuild event-to-helper source checkpoint](../../engine/reliability/history/audit-runs/learning/receiver-inference-player-spawn-forward-2026-10-13.json)
+documents an independently inspected `event.player → welcome(player)`
+candidate with two authored sound sites. It is NOT current-map Game Design
+authority, not proof of running a repository TypeScript parser and not
+Minecraft player audio observation. The developer sound pattern remains a
+question/counterexample to test after typed IR extraction, never a win/loss
+rule or developer-style mandate.
+
 ## Maturity and promotion
 
 The JSON records start at `SOURCE_REVIEWED`: the source claim was inspected,

@@ -42,6 +42,39 @@ source text
 
 Computed property names, runtime-generated imports, reflective behavior, and arbitrary data flow remain unknown unless a dedicated static analysis later proves them.
 
+## Bounded event-to-local-helper receiver identity
+
+The Script API method-call extractor may infer a **source-only Player
+receiver** from a direct `@minecraft/server`
+`world.afterEvents.playerSpawn.subscribe(event => ...)` site.
+The documented `PlayerSpawnAfterEvent.player` property is a `Player`;
+`PlayerJoinAfterEvent` is **not** interchangeable. A locally shadowed
+`world` alias, unknown imported event, or a callback whose event
+parameter is rebound is insufficient source evidence.
+
+A same-file **non-exported** helper parameter may inherit the source
+`Player` candidate only when exactly one direct call forwards that
+exact event's `event.player`, with no other/indirect uses of the helper,
+nested same-name declaration, source event shadow, or reassignment of
+the helper parameter. A helper with ambiguous or missing invocation
+identity retains UNKNOWN, regardless of function/parameter names.
+This is deliberately NOT general interprocedural inference. No call site
+becomes an executed event, audio feedback delivery, gameplay outcome,
+or runtime actor ownership by virtue of this source proof.
+
+In the separate [developer-practice reference context](./developer-practice-context.md),
+a typed `Player.playSound` can create a source `audio-feedback`
+**investigation hint**. Matching a method's spelling alone is not
+sufficient: a bundled receiver alias, custom method, or unknown
+function parameter must abstain. This rule is general across maps
+and does not select semantics by map names.
+
+**Evidence ceiling:** owner/consumer source integration is separate
+from repository TypeScript tests and Minecraft execution. Real-world
+JavaScript source can confirm an authored handoff but cannot prove
+`world.afterEvents.playerSpawn` fired, the helper ran, or a player
+heard a sound.
+
 ## Dynamic properties
 
 Dynamic-property use is tracked by operation and literal property ID when available. Computed IDs remain present as an access with unknown ID.

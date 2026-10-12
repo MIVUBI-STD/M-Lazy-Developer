@@ -11,7 +11,8 @@ import type { ScriptArgumentKind } from "../../../../packages/compatibility/src/
 
 type ReceiverValueType =
   | ScriptApiReceiverType
-  | `${ScriptApiReceiverType}[]`;
+  | `${ScriptApiReceiverType}[]`
+  | "PlayerSpawnAfterEvent";
 
 interface Scope {
   values: Map<string, ReceiverValueType | null>;
@@ -170,7 +171,9 @@ function receiverElement(
 function receiverObject(
   type: ReceiverValueType | undefined,
 ): ScriptApiReceiverType | undefined {
-  return type && !type.endsWith("[]")
+  // Internal event payload is only a bridge to its documented .player
+  // property. It is not an arbitrary Minecraft API receiver type.
+  return type && type !== "PlayerSpawnAfterEvent" && !type.endsWith("[]")
     ? type as ScriptApiReceiverType
     : undefined;
 }
@@ -565,9 +568,13 @@ function inferExpressionType(
   if (ts.isIdentifier(node)) return lookup(scope, node.text);
 
   if (ts.isPropertyAccessExpression(node)) {
-    const receiver = receiverObject(
-      inferExpressionType(node.expression, scope, functionReturns),
-    );
+    const origin = inferExpressionType(node.expression, scope, functionReturns);
+    if (origin === "PlayerSpawnAfterEvent") {
+      // Official PlayerSpawnAfterEvent.player is a Player, unlike
+      // PlayerJoinAfterEvent, which exposes only playerId/playerName.
+      return node.name.text === "player" ? "Player" : undefined;
+    }
+    const receiver = receiverObject(origin);
     return receiver ? propertyType(receiver, node.name.text) : undefined;
   }
 
@@ -635,6 +642,221 @@ function inferFunctionReturns(
   return output;
 }
 
+/**
+ * Exact built-in event origin, never a match on a variable named "player".
+ * We recognize only direct @minecraft/server world.afterEvents.playerSpawn
+ * subscriptions. PlayerJoin has a different payload and MUST NOT qualify.
+ */
+function isImportedMinecraftWorld(file: ts.SourceFile): ReadonlySet<string> {
+  const imported = new Set<string>();
+  for (const statement of file.statements) {
+    if (!ts.isImportDeclaration(statement) ||
+        !ts.isStringLiteralLike(statement.moduleSpecifier) ||
+        statement.moduleSpecifier.text !== "@minecraft/server") continue;
+    const named = statement.importClause?.namedBindings;
+    if (!named || !ts.isNamedImports(named)) continue;
+    for (const element of named.elements) {
+      if ((element.propertyName?.text ?? element.name.text) === "world") {
+        imported.add(element.name.text);
+      }
+    }
+  }
+  return imported;
+}
+
+function isDirectPlayerSpawnSubscription(
+  call: ts.CallExpression,
+  scope: Scope,
+  imports: ReadonlyMap<string, ScriptApiReceiverType>,
+  importedWorlds: ReadonlySet<string>,
+): boolean {
+  if (!ts.isPropertyAccessExpression(call.expression) ||
+      call.expression.name.text !== "subscribe") return false;
+  const signal = call.expression.expression;
+  if (!ts.isPropertyAccessExpression(signal) ||
+      signal.name.text !== "playerSpawn") return false;
+  const events = signal.expression;
+  if (!ts.isPropertyAccessExpression(events) ||
+      events.name.text !== "afterEvents" ||
+      !ts.isIdentifier(events.expression)) return false;
+  return importedWorlds.has(events.expression.text) &&
+    directSingletonType(scope, events.expression, "World", imports);
+}
+
+/**
+ * A source event parameter may be rebound, shadowed or overwritten before
+ * use. Refuse event-derived Player typing in that entire callback unless
+ * its own event binding and .player property remain lexically stable.
+ */
+function stablePlayerSpawnEventParameter(
+  callback: ts.ArrowFunction | ts.FunctionExpression,
+): string | undefined {
+  const first = callback.parameters[0];
+  if (!first || !ts.isIdentifier(first.name)) return undefined;
+  const name = first.name.text;
+  let changed = false;
+  const inspect = (node: ts.Node): void => {
+    // Include nested closures in the source mutation/shadow inventory:
+    // their execution order is unknown, so a captured mutable event is
+    // deliberately not promoted into a stable Player receiver.
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node) ||
+         ts.isBindingElement(node)) &&
+        ts.isIdentifier(node.name) && node.name.text === name) changed = true;
+    if (ts.isBinaryExpression(node) &&
+        ts.isAssignmentOperator(node.operatorToken.kind) &&
+        (ts.isIdentifier(node.left) && node.left.text === name ||
+         ts.isPropertyAccessExpression(node.left) &&
+           ts.isIdentifier(node.left.expression) &&
+           node.left.expression.text === name &&
+           node.left.name.text === "player")) changed = true;
+    ts.forEachChild(node, inspect);
+  };
+  inspect(callback.body);
+  return changed ? undefined : name;
+}
+
+/**
+ * Narrow local helper handoff, not general interprocedural type inference.
+ * Infer one function parameter only when a single direct call forwards the
+ * exact event.player property from a verified playerSpawn callback.
+ * Reject exports, aliases, shadowed names, reassignments, and extra calls.
+ */
+function uniqueSpawnPlayerForward(
+  file: ts.SourceFile,
+  imports: ReadonlyMap<string, ScriptApiReceiverType>,
+): ReadonlyMap<string, number> {
+  // Avoid accepting fake or shadowed world bindings. Imports (including
+  // renamed imports) are the only trusted world origins for this pass.
+  const worldImports = isImportedMinecraftWorld(file);
+  if (worldImports.size === 0) return new Map();
+  const topLevel = new Map<string, ts.FunctionDeclaration>();
+  const duplicate = new Set<string>();
+  for (const statement of file.statements) {
+    if (!ts.isFunctionDeclaration(statement) || !statement.name ||
+        statement.modifiers?.some(m =>
+          m.kind === ts.SyntaxKind.ExportKeyword ||
+          m.kind === ts.SyntaxKind.DefaultKeyword)) continue;
+    const name = statement.name.text;
+    if (topLevel.has(name)) duplicate.add(name);
+    else topLevel.set(name, statement);
+  }
+  for (const name of duplicate) topLevel.delete(name);
+  if (topLevel.size === 0) return new Map();
+
+  // Collect direct invocations and any non-call use of the helper name.
+  // A function passed around as a value has unknown additional callers.
+  const calls = new Map<string, ts.CallExpression[]>();
+  const unsafeReferences = new Set<string>();
+  let shadowedWorld = false;
+  const inventory = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && topLevel.has(node.text)) {
+      const parent = node.parent;
+      if (ts.isFunctionDeclaration(parent) && parent.name === node &&
+          topLevel.get(node.text) === parent) {
+        // The unique top-level declaration itself. A nested declaration of
+        // the same name is a shadow, NOT that function's identity.
+      } else if (ts.isCallExpression(parent) && parent.expression === node) {
+        const list = calls.get(node.text) ?? [];
+        list.push(parent);
+        calls.set(node.text, list);
+      } else if (!(ts.isPropertyAccessExpression(parent) &&
+                   parent.name === node)) {
+        unsafeReferences.add(node.text);
+      }
+    }
+    if (ts.isIdentifier(node) && worldImports.has(node.text)) {
+      const parent = node.parent;
+      if ((ts.isParameter(parent) && parent.name === node) ||
+          (ts.isVariableDeclaration(parent) && parent.name === node) ||
+          (ts.isFunctionDeclaration(parent) && parent.name === node) ||
+          (ts.isCatchClause(parent) && parent.variableDeclaration?.name === node) ||
+          (ts.isBindingElement(parent) && parent.name === node)) {
+        shadowedWorld = true;
+      }
+    }
+    ts.forEachChild(node, inventory);
+  };
+  inventory(file);
+  if (shadowedWorld) return new Map();
+
+  const eligibleCalls = new Map<ts.CallExpression, {
+    readonly functionName: string;
+    readonly parameterIndex: number;
+  }>();
+  const eventOrigin = childScope();
+  seedMinecraftSingletons(eventOrigin, imports);
+  const inspect = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) &&
+        isDirectPlayerSpawnSubscription(node, eventOrigin, imports, worldImports)) {
+      const callback = node.arguments[0];
+      if (callback &&
+          (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) {
+        const eventName = stablePlayerSpawnEventParameter(callback);
+        if (eventName !== undefined) {
+          const search = (nested: ts.Node): void => {
+            if (nested !== callback.body && ts.isFunctionLike(nested)) return;
+            if (ts.isCallExpression(nested) &&
+                ts.isIdentifier(nested.expression) &&
+                topLevel.has(nested.expression.text)) {
+              nested.arguments.forEach((argument, index) => {
+                if (!ts.isPropertyAccessExpression(argument) ||
+                    argument.name.text !== "player" ||
+                    !ts.isIdentifier(argument.expression) ||
+                    argument.expression.text !== eventName) return;
+                eligibleCalls.set(nested, {
+                  functionName: nested.expression.text,
+                  parameterIndex: index,
+                });
+              });
+            }
+            ts.forEachChild(nested, search);
+          };
+          search(callback.body);
+        }
+      }
+    }
+    ts.forEachChild(node, inspect);
+  };
+  inspect(file);
+
+  const formalIsStable = (fn: ts.FunctionDeclaration, index: number): boolean => {
+    const parameter = fn.parameters[index];
+    if (!parameter || !ts.isIdentifier(parameter.name) || !fn.body) return false;
+    const name = parameter.name.text;
+    let uncertain = false;
+    const inspectBody = (node: ts.Node): void => {
+      if ((ts.isVariableDeclaration(node) ||
+           ts.isParameter(node) ||
+           ts.isBindingElement(node)) &&
+          ts.isIdentifier(node.name) && node.name.text === name) uncertain = true;
+      if (ts.isBinaryExpression(node) &&
+          ts.isIdentifier(node.left) && node.left.text === name &&
+          ts.isAssignmentOperator(node.operatorToken.kind)) uncertain = true;
+      if ((ts.isPrefixUnaryExpression(node) ||
+           ts.isPostfixUnaryExpression(node)) &&
+          ts.isIdentifier(node.operand) && node.operand.text === name &&
+          (node.operator === ts.SyntaxKind.PlusPlusToken ||
+           node.operator === ts.SyntaxKind.MinusMinusToken)) uncertain = true;
+      ts.forEachChild(node, inspectBody);
+    };
+    inspectBody(fn.body);
+    return !uncertain;
+  };
+
+  const trusted = new Map<string, number>();
+  for (const [call, candidate] of eligibleCalls) {
+    const fn = topLevel.get(candidate.functionName);
+    if (!fn || unsafeReferences.has(candidate.functionName) ||
+        calls.get(candidate.functionName)?.length !== 1 ||
+        calls.get(candidate.functionName)?.[0] !== call ||
+        !formalIsStable(fn, candidate.parameterIndex)) {
+      continue;
+    }
+    trusted.set(candidate.functionName, candidate.parameterIndex);
+  }
+  return trusted;
+}
+
 export function inferScriptMethodCalls(
   file: ts.SourceFile,
   source: SourceRef,
@@ -644,6 +866,8 @@ export function inferScriptMethodCalls(
   const singletonBindings = minecraftSingletonBindings(file);
   const rootScope = childScope();
   seedMinecraftSingletons(rootScope, singletonBindings);
+  const trustedSpawnForward = uniqueSpawnPlayerForward(file, singletonBindings);
+  const importedWorlds = isImportedMinecraftWorld(file);
 
   const recordCall = (
     call: ts.CallExpression,
@@ -691,6 +915,13 @@ export function inferScriptMethodCalls(
         ts.isSetAccessorDeclaration(node) ||
         ts.isConstructorDeclaration(node)) {
       const fnScope = parameterScope(scope, node.parameters);
+      if (ts.isFunctionDeclaration(node) && node.name) {
+        const index = trustedSpawnForward.get(node.name.text);
+        const parameter = index === undefined ? undefined : node.parameters[index];
+        if (parameter && ts.isIdentifier(parameter.name)) {
+          fnScope.values.set(parameter.name.text, "Player");
+        }
+      }
       if (node.body) visit(node.body, fnScope);
       return;
     }
@@ -749,6 +980,23 @@ export function inferScriptMethodCalls(
 
     if (ts.isCallExpression(node)) {
       recordCall(node, scope);
+
+      if (isDirectPlayerSpawnSubscription(node, scope, singletonBindings, importedWorlds)) {
+        const callback = node.arguments[0];
+        if (callback &&
+            (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) {
+          const callbackScope = parameterScope(scope, callback.parameters);
+          const eventName = stablePlayerSpawnEventParameter(callback);
+          if (eventName !== undefined) {
+            callbackScope.values.set(eventName, "PlayerSpawnAfterEvent");
+          }
+          visit(callback.body, callbackScope);
+          for (let index = 1; index < node.arguments.length; index += 1) {
+            visit(node.arguments[index]!, scope);
+          }
+          return;
+        }
+      }
 
       if (ts.isPropertyAccessExpression(node.expression)) {
         const receiverType = inferExpressionType(

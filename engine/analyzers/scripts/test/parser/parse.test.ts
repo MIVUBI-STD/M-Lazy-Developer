@@ -259,6 +259,100 @@ world.scoreboard.getObjective("round");
     ]));
   });
 
+  it("propagates a Player only from an exact playerSpawn callback and a unique local helper handoff", () => {
+    const parsed = parseScriptFile("scripts/entry", [
+      'import { world } from "@minecraft/server";',
+      'function welcome(p) {',
+      '  p.playSound("ui.welcome");',
+      '}',
+      'export function start() {',
+      '  world.afterEvents.playerSpawn.subscribe((event) => {',
+      '    const samePlayer = event.player;',
+      '    samePlayer.playSound("ui.direct");',
+      '    if (event.initialSpawn) welcome(event.player);',
+      '  });',
+      '}',
+    ].join("\n"), source);
+    const sounds = parsed.methodCalls.filter(call =>
+      call.method === "playSound");
+    expect(sounds.map(call => call.receiverType)).toEqual(["Player", "Player"]);
+    expect(sounds.every(call => call.inference === "bounded")).toBe(true);
+  });
+
+  it("does not infer a helper Player from another event, multiple callers or shadowed symbols", () => {
+    const parsed = parseScriptFile("scripts/entry", [
+      'import { world } from "@minecraft/server";',
+      'function multiple(p) { p.playSound("not.proven"); }',
+      'function joined(p) { p.playSound("not.joined"); }',
+      'function shadowed(p) { p.playSound("not.shadowed"); }',
+      'export function start(other) {',
+      '  world.afterEvents.playerSpawn.subscribe((event) => {',
+      '    multiple(event.player);',
+      '  });',
+      '  multiple(other);',
+      '  world.afterEvents.playerJoin.subscribe((event) => joined(event.player));',
+      '  {',
+      '    function shadowed(p) { p.playSound("local.shadow"); }',
+      '    world.afterEvents.playerSpawn.subscribe((event) => shadowed(event.player));',
+      '  }',
+      '}',
+    ].join("\n"), source);
+    expect(parsed.methodCalls.some(call => call.method === "playSound"))
+      .toBe(false);
+  });
+
+  it("does not forward a Player through mutable helper or event parameters", () => {
+    const parsed = parseScriptFile("scripts/entry", [
+      'import { world } from "@minecraft/server";',
+      'function changed(p) { p = replacement; p.playSound("not.proven"); }',
+      'function fixed(p) { p.playSound("also.not.proven"); }',
+      'export function setup() {',
+      '  world.afterEvents.playerSpawn.subscribe((event) => changed(event.player));',
+      '  world.afterEvents.playerSpawn.subscribe((event) => {',
+      '    event = replacement;',
+      '    fixed(event.player);',
+      '  });',
+      '}',
+    ].join("\n"), source);
+    expect(parsed.methodCalls.some(call => call.method === "playSound"))
+      .toBe(false);
+  });
+
+  it("does not trust an event source shadowed by a local world parameter", () => {
+    const parsed = parseScriptFile("scripts/entry", [
+      'import { world } from "@minecraft/server";',
+      'function onSpawn(world) {',
+      '  world.afterEvents.playerSpawn.subscribe(event => event.player.playSound("untrusted"));',
+      '}',
+    ].join("\n"), source);
+    expect(parsed.methodCalls.some(call => call.method === "playSound"))
+      .toBe(false);
+  });
+
+  it("does not infer Player after reassignment of the subscribed event object", () => {
+    const parsed = parseScriptFile("scripts/entry", [
+      'import { world } from "@minecraft/server";',
+      'export function setup() {',
+      '  world.afterEvents.playerSpawn.subscribe(event => {',
+      '    event = fake;',
+      '    event.player.playSound("not.proven");',
+      '  });',
+      '}',
+    ].join("\n"), source);
+    expect(parsed.methodCalls.some(call => call.method === "playSound"))
+      .toBe(false);
+  });
+
+  it("does not trust an unimported global with the same event API spelling", () => {
+    const parsed = parseScriptFile("scripts/entry", [
+      'function main() {',
+      '  world.afterEvents.playerSpawn.subscribe(event => event.player.playSound("fake"));',
+      '}',
+    ].join("\n"), source);
+    expect(parsed.methodCalls.some(call => call.method === "playSound"))
+      .toBe(false);
+  });
+
   it("infers bounded receiver types through variables, loops, callbacks and property chains", () => {
     const parsed = parseScriptFile(
       "scripts/main",
