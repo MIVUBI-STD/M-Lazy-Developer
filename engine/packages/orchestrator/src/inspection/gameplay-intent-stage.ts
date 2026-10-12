@@ -1113,19 +1113,19 @@ export function buildGameplayIntentModel(
       ref.relativePath === owner.relativePath;
     for (const stage of script.waveConfigurations ?? []) {
       if (!selected(stage.source)) continue;
-      const stageId = authoredContentId(owner,"phase",
+      const stageId = authoredContentId(owner,"resource",
         "config:" + stage.sourceCollection + ":" +
         sourceLocator(stage.source) + "#" + stage.id);
-      const stageEvidence = addContentSubject(stage.source,"phase",
-        stageId,stage.name ? stage.id + " — " + stage.name : stage.id,
+      const stageEvidence = addContentSubject(stage.source,"resource",
+        stageId,(stage.sourceCollection === "stages" ? "Stage" : stage.sourceCollection === "levels" ? "Level" : "Round") + " " + stage.id + (stage.name ? " — " + stage.name : ""),
         "Direct " + stage.sourceCollection +
         " entry with authored stage ID " + stage.id + ".");
       if (!stageEvidence) continue;
       for (const wave of stage.waves) {
         if (!selected(wave.source)) continue;
-        const waveId = authoredContentId(owner,"phase",
+        const waveId = authoredContentId(owner,"resource",
           "wave:" + sourceLocator(wave.source) + "#" + wave.number);
-        const waveEvidence = addContentSubject(wave.source,"phase",
+        const waveEvidence = addContentSubject(wave.source,"resource",
           waveId,"Wave " + wave.number,
           "Nested literal wave number " + wave.number +
           " of stage " + stage.id +
@@ -1159,6 +1159,44 @@ export function buildGameplayIntentModel(
           if (recipeEvidence)
             linkAuthoredContent(waveId,recipeId,[waveEvidence,recipeEvidence]);
         }
+        // Wave-end commands are part of the authored wave contract, not
+        // verified execution or completed progression. Their source sites
+        // must remain distinct from spawn recipes and from state transitions.
+        const maxEndCommands = 64;
+        for (const [index, command] of
+          wave.endCommands.slice(0,maxEndCommands).entries()) {
+          if (!selected(command.source)) continue;
+          const commandId = authoredContentId(owner,"resource",
+            "wave-end:" + sourceLocator(command.source) + "#" + index);
+          const commandEvidence = addContentSubject(
+            command.source,"resource",commandId,
+            "Wave-end command " + (index+1) + ": " +
+              command.command.slice(0,110),
+            "Source-authored wave end command: " +
+              command.command.slice(0,180) +
+              (command.delay === undefined ? "" :
+                "; configured delay " + command.delay) +
+              ". Command dispatch and resulting gameplay effects UNKNOWN.");
+          if (commandEvidence) linkAuthoredContent(
+            waveId,commandId,[waveEvidence,commandEvidence]);
+        }
+        if (wave.endCommandsIncomplete ||
+            wave.endCommands.length > maxEndCommands) {
+          intentUnknowns.push({
+            id:"unknown:authored-wave-end-commands:"+
+              encodeURIComponent(waveId),
+            question:"Wave " + wave.number + " in stage " + stage.id +
+              " has " + wave.endCommands.length +
+              " recognized wave-end commands" +
+              (wave.endCommandsIncomplete
+                ? " and at least one unsupported command entry"
+                : "") +
+              ". Source command list or operator graph may be incomplete; " +
+              "actual end-of-wave execution and its effects NOT PROVEN.",
+            blockedSubjectIds:[waveId],
+            evidenceIds:[waveEvidence],
+          });
+        }
         if (wave.recipes.length>maxRecipes) {
           intentUnknowns.push({
             id:"unknown:authored-content-truncation:"+
@@ -1174,11 +1212,11 @@ export function buildGameplayIntentModel(
     }
     for (const entry of script.authoredGameplayCatalog ?? []) {
       if (!selected(entry.source)) continue;
-      const id=authoredContentId(owner,"game",
+      const id=authoredContentId(owner,"resource",
         "catalog:"+sourceLocator(entry.source)+"#"+entry.kind+
           ":"+entry.id);
-      addContentSubject(entry.source,"game",id,
-        entry.name + (entry.number===undefined?"":" (#"+entry.number+")"),
+      addContentSubject(entry.source,"resource",id,
+        entry.kind + ": " + entry.name + (entry.number===undefined?"":" (#"+entry.number+")"),
         "Authored "+entry.kind+" catalog ID "+entry.id+
         ". No evidence this source entry is playable.");
     }

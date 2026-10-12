@@ -801,9 +801,9 @@ describe("Map Audit Output V2 projection", () => {
     };
     const p="behavior_packs/demo/scripts/main.js:11:4";
     const nodes=[
-      {id:"phase:authored-source:stage",kind:"phase",label:"stage_1",
+      {id:"resource:authored-source:stage",kind:"resource",label:"Stage stage_1",
         evidenceIds:["stage"]},
-      {id:"phase:authored-source:wave",kind:"phase",label:"Wave 1",
+      {id:"resource:authored-source:wave",kind:"resource",label:"Wave 1",
         evidenceIds:["wave"]},
       {id:"resource:authored-content:pool",kind:"resource",
         label:"GuessText",evidenceIds:["pool"]},
@@ -811,8 +811,8 @@ describe("Map Audit Output V2 projection", () => {
         label:"easy",evidenceIds:["category"]},
       {id:"resource:authored-source:choice",kind:"resource",
         label:"Camera",evidenceIds:["choice"]},
-      {id:"game:authored-source:mode",kind:"game",
-        label:"Capture Run (#5)",evidenceIds:["mode"]},
+      {id:"resource:authored-source:mode",kind:"resource",
+        label:"gameplay: Capture Run (#5)",evidenceIds:["mode"]},
     ];
     const links=[["stage","wave"],["pool","category"],["category","choice"]]
       .map(([from,to])=>{
@@ -835,7 +835,8 @@ describe("Map Audit Output V2 projection", () => {
     const start=brief.indexOf("### Game design content graph (SOURCE HIERARCHY ONLY)");
     expect(start).toBeGreaterThan(0);
     const section=brief.slice(start,brief.indexOf("### Other mechanics",start));
-    expect(section).toContain("stage_1");
+    expect(section).toContain("Stage stage_1");
+    expect(section).toContain("authored content; NOT OBSERVED");
     expect(section).toContain("Wave 1");
     expect(section).toContain("GuessText");
     expect(section).toContain("easy");

@@ -1931,7 +1931,7 @@ describe("exact authored return-policy source admission", () => {
       ' {wave:1,spawn:[',
       '  {type:"demo:melee",coordinates:"1 2 3"},',
       '  {type:spawnType("ranged"),coordinates:"3 4 5"}',
-      ' ]},',
+      ' ],end_command:[{command:"say wave complete",delay:20}]},',
       ' {wave:2,spawn:[{type:"demo:boss",coordinates:"8 9 10"}]}',
       '] }] };',
     ].join("\n"), {
@@ -1972,11 +1972,15 @@ describe("exact authored return-policy source admission", () => {
     expect(waves).toEqual(["Wave 1","Wave 2"]);
     const firstWave=owns.find(e=>e.from===stage!.id &&
       nodes.get(e.to)?.label==="Wave 1");
-    expect(owned(firstWave!.to).length).toBe(2);
-    const modes=model.nodes.filter(node=>node.kind==="game" &&
-      node.id.includes(":authored-source:"));
+    const waveChildren=owned(firstWave!.to);
+    expect(waveChildren.length).toBe(3);
+    expect(waveChildren.filter(label=>label?.startsWith("Spawn recipe "))).toHaveLength(2);
+    expect(waveChildren).toContain("Wave-end command 1: say wave complete");
+    const modes=model.nodes.filter(node=>node.kind==="resource" &&
+      node.id.includes(":authored-source:") &&
+      node.label.startsWith("gameplay: "));
     expect(modes.map(m=>m.label)).toEqual([
-      "Combat Trial (#1)","Capture Run (#5)",
+      "gameplay: Combat Trial (#1)","gameplay: Capture Run (#5)",
     ]);
     expect(owns.some(e=>modes.some(mode=>mode.id===e.from))).toBe(false);
     const pool=model.nodes.find(n=>
@@ -1990,12 +1994,15 @@ describe("exact authored return-policy source admission", () => {
     expect(model.edges.some(e=>e.kind==="transitions-to" &&
       e.id.startsWith("authored-content-owns:"))).toBe(false);
     expect(model.nodes.some(node=>node.label==="Wave 15")).toBe(false);
-    expect(model.nodes.every(node=>
-      node.id.startsWith("phase:authored-source:") ||
-      node.id.startsWith("resource:authored-source:") ||
-      node.id.startsWith("game:authored-source:") ||
-      node.id.startsWith("resource:authored-content:") ||
-      !node.id.includes(":authored-source:"))).toBe(true);
+    // Source content is not promoted into gameplay "phase" or "game".
+    const authoredNodes=model.nodes.filter(node =>
+      node.id.includes(":authored-source:"));
+    expect(authoredNodes.length).toBeGreaterThan(5);
+    expect(authoredNodes.every(node=>
+      node.kind==="resource" &&
+      node.id.startsWith("resource:authored-source:"))).toBe(true);
+    expect(model.nodes.some(node=>node.kind==="phase" &&
+      node.label==="Wave 1")).toBe(false);
     expect(model.edges.filter(e=>e.id.startsWith("authored-content-owns:"))
       .every(e=>e.status==="inferred" &&
         e.evidenceIds.every(id=>model.evidence.some(ev=>

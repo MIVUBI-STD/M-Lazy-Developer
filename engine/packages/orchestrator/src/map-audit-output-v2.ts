@@ -945,9 +945,30 @@ export function formatSelectedMapAuditBrief(input: {
       shown++;
       const prefix="  ".repeat(Math.min(depth,5));
       out.push(prefix+"- **"+concise(node.label)+"**"+
-        " ["+node.kind+"; source-labelled; NOT OBSERVED]");
+        " [authored content; NOT OBSERVED]");
       if(depth<=1 || (children.get(id)?.length??0)===0){
         out.push(prefix+"  Source: "+concise(sourceRef(id)));
+      }
+      // Keep material stage/wave/recipe configuration next to the graph
+      // node instead of forcing an operator to reconcile detached lists.
+      // This remains authored source text, NOT an observed world event.
+      let decodedId="";
+      try { decodedId=decodeURIComponent(id); } catch {}
+      const detailed = decodedId.includes("#wave:") ||
+        decodedId.includes("#spawn:") ||
+        decodedId.includes("#wave-end:") ||
+        decodedId.includes("#config:");
+      if(detailed){
+        const sourceFact=node.evidenceIds
+          .filter(x=>x.startsWith("authored-content-evidence:"))
+          .map(x=>evidenceById.get(x))
+          .find(x=>x?.scope==="selected-artifact");
+        if(sourceFact){
+          const summary=sourceFact.summary.split(
+            " Source-authored content only;")[0] ?? "";
+          if(summary)out.push(prefix+"  Authored config: "+
+            concise(summary));
+        }
       }
       if(seen.has(id))return;
       const next=new Set(seen);next.add(id);
