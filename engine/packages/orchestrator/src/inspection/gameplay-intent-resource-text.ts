@@ -52,17 +52,44 @@ function parseLang(
 
 
 /**
- * Player-visible guide keys can name distinct stages even when the displayed
- * text is identical. Preserve that source ownership as an inferred phase,
- * never as proof of actual stage order, activation or victory.
+ * A locale key identifies authored content, not executed behavior. Keep each
+ * namespace/stage/task identity distinct even when visible text repeats.
+ * A generic HUD label or an emoji level number is NOT a gameplay stage.
  */
-function sourceStageGuideSignal(
+export function parseLocalizedStageKey(key: string): {
+  readonly scopePrefix: string;
+  readonly kind: "stage" | "level" | "round";
+  readonly number: number;
+  readonly section: "guide" | "task" | "feedback";
+  readonly taskNumber?: number;
+} | undefined {
+  const match = key.match(
+    /^(.*?)(?:[._-]|^)(stage|level|round)[._-]?([0-9]+)[._-](guide|intro|title|success|task[._-]([0-9]+))$/i,
+  );
+  if (!match) return undefined;
+  const number = Number(match[3]);
+  const taskNumber = match[5] === undefined ? undefined : Number(match[5]);
+  if (!Number.isSafeInteger(number) || number <= 0 ||
+      (taskNumber !== undefined &&
+        (!Number.isSafeInteger(taskNumber) || taskNumber <= 0))) {
+    return undefined;
+  }
+  const suffix = match[4]!.toLowerCase();
+  return {
+    scopePrefix: match[1] ?? "",
+    kind: match[2]!.toLowerCase() as "stage" | "level" | "round",
+    number,
+    section: suffix === "success" ? "feedback" :
+      suffix.startsWith("task") ? "task" : "guide",
+    ...(taskNumber === undefined ? {} : { taskNumber }),
+  };
+}
+
+function sourceStageContentSignal(
   entry: GameplayResourceTextEntry,
 ): GameplayIntentSignal | undefined {
-  const parts = entry.key.match(
-    /(?:^|[._-])(stage|level|round)[._-]?([0-9]+)[._-](guide|intro|title)$/i,
-  );
-  if (!parts) return undefined;
+  const stage = parseLocalizedStageKey(entry.key);
+  if (!stage) return undefined;
   const readable = entry.text
     .replace(/§./g, "")
     .replace(/%[1-9][0-9]*/g, " ")
@@ -70,21 +97,26 @@ function sourceStageGuideSignal(
     .replace(/\s+/g, " ")
     .trim();
   if (!readable) return undefined;
-  const type = parts[1]!.toLowerCase();
-  const displayType = type.charAt(0).toUpperCase() + type.slice(1);
-  const owner = "phase:localized:" +
+  const kind = stage.section === "guide" ? "phase" : "mechanic";
+  const id = kind + ":localized:" +
     encodeURIComponent(entry.relativePath + "#" + entry.key);
+  const heading = stage.section === "guide"
+    ? stage.kind.charAt(0).toUpperCase() + stage.kind.slice(1) +
+      " " + stage.number
+    : stage.section === "task"
+      ? "Task " + stage.taskNumber
+      : "Success feedback";
   return {
-    id: "signal:" + owner,
-    subjectKey: owner,
-    nodeKind: "phase",
-    label: displayType + " " + parts[2] + ": " + readable.slice(0, 180),
+    id: "signal:" + id,
+    subjectKey: id,
+    nodeKind: kind,
+    label: heading + ": " + readable.slice(0, 180),
     status: "inferred",
     evidenceOrigin: "translation",
     locator: entry.relativePath + "#L" + entry.line,
-    summary: "Selected-artifact localized guide " + entry.key +
-      " presents a possible player-facing phase. Numbered keys are " +
-      "source labels, not verified gameplay order, activation or completion.",
+    summary: "Selected-artifact localized " + entry.key +
+      " is a source-labelled " + stage.section + " candidate; " +
+      "not verified gameplay order, activation, task completion or outcome.",
   };
 }
 
@@ -130,8 +162,8 @@ export async function deriveGameplayResourceTextSignals(
 
   const signals = entries.flatMap(
     (entry) => {
-      const guide = sourceStageGuideSignal(entry);
-      if (guide) return [guide];
+      const content = sourceStageContentSignal(entry);
+      if (content) return [content];
       const signal =
         extractGameplayIntentSurfaceSignal({
           label: entry.text,

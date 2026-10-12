@@ -372,7 +372,11 @@ describe("inspectDirectory", () => {
         "demo.stage_1.guide=§lEnter the fortress",
         "demo.stage_2.guide=§lEnter the fortress",
         "demo.stage_2.task.1=Eliminate all enemies",
+        "demo.stage_2.task.2=Rescue the villager",
+        "demo.stage_2.success=The path is clear",
         "demo.hud.level=Level",
+        "demo.hud.wave=Wave",
+        "demo.emoji.level_15=§e",
       ].join("\n"));
       const inventory = await buildFilesystemInventory(root);
       const { signals } = await deriveGameplayResourceTextSignals(root, inventory);
@@ -384,6 +388,20 @@ describe("inspectDirectory", () => {
         "Stage 2: Enter the fortress",
       ]);
       expect(guides[0]?.subjectKey).not.toBe(guides[1]?.subjectKey);
+      const stageTasks = signals.filter(item =>
+        item.subjectKey.startsWith("mechanic:localized:"));
+      expect(stageTasks.map(item => item.label)).toEqual([
+        "Task 1: Eliminate all enemies",
+        "Task 2: Rescue the villager",
+        "Success feedback: The path is clear",
+      ]);
+      expect(stageTasks.every(item =>
+        item.status === "inferred" &&
+        item.summary.includes("not verified gameplay order"))).toBe(true);
+      expect(signals.some(item =>
+        item.subjectKey.includes("localized:") &&
+        item.locator.endsWith("#L8"))).toBe(false);
+
       expect(guides.every(item =>
         item.status === "inferred" &&
         item.summary.includes("not verified gameplay order") &&
@@ -397,6 +415,11 @@ describe("inspectDirectory", () => {
       const phases = model.nodes.filter(node =>
         node.id.startsWith("phase:localized:"));
       expect(phases).toHaveLength(2);
+      const content = model.nodes.filter(node =>
+        node.id.startsWith("mechanic:localized:"));
+      expect(content).toHaveLength(3);
+      expect(content.every(node => node.status === "inferred")).toBe(true);
+
       expect(phases.every(node => node.status === "inferred")).toBe(true);
       expect(phases.every(node =>
         node.evidenceIds.some(id => model.evidence.some(item =>

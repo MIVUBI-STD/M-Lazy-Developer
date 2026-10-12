@@ -1,3 +1,4 @@
+import { parseLocalizedStageKey } from "./inspection/gameplay-intent-resource-text.js";
 import type {
   GameDesignMapClassification,
 } from "../../game-design-spec/src/index.js";
@@ -797,19 +798,62 @@ export function formatSelectedMapAuditBrief(input: {
     intent.evidence.map((item) => [item.id, item]),
   );
   const features = report.gameplayStructure?.features ?? [];
-  // Show actual source-labelled stages before incidental technical features.
-  // This changes presentation only, never grants phase activation or a
-  // source-derived journey the status of observed gameplay.
-  const visibleFeatures = [
-    ...features.filter(feature =>
-      feature.kind === "phase" &&
-      feature.id.startsWith("phase:localized:") &&
-      feature.grounding === "SOURCE_EVIDENCED"),
-    ...features.filter(feature =>
-      !(feature.kind === "phase" &&
-        feature.id.startsWith("phase:localized:") &&
-        feature.grounding === "SOURCE_EVIDENCED")),
-  ];
+  // A source-localized stage is navigational content, not a player state,
+  // proof of a wave, or a causal link. Keep namespace/pack ownership intact.
+  const localized = features.flatMap(feature => {
+    if (feature.grounding !== "SOURCE_EVIDENCED") return [];
+    const marker = feature.id.startsWith("phase:localized:")
+      ? "phase:localized:" :
+      feature.id.startsWith("mechanic:localized:")
+        ? "mechanic:localized:" : undefined;
+    if (marker === undefined) return [];
+    let authored: string;
+    try {
+      authored = decodeURIComponent(feature.id.slice(marker.length));
+    } catch {
+      return [];
+    }
+    const separator = authored.lastIndexOf("#");
+    if (separator < 1) return [];
+    const path = authored.slice(0, separator);
+    const key = authored.slice(separator + 1);
+    const parsed = parseLocalizedStageKey(key);
+    if (parsed === undefined) return [];
+    const source = feature.sourceEvidenceIds.map(id => evidenceById.get(id))
+      .find(item =>
+        item?.scope === "selected-artifact" &&
+        item.origin === "translation" &&
+        item.locator.startsWith(path + "#L"));
+    if (!source) return [];
+    return [{
+      feature,
+      source: source.locator,
+      group: [path, parsed.scopePrefix, parsed.kind, parsed.number].join("#"),
+      path,
+      parsed,
+    }];
+  });
+  const localizedIds = new Set(localized.map(item => item.feature.id));
+  const visibleFeatures = features.filter(feature =>
+    !localizedIds.has(feature.id) &&
+    // A feature supported ONLY by an old/external source is not a selected-map
+    // mechanic; keep current unclassified features as unknown instead.
+    !(feature.sourceEvidenceIds.length > 0 &&
+      feature.sourceEvidenceIds.every(id =>
+        evidenceById.get(id)?.scope === "external-reference")));
+  const localizedGroups = new Map<string, typeof localized>();
+  for (const item of localized) {
+    const entries = localizedGroups.get(item.group) ?? [];
+    entries.push(item);
+    localizedGroups.set(item.group, entries);
+  }
+  const orderedGroups = [...localizedGroups.values()]
+    .sort((a, b) =>
+      a[0]!.path.localeCompare(b[0]!.path) ||
+      a[0]!.parsed.scopePrefix.localeCompare(b[0]!.parsed.scopePrefix) ||
+      a[0]!.parsed.kind.localeCompare(b[0]!.parsed.kind) ||
+      a[0]!.parsed.number - b[0]!.parsed.number);
+
   const reconstructionByFeature = new Map(
     (report.gameplayStructure?.mechanicReconstructions ?? [])
       .map((mechanic) => [mechanic.featureId, mechanic] as const),
@@ -846,8 +890,64 @@ export function formatSelectedMapAuditBrief(input: {
     "**Lose (" + report.gameDesign.loseConditionGrounding + "):** " +
       concise(report.gameDesign.loseCondition),
     "",
-    "### Mechanics (source inspection; not gameplay execution)",
   ];
+  if (orderedGroups.length > 0) {
+    out.push("", "### Source-labelled level/stage hierarchy (NOT OBSERVED)");
+    out.push("Grouping follows exact selected-artifact locale keys; neither " +
+      "stage execution nor chronological transitions are proven. Wave counts, " +
+      "spawn recipes and coordinates require independent script/world evidence.");
+    for (const group of orderedGroups.slice(0, 24)) {
+      const first = group[0]!;
+      const type = first.parsed.kind.charAt(0).toUpperCase() +
+        first.parsed.kind.slice(1);
+      out.push("- **" + type + " " + first.parsed.number + "**" +
+        " [source-labelled; activation UNKNOWN]" +
+        (first.parsed.scopePrefix
+          ? " / namespace: " + concise(first.parsed.scopePrefix)
+          : ""));
+      const entries = [...group].sort((a, b) => {
+        const priority = (section: typeof a.parsed.section) =>
+          section === "guide" ? 0 : section === "task" ? 1 : 2;
+        return priority(a.parsed.section) - priority(b.parsed.section) ||
+          (a.parsed.taskNumber ?? 0) - (b.parsed.taskNumber ?? 0);
+      });
+      for (const item of entries.slice(0, 16)) {
+        const category = item.parsed.section === "guide"
+          ? "Guide" : item.parsed.section === "task"
+            ? "Task " + item.parsed.taskNumber
+            : "Success text (not proof of completion)";
+        const content = item.feature.label.slice(
+          item.feature.label.indexOf(": ") + 2,
+        );
+        out.push("  - " + category + ": " + concise(content),
+          "    Source: " + concise(item.source));
+      }
+      if (entries.length > 16) {
+        out.push("  Additional source-labelled items omitted: " +
+          (entries.length - 16));
+      }
+    }
+    if (orderedGroups.length > 24) {
+      out.push("Additional source-labelled stages omitted: " +
+        (orderedGroups.length - 24));
+    }
+  }
+  if (report.stateTransitions.length > 0) {
+    out.push("", "### Source-derived state transitions (NOT OBSERVED)");
+    out.push("Relations are from selected source, not evidence a player " +
+      "entered these states in Minecraft.");
+    for (const transition of report.stateTransitions.slice(0, 12)) {
+      out.push("- " + concise(transition.from) + " --(" +
+        concise(transition.event) + ")--> " +
+        concise(transition.to) +
+        (transition.notes ? "; " + concise(transition.notes) : ""));
+    }
+    if (report.stateTransitions.length > 12) {
+      out.push("Additional state relationships omitted: " +
+        (report.stateTransitions.length - 12));
+    }
+  }
+  out.push("", "### Other mechanics (source inspection; not gameplay execution)");
   if (features.length === 0) {
     out.push("No recognized gameplay features in this view; the map may still contain unclassified gameplay.");
   }
@@ -915,8 +1015,8 @@ export function formatSelectedMapAuditBrief(input: {
         : []),
     );
   }
-  if (features.length > 12) {
-    out.push("Additional features omitted: " + (features.length - 12));
+  if (visibleFeatures.length > 12) {
+    out.push("Additional features omitted: " + (visibleFeatures.length - 12));
   }
   if (sourceStateAliasUnknowns.length > 0) {
     out.push("", "### State identity questions (SOURCE ONLY; UNRESOLVED)");

@@ -114,6 +114,22 @@ player-facing purpose. If purpose is not independently grounded, report
 `DIRECT_EFFECT_EVIDENCE` and `CALL_PATH_CONTEXT` remain distinct, and
 authored paths remain `NOT_OBSERVED` until runtime evidence exists.
 
+## Adaptive game-design hierarchy (one existing model, three views)
+
+The operator needs a **source-backed navigable design**, not a flat list of recognized words or another checker. Render three coordinated perspectives over the **existing** Gameplay Intent / Semantic IR / Scenario Graph and selected-artifact evidence:
+
+- **State and lifecycle view:** lobby/waiting, admission, loading, in-game, terminal, cleanup and recovery **only where represented in the selected artifact**. A state *edge* needs an authored guard, event, state transition or independent observation. Proximity, numbering or file naming is not a transition.
+- **Content hierarchy view:** discovered mode/challenge → level/stage/round → wave/task/quest/room → entity/command/reward/interaction. Do not require any particular level; a puzzle, build challenge or multi-mode map may use different branches. Content nesting denotes source ownership/context, never automatic chronological causality.
+- **Shared system and dependency view:** party/arena, inventory/shop/economy, combat/AI, scoring, permissions, structures, ticking/chunks and persistence are referenced where evidence connects them. Do not duplicate a global system beneath every level or invent a cross-system link because two assets share a name.
+
+Each material node should carry its actual source identity; observed vs inferred vs unknown meaning; owner/scope; entry trigger; dependencies; authored operations/effects; completion/exit; feedback; and any unresolved dimension. Show only fields that have evidence, rather than filling a template with generic guesses. Multiple map styles are valid: `InGame → Stage → Wave + Quest`, `InGame → Challenge → Trial/Station → Task`, or `InGame → Round → Plot → Build/Score`.
+
+The read-only `Map Audit --brief` may group **selected-artifact localization keys** such as `stage_2.guide`, `stage_2.task.1` and `stage_2.success` into a labelled content tree, preserving namespace, resource-pack path and line evidence. This proves only player-facing source labels; it cannot establish activation, ordering, quest completion, a wave, spawn count or live behavior. A generic HUD `level`/`wave` label or emoji does not create a numbered stage. **Wave/entity/coordinate and conditional data require direct script, entity, structure or world evidence** and must remain UNKNOWN where not extracted. Shared states and transitions remain separate evidence-backed graph relations.
+
+Do not treat the tree as a new schema, source of truth, publication authority or justification for another validation layer. The acceptance question is whether a developer can navigate the actual game's phase/content tree down to source-grounded mechanics and distinguish a material missing relationship. Only after game-design closure may the same source model support bug classification.
+
+---
+
 ## Discovery independence rule
 
 Game Reconstruction is one operator process with the ordered internal responsibilities

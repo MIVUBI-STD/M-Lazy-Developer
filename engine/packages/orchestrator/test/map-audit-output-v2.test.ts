@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   projectMapAuditOutputV2,
+  formatSelectedMapAuditBrief,
 } from "../src/map-audit-output-v2.js";
 
 describe("Map Audit Output V2 projection", () => {
@@ -314,5 +315,78 @@ describe("Map Audit Output V2 projection", () => {
     expect(multiModeReport.gameDesign.loseConditionGrounding).toBe("unresolved");
     expect(multiModeReport.bugs.map(item => item.status))
       .toEqual(["PROVEN", "NEED_VALIDATION"]);
+  });
+
+  it("renders source-labelled stage/task ownership without assuming progression", () => {
+    const path = "resource_packs/demo/texts/en_US.lang";
+    const content = [
+      ["daigon.offense.stage_1.guide", "phase", "Stage 1: Reach outpost"],
+      ["daigon.offense.stage_1.task.1", "mechanic", "Task 1: Break barricade"],
+      ["daigon.offense.stage_1.success", "mechanic", "Success feedback: Continue"],
+      ["daigon.offense.stage_2.guide", "phase", "Stage 2: Reach fort"],
+      ["daigon.offense.stage_2.task.1", "mechanic", "Task 1: Rescue villager"],
+    ] as const;
+    const evidence = content.map(([key], i) => ({
+      id: "e" + i, scope: "selected-artifact" as const,
+      origin: "translation" as const, locator: path + "#L" + (i + 5),
+      summary: "Authored locale source.",
+    }));
+    const features = content.map(([key, kind, label], i) => ({
+      id: kind + ":localized:" + encodeURIComponent(path + "#" + key),
+      kind, label, grounding: "SOURCE_EVIDENCED" as const,
+      sourceEvidenceIds: ["e" + i], scenarioIds: [],
+      sourceBehaviorPaths: [], activationRelationIds: [],
+      effectRelationIds: [], transitionRelationIds: [],
+      outcomeRelationIds: [],
+    }));
+    // A previous-world label is not source evidence for this selected map.
+    const oldFeature = {
+      ...features[0]!,
+      id: "phase:localized:" +
+        encodeURIComponent("resource_packs/old/texts/en_US.lang#old.stage_8.guide"),
+      sourceEvidenceIds: ["old"],
+      label: "Stage 8: Historical",
+    };
+    const report: any = {
+      mapVersion: "1.0.0",
+      evidenceScope: { selectedArtifact: "demo.mcworld" },
+      control: { status: "BLOCKED", currentStage: "UNDERSTAND",
+        allowedNextAction: "RESOLVE_BLOCKING_STAGE" },
+      gameDesign: {
+        objective: "Investigate", objectiveGrounding: "inferred",
+        winCondition: "Unresolved", winConditionGrounding: "unresolved",
+        loseCondition: "Unresolved", loseConditionGrounding: "unresolved",
+      },
+      gameplayStructure: {
+        features: [...features, oldFeature],
+        mechanicReconstructions: [], gameplayJourneyCandidates: [],
+      },
+      stateTransitions: [{ from: "waiting", to: "countdown",
+        event: "transitions-to", notes: "Source-derived" }],
+      gameplayClosure: { surfaceInventory: [], status: "PARTIAL" },
+      multiArena: { isolationRules: [] },
+      bugs: [], designMismatches: [],
+      unresolved: { total: 1 },
+    };
+    const brief = formatSelectedMapAuditBrief({
+      report,
+      intent: { evidence: [...evidence, { id: "old",
+        scope: "external-reference", origin: "historical-diff",
+        locator: "old-map.json", summary: "Historical" }],
+        unknowns: [] } as any,
+      modelTaskPackets: [],
+    });
+    expect(brief).toContain("Source-labelled level/stage hierarchy");
+    expect(brief).toContain("**Stage 1**");
+    expect(brief).toContain("**Stage 2**");
+    expect(brief).toContain("Task 1: Break barricade");
+    expect(brief).toContain("Task 1: Rescue villager");
+    expect(brief).toContain("Success text (not proof of completion)");
+    expect(brief).toContain(path + "#L5");
+    expect(brief).not.toContain("Stage 8: Historical");
+    expect(brief).not.toContain("Wave 1");
+    expect(brief).toContain("waiting --(transitions-to)--> countdown");
+    // Neither localization nor the brief turns staging into confirmed bugs.
+    expect(brief).toContain("No published finding");
   });
 });
