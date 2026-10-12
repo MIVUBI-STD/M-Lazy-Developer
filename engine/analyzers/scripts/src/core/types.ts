@@ -1,5 +1,5 @@
 import type { ScriptSequentialPathEvidence } from "./statement-sequence.js";
-import type { ScriptWaveStage, ScriptAuthoredGameplayEntry } from "../parser/source-gameplay-content.js";
+import type { ScriptWaveStage, ScriptAuthoredGameplayEntry, ScriptAuthoredContentCollection } from "../parser/source-gameplay-content.js";
 import type { BlockCustomComponentRegistrationEvidence } from "../domains/automation/block-custom-component-evidence.js";
 import type { PersistentReconciliationEvidence } from "../domains/persistence/persistent-reconciliation.js";
 import type { ScriptEconomyEvidence } from "../domains/economy/economy-evidence.js";
@@ -547,6 +547,8 @@ export interface ParsedScriptFile {
   waveConfigurations?: readonly ScriptWaveStage[];
   /** Explicit source-labelled gameplay/mode/challenge catalog entries. */
   authoredGameplayCatalog?: readonly ScriptAuthoredGameplayEntry[];
+  /** Source-labelled content choices, not verified player challenge content. */
+  authoredContentCollections?: readonly ScriptAuthoredContentCollection[];
   blockCustomComponentRegistrations?: BlockCustomComponentRegistrationEvidence[];
   persistentReconciliation?: PersistentReconciliationEvidence;
   imports: ScriptImport[];

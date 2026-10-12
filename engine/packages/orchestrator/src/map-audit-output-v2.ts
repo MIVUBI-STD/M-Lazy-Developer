@@ -1,5 +1,5 @@
 import { parseLocalizedStageKey } from "./inspection/gameplay-intent-resource-text.js";
-import type { ScriptWaveStage, ScriptAuthoredGameplayEntry } from "../../../analyzers/scripts/src/index.js";
+import type { ScriptWaveStage, ScriptAuthoredGameplayEntry, ScriptAuthoredContentCollection } from "../../../analyzers/scripts/src/index.js";
 import type {
   GameDesignMapClassification,
 } from "../../game-design-spec/src/index.js";
@@ -793,11 +793,13 @@ export function formatSelectedMapAuditBrief(input: {
   /** Selected-archive source recipes, never a claim of spawning. */
   readonly waveStages?: readonly ScriptWaveStage[];
   readonly gameplayCatalog?: readonly ScriptAuthoredGameplayEntry[];
+  readonly contentCollections?: readonly ScriptAuthoredContentCollection[];
   readonly modelTaskPackets: readonly AuditModelTaskPacket[];
 }): string {
   const { report, intent, modelTaskPackets } = input;
   const waveStages = input.waveStages ?? [];
   const gameplayCatalog = input.gameplayCatalog ?? [];
+  const contentCollections = input.contentCollections ?? [];
   const concise = (value: string): string =>
     value.replace(/\s+/g, " ").trim().slice(0, 300) || "unresolved";
   const evidenceById = new Map(
@@ -925,6 +927,45 @@ export function formatSelectedMapAuditBrief(input: {
     if (waveStages.length === 0) {
       out.push("No direct nested stage/wave recipes were extracted in this " +
         "view. This is not evidence that the map contains no waves.");
+    }
+  }
+  if (contentCollections.length > 0) {
+    out.push("", "### Script-authored content choices (NOT OBSERVED)");
+    out.push("These are categorized literal source choices, not verified " +
+      "round selection, scoring, guessing, building, or player presentation.");
+    for (const collection of contentCollections.slice(0, 20)) {
+      const locator = (ref: ScriptAuthoredContentCollection["source"]): string =>
+        concise(ref.relativePath + (ref.range
+          ? ":" + ref.range.lineStart + ":" +
+            (ref.range.columnStart ?? 1)
+          : ""));
+      out.push("- **" + concise(collection.name) + "** / " +
+        collection.entries.length + " literal choices" +
+        (collection.incomplete ? " + unresolved entries" : "") +
+        "; label field=" + collection.textField +
+        "; classification field=" + collection.classificationField,
+        "  Source: " + locator(collection.source));
+      const groups = new Map<string,
+        ScriptAuthoredContentCollection["entries"][number][]>();
+      for (const item of collection.entries) {
+        const values = groups.get(item.classification) ?? [];
+        values.push(item);
+        groups.set(item.classification, values);
+      }
+      for (const [category, items] of groups) {
+        out.push("  - " + concise(category) + ": " + items.length + " choice(s)");
+        for (const item of items.slice(0, 50)) {
+          out.push("    - " + concise(item.text) +
+            " / source " + locator(item.source));
+        }
+        if (items.length > 50) {
+          out.push("    Additional choices omitted: " + (items.length - 50));
+        }
+      }
+    }
+    if (contentCollections.length > 20) {
+      out.push("Additional content collections omitted: " +
+        (contentCollections.length - 20));
     }
   }
   if (orderedGroups.length > 0) {

@@ -700,6 +700,8 @@ export function buildInspectionResult(
       item.parsed.waveConfigurations ?? []),
     authoredGameplayCatalog: parsedScripts.flatMap(item =>
       item.parsed.authoredGameplayCatalog ?? []),
+    authoredContentCollections: parsedScripts.flatMap(item =>
+      item.parsed.authoredContentCollections ?? []),
     scriptApiUsage,
     scriptSafeConfig,
     scriptSpatial,

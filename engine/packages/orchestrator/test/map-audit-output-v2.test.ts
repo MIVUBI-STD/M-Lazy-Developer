@@ -462,4 +462,42 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("shows source choices by category without inventing level or wave behavior", () => {
+    const source = {artifactId:"world:builder",
+      relativePath:"behavior_packs/builder/scripts/game-content.js",
+      range:{lineStart:12,lineEnd:12,columnStart:3,columnEnd:50}};
+    const report: any = {
+      mapVersion:"1",evidenceScope:{selectedArtifact:"build.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{status:"PARTIAL",surfaceInventory:[]},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const brief = formatSelectedMapAuditBrief({
+      report,intent:{evidence:[],unknowns:[]} as any,
+      modelTaskPackets:[],gameplayCatalog:[],waveStages:[],
+      contentCollections:[{name:"PromptPool",source,
+        textField:"text",classificationField:"difficulty",
+        incomplete:true,entries:[
+          {text:"Camera",classification:"easy",source},
+          {text:"Cart",classification:"easy",source},
+          {text:"Globe",classification:"medium",source},
+        ]}],
+    });
+    expect(brief).toContain("Script-authored content choices");
+    expect(brief).toContain("PromptPool");
+    expect(brief).toContain("easy: 2 choice(s)");
+    expect(brief).toContain("medium: 1 choice(s)");
+    expect(brief).toContain("Camera / source");
+    expect(brief).toContain("game-content.js:12:3");
+    expect(brief).toContain("unresolved entries");
+    expect(brief).not.toContain("**Wave 1**");
+    expect(brief).not.toContain("**Stage 1**");
+    expect(brief).toContain("No published finding");
+  });
+
 });

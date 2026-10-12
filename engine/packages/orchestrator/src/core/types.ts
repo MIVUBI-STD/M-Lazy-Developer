@@ -1,5 +1,5 @@
 import type { MinecraftEdition } from "../../../compatibility/src/index.js";
-import type { ScriptWaveStage, ScriptAuthoredGameplayEntry } from "../../../../analyzers/scripts/src/index.js";
+import type { ScriptWaveStage, ScriptAuthoredGameplayEntry, ScriptAuthoredContentCollection } from "../../../../analyzers/scripts/src/index.js";
 import type { CombatBehaviorContract, CombatPolicy, EconomyBehaviorContract, EconomyPolicy, InventoryItemBehaviorContract, InventoryItemPolicy, SpatialAuthorityPolicy } from "../../../behavior-model/src/index.js";
 import type { EducationFeatureState } from "../../../compatibility/src/index.js";
 import type { DiagnosticFinding } from "../../../diagnostics/src/index.js";
@@ -149,6 +149,8 @@ export interface InspectDirectoryResult {
   authoredWaveStages: readonly ScriptWaveStage[];
   /** Source-labelled content catalog, not runtime activity or a genre label. */
   authoredGameplayCatalog: readonly ScriptAuthoredGameplayEntry[];
+  /** Content categories and choices declared in source, NOT round delivery. */
+  authoredContentCollections: readonly ScriptAuthoredContentCollection[];
   scriptApiUsage: ScriptApiUsageInventory;
   scriptSafeConfig: ScriptSafeConfigAnalysis;
   scriptSpatial: ScriptSpatialAnalysis;

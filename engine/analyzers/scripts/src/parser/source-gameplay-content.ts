@@ -300,3 +300,114 @@ export function extractScriptGameplayCatalog(
     a.id.localeCompare(b.id) ||
     (a.source.range?.lineStart ?? 0) - (b.source.range?.lineStart ?? 0));
 }
+
+
+/**
+ * Direct authored content choices for build/guess, quiz, puzzle or similar
+ * mechanics. Classify the *shape*, not a map title or assumed game genre.
+ *
+ * Both a visible string and an independently authored category/difficulty
+ * string must occur on at least two sibling records in the same literal
+ * array. UI strings alone, a dynamic expression and a bare word list cannot
+ * establish a gameplay content collection.
+ */
+export interface ScriptAuthoredContentChoice {
+  readonly source: SourceRef;
+  readonly text: string;
+  readonly classification: string;
+}
+
+export interface ScriptAuthoredContentCollection {
+  readonly source: SourceRef;
+  readonly name: string;
+  readonly textField: "prompt" | "word" | "text" | "label";
+  readonly classificationField: "difficulty" | "tier" | "category";
+  readonly entries: readonly ScriptAuthoredContentChoice[];
+  readonly incomplete: boolean;
+}
+
+export function extractScriptContentCollections(
+  file: ts.SourceFile,
+  owner: SourceRef,
+): ScriptAuthoredContentCollection[] {
+  const textFields = ["prompt", "word", "text", "label"] as const;
+  const classificationFields = ["difficulty", "tier", "category"] as const;
+
+  const source = (node: ts.Node): SourceRef => {
+    const start = file.getLineAndCharacterOfPosition(node.getStart(file));
+    const end = file.getLineAndCharacterOfPosition(node.getEnd());
+    return {
+      ...owner,
+      range: {
+        lineStart: start.line + 1,
+        columnStart: start.character + 1,
+        lineEnd: end.line + 1,
+        columnEnd: end.character + 1,
+      },
+    };
+  };
+  const keyName = (node: ts.PropertyName): string | undefined =>
+    ts.isIdentifier(node) || ts.isStringLiteralLike(node)
+      ? node.text : undefined;
+  const property = (node: ts.ObjectLiteralExpression, key: string):
+    ts.Expression | undefined => {
+    const matches = node.properties.filter((p):
+      p is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(p) && keyName(p.name) === key);
+    return matches.length === 1 ? matches[0]!.initializer : undefined;
+  };
+  const literal = (expr: ts.Expression | undefined): string | undefined =>
+    expr && ts.isStringLiteralLike(expr) && expr.text.trim()
+      ? expr.text.trim() : undefined;
+  const output: ScriptAuthoredContentCollection[] = [];
+  const scan = (node: ts.Node): void => {
+    if (ts.isArrayLiteralExpression(node)) {
+      const parent = node.parent;
+      const name = ts.isVariableDeclaration(parent) &&
+        ts.isIdentifier(parent.name) && parent.initializer === node
+        ? parent.name.text
+        : ts.isPropertyAssignment(parent) && parent.initializer === node
+          ? keyName(parent.name) : undefined;
+      const objects = node.elements.filter(ts.isObjectLiteralExpression);
+      if (name && objects.length >= 2) {
+        // Choose one common explicit field pair. Do not infer intent from
+        // collection name (GuessText, quiz, levels, etc.) or one item alone.
+        const pair = textFields.flatMap(textField =>
+          classificationFields.map(classificationField =>
+            ({ textField, classificationField }))).find(pair =>
+          objects.filter(item =>
+            literal(property(item, pair.textField)) !== undefined &&
+            literal(property(item, pair.classificationField)) !== undefined)
+            .length >= 2);
+        if (pair !== undefined) {
+          const supported = objects.filter(item =>
+            literal(property(item, pair.textField)) !== undefined &&
+            literal(property(item, pair.classificationField)) !== undefined);
+          output.push({
+            name,
+            source: source(node),
+            textField: pair.textField,
+            classificationField: pair.classificationField,
+            entries: supported.map(item => ({
+              source: source(item),
+              text: literal(property(item, pair.textField))!,
+              classification: literal(
+                property(item, pair.classificationField))!,
+            })),
+            incomplete: supported.length !== node.elements.length ||
+              objects.some(item => item.properties.some(prop =>
+                ts.isSpreadAssignment(prop))),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, scan);
+  };
+  scan(file);
+  return output.sort((a,b) =>
+    a.source.relativePath.localeCompare(b.source.relativePath) ||
+    (a.source.range?.lineStart ?? 0) -
+      (b.source.range?.lineStart ?? 0) ||
+    (a.source.range?.columnStart ?? 0) -
+      (b.source.range?.columnStart ?? 0));
+}

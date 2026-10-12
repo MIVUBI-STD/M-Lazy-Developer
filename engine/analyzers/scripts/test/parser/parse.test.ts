@@ -1286,4 +1286,33 @@ const arenas = joins.map((entry, index) => {
       item.id === "User selection")).toBe(false);
   });
 
+  it("retains content-choice categories for a building/guessing map with no wave structure", () => {
+    const src = {artifactId:"world:builder",
+      relativePath:"behavior_packs/example/scripts/game-content.js"};
+    const parsed = parseScriptFile("game-content", [
+      'export const PromptPool = [',
+      ' { text: "Camera", difficulty: "easy" },',
+      ' { text: "Cart", difficulty: "easy" },',
+      ' { text: "Globe", difficulty: "medium" },',
+      ' { text: choosePrompt(), difficulty: "hard" },',
+      '];',
+      'const decoration = [',
+      ' { label: "Level", value: 1 },',
+      ' { label: "Wave", value: 2 },',
+      '];',
+    ].join("\n"), src);
+    expect(parsed.authoredContentCollections).toHaveLength(1);
+    const pool = parsed.authoredContentCollections![0]!;
+    expect(pool.name).toBe("PromptPool");
+    expect(pool.textField).toBe("text");
+    expect(pool.classificationField).toBe("difficulty");
+    expect(pool.entries.map(entry => [entry.text,entry.classification]))
+      .toEqual([["Camera","easy"],["Cart","easy"],["Globe","medium"]]);
+    expect(pool.incomplete).toBe(true);
+    expect(pool.entries[0]?.source.artifactId).toBe(src.artifactId);
+    expect(pool.entries[0]?.source.range?.lineStart).toBe(2);
+    expect(parsed.waveConfigurations).toEqual([]);
+    expect(parsed.authoredGameplayCatalog).toEqual([]);
+  });
+
 });
