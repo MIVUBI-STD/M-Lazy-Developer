@@ -1,3 +1,15 @@
+## P5 exact selected-map archive identity gate for evaluation (2026-10-12)
+
+**First wrong owner:** `SelectedMapAuditIdentity` already carries the selected .mcworld SHA-256, but `MapAuditOutputV2` omitted it; the benchmark `freeze-observed-map-audit.mjs` accepted a structurally valid audit report for any supplied archive without checking the output's map version identity against actual bytes.
+
+**Bounded correction:** add an optional backward-compatible `artifactFingerprint` in Map Audit Output V2 and always project the canonical identity SHA in current outputs. The existing freeze helper computes SHA-256 of the actual supplied archive bytes and refuses absent/malformed/mismatched report SHA values before freezing. The freeze receipt now describes its local Git SHA as *freezer checkout*, not proof of which commit ran the audit. No new production audit pipeline, reporter, detector, schema version, corpus case, external compute, map-specific interpretation rule or rewritten frozen oracle.
+
+**Acceptance authored; NOT EXECUTED:** existing V2 projection regression asserts the fingerprint; existing end-to-end synthetic .mcworld audit acceptance checks its source hash and attempts to freeze a deliberately substituted same-shape report, which must be rejected. Schema JSON is parseable with the added field optional for legacy V2. Source producer and consumer reviewed statically; TypeScript/Vitest, current real-map full-archive audits, blind expectation scoring and live Minecraft NOT EXECUTED. This is provenance safety, not scored improved gameplay comprehension.
+
+**Next:** acquire one authentic canonical audit result for a frozen real-world case matching exact archive SHA, establish approved claim-level expectations with positive/negative controls and proof ceiling independently, and score by source style. The Defense 1.1.5 independent oracle remains candidate/UNSCORABLE until compatible expectation and actual canonical source output exist.
+
+---
+
 ## P3 bounded source integration — immutable const aliases and local helper parameter forwarding (2026-10-12)
 
 **First wrong source owner:** the canonical ESM resolver had exact parameter pairs but no immutable local alias chains, and `ParsedScriptFile.localFunctionCalls` carried only reachable function regions without actual/formal source identity. A local helper followed by an imported helper therefore lost direct source-parameter continuity. Additionally, shadowed or duplicate function declarations could still be emitted as same-file call edges based on lexical naming.

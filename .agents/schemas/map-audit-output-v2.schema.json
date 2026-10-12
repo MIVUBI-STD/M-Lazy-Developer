@@ -30,6 +30,11 @@
       "type": "string",
       "minLength": 1
     },
+    "artifactFingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Selected archive SHA-256; optional for legacy V2, benchmark freeze requires it."
+    },
     "mapVersion": {
       "type": "string",
       "minLength": 1

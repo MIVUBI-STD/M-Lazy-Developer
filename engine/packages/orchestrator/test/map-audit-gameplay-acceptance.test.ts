@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { packageDirectoryDeterministically } from "../../archive/src/index.js";
 import {
@@ -141,6 +142,12 @@ function expectReconstructionContract(
   expect(discovery.inventoriedFileCount)
     .toBe(result.inspection.fileInventory.length);
   expect(discovery.sourceInventoryBalanced).toBe(true);
+  expect(result.mapAuditReport.artifactFingerprint)
+    .toBe(result.identity.artifactFingerprint);
+  expect(result.mapAuditReport.artifactFingerprint)
+    .toBe(result.inspection.fingerprint);
+  expect(result.mapAuditReport.artifactFingerprint)
+    .toMatch(/^[a-f0-9]{64}$/);
   expect(view).toBeDefined();
 
   const schema = JSON.parse(readFileSync(
@@ -177,6 +184,25 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
     try {
       const result = await runSelectedMapAudit({ artifactPath: fixture.archive });
       expectReconstructionContract(result);
+      // A source report with the wrong selected archive SHA cannot become
+      // frozen benchmark evidence, even when all V2 fields otherwise match.
+      const freezeTemp = await mkdtemp(join(tmpdir(), "map-audit-sha-gate-"));
+      try {
+        const wrongReport = join(freezeTemp, "wrong-report.json");
+        const output = join(freezeTemp, "should-not-exist.json");
+        await writeFile(wrongReport, JSON.stringify({
+          ...result.mapAuditReport,
+          artifactFingerprint: "0".repeat(64),
+        }));
+        const attempt = spawnSync(process.execPath, [
+          ".agents/skills/m-bedrock-detection-benchmark/scripts/freeze-observed-map-audit.mjs",
+          fixture.archive, wrongReport, output,
+        ], { encoding: "utf8" });
+        expect(attempt.status).not.toBe(0);
+        expect(attempt.stderr).toContain("does not match");
+      } finally {
+        await rm(freezeTemp, { recursive: true, force: true });
+      }
       const ir = result.inspection.semanticIrModel;
       const relation = ir.execution.authoredBehaviorRelations?.find(item =>
         item.kind === "dialogue-button-command");

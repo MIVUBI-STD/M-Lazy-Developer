@@ -119,6 +119,10 @@ export interface MapAuditOutputControl {
 export interface MapAuditOutputV2 {
   readonly schemaVersion: 2;
   readonly artifactId: string;
+  /** SHA-256 of selected archive bytes, always projected by current engine.
+   * Optional for legacy V2 data, not an attestation of executable Git commit.
+   */
+  readonly artifactFingerprint?: string;
   readonly mapVersion: string;
   readonly control: MapAuditOutputControl;
   readonly userIntent?: AuditUserIntentEnvelope;
@@ -619,6 +623,7 @@ export function projectMapAuditOutputV2(input: {
   return {
     schemaVersion: 2,
     artifactId: input.identity.artifactId,
+    artifactFingerprint: input.identity.artifactFingerprint,
     control: input.control,
     ...(input.userIntent === undefined
       ? {}

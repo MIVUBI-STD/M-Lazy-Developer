@@ -34,6 +34,12 @@ gameplay-understanding.md    human-readable calibration corpus context and seman
 
 **Current static snapshot on 2026-10-11, GitHub `Local` at `9408782d5130`:** calibration 13 `candidate` / 0 `ready`; acceptance 8 `ready` reduced-source fixtures / 0 confirmed full-map runs; regressions 46 cases, 19 declared `ready` and 27 `candidate`. These are manifest readings, NOT benchmark execution. The Defense v1.1.5 frozen multi-claim static oracle has a pinned SHA but does not match the standard single-disposition expectation schema and has no observed `runSelectedMapAudit()` output: remains `candidate` and NOT SCORABLE. Do not silently rewrite its oracle or promote it to ready.
 
+### Exact full-map audit output identity
+
+The production `runSelectedMapAudit()` already computes the selected `.mcworld` SHA-256. Its current MapAuditOutputV2 now projects this as `artifactFingerprint`; the property is optional in the V2 schema for older reports but is always authored by the current producer. The existing benchmark freeze helper computes SHA-256 from the **supplied archive's actual bytes** and rejects absent, malformed or unequal report fingerprints. Filename, level name, version, a syntactically valid JSON, and historical output are not comparable substitutes.
+
+A frozen receipt proves only that the supplied report declares the same selected artifact byte identity. Its `execution.gitCommit` is the Git checkout when **freezing**, not independent proof of which code built the report. Claiming full-map gameplay accuracy additionally requires genuine canonical engine execution, independently frozen map-scoped expectations, matching edition/version/proof tier, and blind-evaluation integrity where applicable. This change does not make the current Defense multi-claim oracle scoreable, upgrade reduced fixtures, or verify Minecraft runtime.
+
 ## Rules
 
 - Map binaries remain outside Git unless they are explicitly safe, minimized fixtures.

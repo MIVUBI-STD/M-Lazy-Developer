@@ -97,7 +97,7 @@ describe("Map Audit Output V2 projection", () => {
       inspection,
       identity: {
         artifactId: "artifact:1",
-        artifactFingerprint: "sha",
+        artifactFingerprint: "a".repeat(64),
         levelName: "Example",
         releaseVersion: "1.0.0",
         releaseIdentityStatus: "consistent",
@@ -180,6 +180,7 @@ describe("Map Audit Output V2 projection", () => {
     });
 
     expect(report.schemaVersion).toBe(2);
+    expect(report.artifactFingerprint).toBe("a".repeat(64));
     expect(report.bugs.map((item) => item.status))
       .toEqual(["PROVEN", "NEED_VALIDATION"]);
     expect(report.bugs[1]?.missingProof)
