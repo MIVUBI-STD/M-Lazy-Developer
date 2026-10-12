@@ -346,6 +346,25 @@ A correct score/result commit does not prove that victory/defeat presentation is
 
 When the artifact contains an authored result surface (title, form, scoreboard, sound, cinematic, message) that is disconnected from the terminal flow, compare authored capability with actual reachable presentation before classification.
 
+### Source-level reachability closure
+
+State closure must distinguish **state adjacency** from an actual modeled
+entry-to-outcome route. Authored transitions with exact selected-artifact
+evidence may establish source topology; ownership, generic production and
+semantic names (including `finish`, `result` or `cleanup`) cannot
+establish terminal behavior. A unique source-grounded structural entry
+candidate and an explicit authored win/loss outcome are necessary for
+structural closure. Every major state must be reachable from that candidate
+and must retain a route to an outcome. This is **not** a claim that runtime
+guards are satisfiable, the player could enter, or the match actually ended.
+
+The existing Scenario Closure must remain OPEN if authored candidate journeys
+were truncated or contain unresolved source joins, or if the existing
+Discovery Challenger still reports selected-artifact execution/state evidence
+unowned by the composed Intent/Scenario graph. Those unknowns are review
+obligations, not automatically gameplay bugs. This is a stricter closure
+contract using existing owners and production paths, not a new graph/runner.
+
 ## Phase C — Gameplay state model
 
 Build the complete major-state model, including:

@@ -849,6 +849,7 @@ export function analyzeHiddenGameplayDefects(
   const scenarioClosure =
     assessGameplayScenarioClosure(
       scenarioGraph,
+      discoveryChallenges.map(item => item.id),
     );
   const defectResolution =
     assessGameplayDefectResolutionGate(
@@ -1106,6 +1107,7 @@ export function refreshHiddenGameplayDefectsForWorld(
       ? existing.scenarioAudit.closure
       : assessGameplayScenarioClosure(
           scenarioGraph,
+          existing.discoveryChallenges.map(item => item.id),
         );
   const defectResolution =
     intent === undefined

@@ -5,6 +5,7 @@ import type {
 
 export function assessGameplayScenarioClosure(
   graph: GameplayScenarioGraph,
+  unmodeledSourceChallengeIds: readonly string[] = [],
 ): GameplayScenarioClosure {
   const orphanComponentIds = graph.components
     .filter((component) => component.orphan)
@@ -174,7 +175,24 @@ export function assessGameplayScenarioClosure(
     .map((scenario) => scenario.id)
     .sort();
 
+  // Candidate journeys are bounded source hypotheses, not a proven playthrough.
+  // A budget cutoff or unjoined source relation cannot silently become CLOSED.
+  const incompleteJourneyIds = (graph.gameplayJourneyCandidates ?? [])
+    .filter(candidate => candidate.boundary === "DEPTH_LIMIT" ||
+      candidate.boundary === "SOURCE_JOIN_UNPROVEN")
+    .map(candidate => candidate.id).sort();
+  const unresolvedSourceIds = [...new Set(unmodeledSourceChallengeIds)].sort();
+  const journeyTruncated = graph.gameplayJourneyTruncated === true;
   const reasons: string[] = [];
+  if (journeyTruncated) {
+    reasons.push("Source journey exploration hit its path/depth budget; whole-game scenario closure is not established.");
+  }
+  if (incompleteJourneyIds.length > 0) {
+    reasons.push("Source journeys have unproven cross-source joins or depth boundaries: " + incompleteJourneyIds.join(", "));
+  }
+  if (unresolvedSourceIds.length > 0) {
+    reasons.push("Material selected-artifact execution/state evidence remains unmodeled by Intent and Scenario: " + unresolvedSourceIds.join(", "));
+  }
   if (causalLinksOutsideScenarioBindings.length > 0) reasons.push("Causal links reference components or link IDs outside their owning scenario: " + causalLinksOutsideScenarioBindings.join(", "));
 
   if (invalidScenarioBindings.length) reasons.push("Missing scenario bindings: " + invalidScenarioBindings.join(", "));
@@ -251,6 +269,9 @@ export function assessGameplayScenarioClosure(
 
   const status =
     graph.scenarios.length === 0 ||
+    journeyTruncated ||
+    incompleteJourneyIds.length > 0 ||
+    unresolvedSourceIds.length > 0 ||
     invalidScenarioBindings.length > 0 ||
     invalidCausalLinks.length > 0 ||
     causalLinksOutsideScenarioBindings.length > 0 ||

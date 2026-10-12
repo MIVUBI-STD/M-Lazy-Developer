@@ -42,6 +42,7 @@ import { refreshHiddenGameplayDefectsForWorld } from "./hidden-gameplay-defect-a
 import { deriveInspectionEngineeringAnalyses } from "./engineering-analysis-stage.js";
 import { assessGameplayDiscoveryClosure } from "./gameplay-discovery-closure.js";
 import { challengeGameplayDiscovery } from "./gameplay-discovery-challenger.js";
+import { assessGameplayScenarioClosure } from "./gameplay-scenario-closure.js";
 import { deriveGameplayAnalysisPriorities } from "./gameplay-analysis-priority.js";
 import { collectArtifactReleaseObservations } from "../release/release-identity-evidence.js";
 import { analyzeReleaseIdentity } from "../release/release-identity-analysis.js";
@@ -969,6 +970,13 @@ export async function inspectArtifact(
       });
     const finalHiddenGameplayDefects = {
       ...refreshedHiddenGameplayDefects,
+      scenarioAudit: {
+        ...refreshedHiddenGameplayDefects.scenarioAudit,
+        closure: assessGameplayScenarioClosure(
+          refreshedHiddenGameplayDefects.scenarioAudit.graph,
+          discoveryChallenges.map(item => item.id),
+        ),
+      },
       discoveryChallenges,
       attention: {
         ...refreshedHiddenGameplayDefects.attention,
