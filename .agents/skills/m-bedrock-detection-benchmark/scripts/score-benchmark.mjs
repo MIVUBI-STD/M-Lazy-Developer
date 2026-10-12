@@ -77,23 +77,57 @@ function adjudicateFullMapClaims(result) {
   if (byClaim.size !== claims.length || review.decisions.length !== claims.length) {
     throw new Error("Full-map claim denominator is incomplete or frozen claim IDs are duplicated.");
   }
-  // Ground affirmative observations in evidence IDs actually exported by
-  // the canonical V2 report, rather than free-text reviewer assertions.
-  const exposedIds = new Set();
-  const collect = (value, key = "", depth = 0) => {
-    if (depth > 64 || value == null) return;
-    if (Array.isArray(value)) {
-      if (/^(?:evidenceIds|sourceEvidenceIds|supportingEvidenceIds|stateOperationIds|worldEffectIds|executionEdgeIds|sourceStepIds)$/.test(key)) {
-        for (const id of value) if (typeof id === "string") exposedIds.add(id);
+  // Global ID presence does not establish a claim's semantic/source owner.
+  // Only canonical SourceFlow steps that carry exact selected-map SourceRefs
+  // are eligible. Other evidence remains usable for operator review, but
+  // cannot silently produce true-positive or true-negative benchmark counts.
+  const sourceStepsById = new Map();
+  for (const flow of observed.gameplayStructure?.sourceFlowCandidates ?? []) {
+    for (const step of flow.sourceSteps ?? []) {
+      if (typeof step.id !== "string" || !step.id.trim() ||
+          step.source?.artifactId !== observed.artifactId ||
+          typeof step.source.relativePath !== "string" ||
+          !Number.isInteger(step.source.range?.lineStart) ||
+          !Number.isInteger(step.source.range?.lineEnd)) continue;
+      const candidates = sourceStepsById.get(step.id) ?? [];
+      // One source step may be reused by several valid entry flows. Merge
+      // identical source sites but reject a reused ID with different owners.
+      const key = (source) => JSON.stringify([
+        source.artifactId, source.relativePath, source.jsonPointer ?? null,
+        source.range.lineStart, source.range.columnStart ?? null,
+        source.range.lineEnd, source.range.columnEnd ?? null,
+      ]);
+      if (!candidates.some(source => key(source) === key(step.source))) {
+        candidates.push(step.source);
       }
-      for (const item of value) collect(item, "", depth + 1);
-      return;
+      sourceStepsById.set(step.id, candidates);
     }
-    if (typeof value === "object") {
-      for (const [child, item] of Object.entries(value)) collect(item, child, depth + 1);
-    }
+  }
+
+  // Generic independent oracle locators use <selected-relative-path>:<line>
+  // or <selected-relative-path>:<first>-<last>, inclusive. An unsupported
+  // locator never authorizes a benchmark TP/TN by fuzzy filename matching.
+  const parseLocator = (ref) => {
+    if (typeof ref !== "string") return undefined;
+    const matched = ref.replaceAll("\\", "/").match(/^(.+):(\d+)(?:-(\d+))?$/);
+    if (!matched || matched[1].startsWith("/") ||
+        matched[1].split("/").includes("..")) return undefined;
+    const start = Number(matched[2]);
+    const end = matched[3] === undefined ? start : Number(matched[3]);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) ||
+        start < 1 || end < start) return undefined;
+    return { path: matched[1], start, end };
   };
-  collect(observed);
+  const evidenceOwnedByClaim = (id, claim) => {
+    const steps = sourceStepsById.get(id) ?? [];
+    const locators = claim.sourceRefs.map(parseLocator).filter(Boolean);
+    if (locators.length === 0 || steps.length !== 1) return false;
+    const source = steps[0];
+    return locators.some(locator =>
+      source.relativePath.replaceAll("\\", "/") === locator.path &&
+      source.range.lineStart <= locator.end &&
+      source.range.lineEnd >= locator.start);
+  };
   const counts = { tp: 0, tn: 0, fp: 0, fn: 0, unknown: 0 };
   let correctUnknown = 0;
   let insufficient = 0;
@@ -107,11 +141,18 @@ function adjudicateFullMapClaims(result) {
       throw new Error("Full-map adjudication lacks one unique frozen claim, observed class, reason or evidence array.");
     }
     reviewed.add(decision.claimId);
-    if (decision.observedClass === "supported" &&
+    // Reviewers can still interpret semantics, but no decided claim may
+    // borrow an unrelated report ID. Negative claims also require scoped
+    // counter-evidence; an unsupported "rejected" label is not a TN.
+    if (decision.observedClass !== "unknown" &&
         (decision.observedEvidenceIds.length === 0 ||
          decision.observedEvidenceIds.some(id =>
-           typeof id !== "string" || !exposedIds.has(id)))) {
-      throw new Error("A supported full-map observation must cite evidence IDs present in the frozen canonical report.");
+           typeof id !== "string" || !evidenceOwnedByClaim(id, claim)))) {
+      throw new Error(
+        "A decided full-map claim requires exactly owned source-step IDs " +
+        "matching the frozen claim sourceRefs. An unrelated ID or an " +
+        "unsupported negative label is not a proven TP/TN.",
+      );
     }
     if (claim.expectedClass === "supported") {
       if (decision.observedClass === "supported") counts.tp += 1;
@@ -158,6 +199,8 @@ function adjudicateFullMapClaims(result) {
         ? "REVIEWER_DECLARED_NOT_INDEPENDENTLY_ATTESTED"
         : "NOT_BLIND_CALIBRATION_OR_REGRESSION",
       auditCommit: "NOT_INDEPENDENTLY_ATTESTED_BY_FREEZE_GIT_COMMIT",
+      sourceGrounding: "CLAIM_LOCATOR_AND_SOURCE_STEP_MATCH_REVIEWER_SEMANTICS_NOT_AUTOMATED",
+      trueNegativePolicy: "REQUIRES_SOURCE_GROUNDED_COUNTEREVIDENCE",
     },
   };
 }

@@ -1,3 +1,17 @@
+## P5 claim-specific source binding and false-score hardening (2026-10-12)
+
+**Executed bounded reproduction in ChatGPT sandbox:** Node 22.16.0 executed a standalone reconstruction of the existing GitHub scorer logic against synthetic frozen source-claim data. Before correction, a reviewer-labeled true positive citing an unrelated *existing* report evidence ID and a true negative with **no source counter-evidence** both passed and yielded synthetic precision/recall 1.00. This exposed a genuine admission weakness: evidence ID existence alone was not evidence *for that claim*.
+
+**One canonical correction:** inside existing `score-benchmark.mjs`, a decided `supported` or `rejected` full-map claim must cite a unique, selected-artifact source step whose actual `source.relativePath` and inclusive line range overlap an independently frozen claim `sourceRefs` locator (path:line or path:first-last). A step reused by several valid source flows is deduplicated by complete SourceRef; colliding IDs with different source owners fail closed. Unmatched source locators, missing counterevidence, unrelated source steps, foreign map evidence and duplicate source IDs cannot generate TP/TN. The existing benchmark-result schema conditionally requires nonempty observed evidence arrays for decided claims. Existing actual aggregate arithmetic and README/oracle separation remain unchanged.
+
+**Executed bounded result / exact limits:** reproduced baseline synthetic claim set remained admitted after correction; wrong SHA, unknown Minecraft target, fabricated aggregate counts, unrelated existing evidence ID, unsupported negative decision, contradictory reused evidence ID and historical artifact step were rejected. Repeated identical source-step ID from an additional legitimate entry flow was admitted. This is a manual scoped smoke of scorer logic with a ChatGPT sandbox Node 22 runtime, **not verified execution of GitHub exact-head Node tests or of the complete Node 24 repo**. The project's existing scorer Node-test suite was augmented with source-aligned positive and negative fixtures and rejection cases but not executed in repository context. No `.mcworld` canonical pipeline, current-commit gameplay precision/recall, or Minecraft runtime was executed.
+
+**Interpretation limit:** source-step locality is a necessary receipt for reviewer-adjudicated claims, not automated semantic understanding. Native geometry/NBT/objective claims without matching canonical source-step receipts remain UNSCORABLE; do not substitute a fabricated script path. Keep frozen Defense v1.1.5 oracle unchanged, calibration case candidate, and future independent real-map evaluation separate from historical reports.
+
+**Next:** obtain an executable canonical selected-map output and independent source-style claim expectations; never publish 100% full-map gameplay quality from reviewer-entered classes or source-ID matching alone.
+
+---
+
 ## P5 claim-level full-map source-evaluation admissibility (2026-10-12)
 
 **Observed failure mode:** the generic `score-benchmark.mjs` accepted manually supplied TP/TN/FP/FN/UNKNOWN totals without any original full-map observation, independent frozen expected claims, SHA-256 equality or full-map target edition/version. A fabricated count could be displayed as precision/recall and a multi-claim Defense oracle could not be checked by the existing single-disposition expectation contract.

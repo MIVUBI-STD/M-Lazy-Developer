@@ -120,7 +120,15 @@ an exact SHA-matched frozen `MapAuditOutputV2`, matching configured Minecraft
 edition/version, an independently approved frozen expectation with explicit
 positive, negative and allowed-UNKNOWN source claims, and reviewer decisions
 covering **every claim ID**. It recomputes confusion counts and refuses totals
-without their source review. Missing runtime proof stays missing; a frozen
+without their source review. Decided `supported` **and** `rejected` claims
+must cite source-step IDs from the canonical selected-artifact report matching
+the claim's independently frozen exact file/line source locators. Global
+evidence-ID presence, unrelated statements and a reviewer-only negative
+classification are insufficient to produce TP/TN. Identical source-step
+evidence may appear in multiple flow entry candidates; genuinely conflicting
+same IDs fail closed. This is a source-location gate, **not automatic semantic
+judgment**. Non-script-source claims without a directly projected step remain
+UNSCORABLE at this narrow benchmark tier. Missing runtime proof stays missing; a frozen
 report's Git SHA identifies the freezer checkout, not verified audit execution.
 A manually declared blind flag is **not** independent blind verification.
 Historical metrics-only results are now explicitly labeled

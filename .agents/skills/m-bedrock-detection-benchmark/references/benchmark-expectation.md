@@ -93,8 +93,25 @@ Full-map source-review scoring uses the **existing**
 `fullMapReview.frozenObservationFile`, independently declared reviewer and
 review timestamp, and exactly one reviewed decision per frozen claim.
 Decisions use `observedClass` from the same three classes plus a reason
-and `observedEvidenceIds`. Positive observations must cite actual evidence
-IDs in the frozen canonical MapAuditOutputV2. Aggregate TP/TN/FP/FN/unknown
+and `observedEvidenceIds`. Decided positive AND negative observations must cite canonical
+`gameplayStructure.sourceFlowCandidates[].sourceSteps[].id` whose **selected
+artifact SourceRef file and inclusive line span** intersects that particular
+frozen claim's `sourceRefs`; merely having an evidence ID anywhere in the
+report is not enough. Oracle sourceRef syntax is `relative/path:line` or
+`relative/path:start-end`. Duplicate source-step IDs are acceptable only
+when they resolve to the exact same source owner and span across multiple
+entry flows. Conflicting owners, forged lines, unsupported file-only source
+locators, and free-text negative decisions without a matching counter-evidence
+source step are UNSCORABLE rather than true positives/true negatives.
+
+This **source-site correlation is necessary but not sufficient** for semantic
+correctness: a reviewer must still explain how that authored operation proves
+the particular claim. The scorer verifies the receipt's source identity and
+recomputes counts, not the meaning of Minecraft gameplay automatically.
+Claims based on NBT, entity JSON or whole-map absence that have no matching
+canonical source-step representation remain UNKNOWN / not source-step scoreable
+at the current P5 proof ceiling; do not invent a script locator or modify
+the approved oracle to manufacture an eligible decision. Aggregate TP/TN/FP/FN/unknown
 must equal the per-claim adjudications; entered counts never authorize scores.
 
 The scorer rejects missing/mismatched archive SHA-256; malformed or unfrozen

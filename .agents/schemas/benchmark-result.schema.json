@@ -44,6 +44,19 @@
                 "items": { "type": "string", "minLength": 1 }
               }
             },
+            "allOf": [{
+              "if": {
+                "properties": {
+                  "observedClass": { "enum": ["supported", "rejected"] }
+                },
+                "required": ["observedClass"]
+              },
+              "then": {
+                "properties": {
+                  "observedEvidenceIds": { "minItems": 1 }
+                }
+              }
+            }],
             "additionalProperties": false
           }
         }

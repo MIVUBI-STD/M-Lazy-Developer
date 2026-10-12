@@ -57,8 +57,32 @@ function fixture() {
         selectedArtifact: "Source-scoped map", archiveSourcesUsed: false },
       gameplayFlowBasis: "AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY",
       control: { status: "BLOCKED" },
-      gameplayStructure: { features: [{ id: "feature:one",
-        sourceEvidenceIds: ["src:verified-state"] }] },
+      gameplayStructure: {
+        features: [{ id: "feature:one",
+          sourceEvidenceIds: ["src:verified-state"] }],
+        sourceFlowCandidates: [{
+          sourceSteps: [
+            { id: "src:verified-state", kind: "state",
+              executionRegionId: "function:join",
+              source: { artifactId: "selected:map",
+                relativePath: "scripts/main.js",
+                range: { lineStart: 12, lineEnd: 12,
+                  columnStart: 1, columnEnd: 24 } } },
+            { id: "src:negative-control", kind: "state",
+              executionRegionId: "function:join",
+              source: { artifactId: "selected:map",
+                relativePath: "scripts/main.js",
+                range: { lineStart: 21, lineEnd: 21,
+                  columnStart: 1, columnEnd: 24 } } },
+            { id: "src:unrelated", kind: "state",
+              executionRegionId: "function:other",
+              source: { artifactId: "selected:map",
+                relativePath: "scripts/other.js",
+                range: { lineStart: 88, lineEnd: 88,
+                  columnStart: 1, columnEnd: 25 } } },
+          ],
+        }],
+      },
       bugs: [], designMismatches: [],
     },
   };
@@ -77,7 +101,7 @@ function fixture() {
           observedEvidenceIds: ["src:verified-state"] },
         { claimId: "negative", observedClass: "rejected",
           reason: "Selected source contradicts the claimed false scope relation.",
-          observedEvidenceIds: [] },
+          observedEvidenceIds: ["src:negative-control"] },
         { claimId: "unresolved", observedClass: "unknown",
           reason: "Configured source does not establish real client concurrency.",
           observedEvidenceIds: [] },
@@ -110,6 +134,8 @@ test("source-grounded full-map review scores all frozen positive/negative/unknow
     assert.equal(scored.metrics.fn, 0);
     assert.equal(scored.metrics.unknown, 1);
     assert.equal(scored.fullMapProof.correctUnknown, 1);
+    assert.equal(scored.fullMapProof.sourceGrounding,
+      "CLAIM_LOCATOR_AND_SOURCE_STEP_MATCH_REVIEWER_SEMANTICS_NOT_AUTOMATED");
     assert.equal(scored.fullMapProof.scope,
       "FULL_MAP_SOURCE_REVIEW_NOT_RUNTIME_PROOF");
     assert.equal(scored.fullMapProof.auditCommit,
@@ -145,6 +171,23 @@ test("full-map review refuses raw scores, wrong SHA, target, claim count and for
     ["unresolved evidence ID", f => {
       f.result.fullMapReview.decisions[0].observedEvidenceIds = ["src:invented"];
     }],
+    ["unrelated existing source evidence", f => {
+      f.result.fullMapReview.decisions[0].observedEvidenceIds = ["src:unrelated"];
+    }],
+    ["negative decision without source counter-evidence", f => {
+      f.result.fullMapReview.decisions[1].observedEvidenceIds = [];
+    }],
+    ["negative decision borrowing the positive claim source", f => {
+      f.result.fullMapReview.decisions[1].observedEvidenceIds = ["src:verified-state"];
+    }],
+    ["current-artifact mismatch in source step", f => {
+      f.frozen.observed.gameplayStructure.sourceFlowCandidates[0]
+        .sourceSteps[0].source.artifactId = "historical:map";
+    }],
+    ["duplicate evidence ID with conflicting source sites", f => {
+      f.frozen.observed.gameplayStructure.sourceFlowCandidates[0]
+        .sourceSteps[2].id = "src:verified-state";
+    }],
     ["fabricated aggregate counts", f => { f.result.metrics.tp = 2; }],
     ["mismatched pass classification", f => {
       f.result.fullMapReview.decisions[1].observedClass = "supported";
@@ -160,6 +203,20 @@ test("full-map review refuses raw scores, wrong SHA, target, claim count and for
       assert.notEqual(done.status, 0, label);
     } finally { f.cleanup(); }
   }
+});
+
+test("repeat of the SAME source step across entry flows does not become an ambiguity", () => {
+  const f = fixture();
+  try {
+    const original = f.frozen.observed.gameplayStructure.sourceFlowCandidates[0]
+      .sourceSteps[0];
+    f.frozen.observed.gameplayStructure.sourceFlowCandidates.push({
+      sourceSteps: [{ ...original, source: { ...original.source } }],
+    });
+    const done = f.run();
+    assert.equal(done.status, 0, done.stderr);
+    assert.equal(JSON.parse(done.stdout).metrics.tp, 1);
+  } finally { f.cleanup(); }
 });
 
 test("blind acceptance cannot be inferred from source receipt or reviewer presence", () => {
