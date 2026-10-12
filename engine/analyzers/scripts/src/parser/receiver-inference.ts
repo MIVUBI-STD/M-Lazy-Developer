@@ -219,6 +219,12 @@ function propertyType(
   property: string,
 ): ReceiverValueType | undefined {
   if (receiver === "World" && property === "scoreboard") return "Scoreboard";
+  // Official Bedrock Script API: Block.dimension and inherited
+  // Entity/Player.dimension expose a Dimension. This follows an already
+  // known receiver; never infer a Block/Entity from arbitrary '.dimension'.
+  if (property === "dimension" &&
+      (receiver === "Block" || receiver === "Entity" ||
+       receiver === "Player")) return "Dimension";
   if (receiver === "Block" && property === "permutation") return "BlockPermutation";
   if (receiver === "Player" && property === "inputPermissions") {
     return "PlayerInputPermissions";

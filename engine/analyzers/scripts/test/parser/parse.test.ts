@@ -385,6 +385,28 @@ objective?.getScore("#arena1");
     ]));
   });
 
+  it("retains Dimension receiver identity through Block and Entity dimension properties", () => {
+    const parsed = parseScriptFile("scripts/main", [
+      'import { world } from "@minecraft/server";',
+      'const dimension = world.getDimension("overworld");',
+      'const block = dimension.getBlock({x:0,y:64,z:0});',
+      'block?.dimension.playSound("block.click", {x:0,y:64,z:0});',
+      'for (const entity of dimension.getEntities()) {',
+      '  entity.dimension.playSound("entity.call", entity.location);',
+      '}',
+      'for (const player of world.getAllPlayers()) {',
+      '  player.dimension.playSound("player.step", player.location);',
+      '}',
+      'const unrelated = unknownFactory();',
+      'unrelated.dimension.playSound("untrusted", {x:0,y:0,z:0});',
+    ].join("\n"), source);
+    const sounds = parsed.methodCalls.filter(call => call.method === "playSound");
+    expect(sounds).toHaveLength(3);
+    expect(sounds.every(call =>
+      call.receiverType === "Dimension" && call.inference === "bounded"
+    )).toBe(true);
+  });
+
   it("propagates a bounded Player return from a local helper built on getAllPlayers().find", () => {
     const parsed = parseScriptFile(
       "scripts/main",

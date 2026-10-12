@@ -245,6 +245,27 @@ Minecraft player audio observation. The developer sound pattern remains a
 question/counterexample to test after typed IR extraction, never a win/loss
 rule or developer-style mandate.
 
+## Reference intake after typed receiver improvements
+
+Reference-selection coverage should be measured against the canonical
+`ScriptMethodCall` and selected-artifact Semantic IR source IDs,
+not the raw count of functions named `playSound`. The
+[13-site receiver boundary](../../engine/reliability/history/audit-runs/learning/typed-audio-receiver-boundary-2026-10-13.json)
+is a HISTORICAL, independently inspected AST source census: it
+contains **5 Player-shaped, 2 Dimension-shaped and 6 unresolved**
+audio call sites across four source styles. Those classifications
+remain candidate source interpretations until the actual repository
+parser is executed. Unresolved class/service/method aliases must
+abstain even when a developer reference makes them seem familiar.
+
+The canonical Script API owner also recognizes the documented
+`Block.dimension` and `Entity/Player.dimension` property
+**only when the object's existing receiver type is already known**.
+This supports tracing a source `Dimension.playSound` without
+assuming that arbitrary `.dimension` properties represent
+Minecraft API objects. A developer audio hint still cannot prove a
+game terminal, delivered sound, intended player experience, or defect.
+
 ## Maturity and promotion
 
 The JSON records start at `SOURCE_REVIEWED`: the source claim was inspected,

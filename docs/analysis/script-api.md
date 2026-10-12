@@ -75,6 +75,38 @@ JavaScript source can confirm an authored handoff but cannot prove
 `world.afterEvents.playerSpawn` fired, the helper ran, or a player
 heard a sound.
 
+## Dimension receiver identity from typed Minecraft objects
+
+The existing TypeScript AST receiver inference now also carries a
+`Dimension` receiver through the **documented** read-only `.dimension`
+property of an already recognized Minecraft `Block`, `Entity` or
+`Player`. These exact properties are documented in the stable
+`@minecraft/server` API:
+- [Block.dimension](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/block?view=minecraft-bedrock-stable)
+- [Entity.dimension](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server/entity?view=minecraft-bedrock-stable)
+  (`Player` inherits from Entity).
+
+This is a bounded source type transition, not an inference that a raw
+identifier or generic `x.dimension` expression represents a Minecraft
+object. The original receiver must already be recognized by existing
+source facts. Unknown event inputs, untyped service return values,
+shadowed world imports and bundled class method aliases stay UNKNOWN.
+
+For typed `Dimension.playSound`, the existing Semantic IR may emit an
+`audio-feedback` **attempt** with source identity; this does not prove
+runtime delivery, receiver lifecycle validity, a gameplay outcome or
+audible feedback. Other `playSound` calls without provenance remain
+unsupported.
+
+**Source-only calibration (not a parser execution receipt):**
+[Typed audio receiver boundary](../../engine/reliability/history/audit-runs/learning/typed-audio-receiver-boundary-2026-10-13.json)
+describes 13 independently inspected `playSound` sites in four
+contrasting world archives. Five have an apparent Player source path,
+two have Dimension source paths and six remain unresolved. This is NOT
+a scored outcome of `inferScriptMethodCalls` or
+`runSelectedMapAudit()`. The listed archive names are evaluation
+metadata only, never inference rules.
+
 ## Dynamic properties
 
 Dynamic-property use is tracked by operation and literal property ID when available. Computed IDs remain present as an access with unknown ID.
