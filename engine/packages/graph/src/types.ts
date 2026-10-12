@@ -38,6 +38,10 @@ export interface SemanticEdge {
   status: ReferenceStatus;
   to?: string;
   candidates?: readonly string[];
+  /** An authored import() request, not evidence that its module executed.
+   * Undefined retains the existing static ESM import semantics.
+   */
+  importSyntax?: "dynamic-literal" | "dynamic-expression";
   evidence: {
     source: SourceRef;
   };

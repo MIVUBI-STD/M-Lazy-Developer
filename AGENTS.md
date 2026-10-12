@@ -30,6 +30,8 @@ Never claim proof above the available context.
 
 REMOTE_GITHUB is the normal ChatGPT execution mode and may complete repository/source work without a local checkout.
 
+**Reality check:** this project is a ChatGPT-operated Minecraft checker backed by a GitHub code/knowledge repository, **not** an existing executable app. Never tell the user that an app was built, a UI was run, or a localtest is needed without independent proof of that actual artifact and execution. A TypeScript/Node package declaration is repository metadata, not a dependency of ChatGPT source inspection. Use tools genuinely present in the ChatGPT session and distinguish read-only source evidence, authored source changes, optional executed scripts and Minecraft live gameplay explicitly.
+
 For ChatGPT-owned M-Lazy-Developer work, `Local` is a **GitHub development branch**, not the user's PC. This workspace is **ChatGPT + GitHub only (no external cloud services, no local PC)**: never ask the user for local-PC access, local data, a checkout, toolchain installation, or commands as a development or verification handoff. ChatGPT's available tools are the execution surface; GitHub `Local` is the only repository and continuity authority. Do not propose, provision, require, or wait for a cloud runner, hosted app, external compute service, deployment, or local PC. If executable evidence cannot actually be obtained with current ChatGPT/GitHub tools, mark only that claim `UNKNOWN / NOT EXECUTED`; complete all independent source-verifiable work directly.
 
 Complete every source/static claim that can be decided from the exact GitHub ref. Do not make `npm run check`, local Node/npm availability, a local checkout, or `DEV.cmd` a completion prerequisite.

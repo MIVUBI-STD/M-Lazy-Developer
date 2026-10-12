@@ -1089,4 +1089,127 @@ const arenas = joins.map((entry, index) => {
       },
     ]);
   });
+  it("records source-owned dynamic literal and expression imports without claiming execution", () => {
+    const primary = {
+      artifactId: "selected-dynamic-world",
+      relativePath: "behavior_packs/demo/scripts/main.ts",
+    };
+    const main = parseScriptFile("main", [
+      "async function bootstrap(config) {",
+      "  await import('./chunks/arena.js');",
+      "  await import(\`./chunks/static.js\`);",
+      "  return import(config.chunkName);",
+      "}",
+    ].join("\n"), primary);
+    const arena = parseScriptFile("arena", "export const value = 1;", {
+      artifactId: primary.artifactId,
+      relativePath: "behavior_packs/demo/scripts/chunks/arena.js",
+    });
+    const staticChunk = parseScriptFile("static", "export const value = 2;", {
+      artifactId: primary.artifactId,
+      relativePath: "behavior_packs/demo/scripts/chunks/static.js",
+    });
+    expect(main.imports).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        module: "./chunks/arena.js",
+        kind: "relative",
+        importSyntax: "dynamic-literal",
+        executionRegion: "function:bootstrap",
+        source: expect.objectContaining({
+          relativePath: primary.relativePath,
+          range: expect.objectContaining({ lineStart: 2 }),
+        }),
+      }),
+      expect.objectContaining({
+        module: "./chunks/static.js",
+        importSyntax: "dynamic-literal",
+        executionRegion: "function:bootstrap",
+      }),
+      expect.objectContaining({
+        module: "config.chunkName",
+        kind: "unresolved",
+        importSyntax: "dynamic-expression",
+      }),
+    ]));
+    const imports = resolveScriptImports([main, arena, staticChunk]);
+    expect(imports).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        module: "./chunks/arena.js", status: "resolved",
+        targetIdentifier: "arena", importSyntax: "dynamic-literal",
+        executionRegion: "function:bootstrap",
+      }),
+      expect.objectContaining({
+        module: "./chunks/static.js", status: "resolved",
+        targetIdentifier: "static", importSyntax: "dynamic-literal",
+      }),
+      expect.objectContaining({
+        module: "config.chunkName", status: "unresolved",
+        importSyntax: "dynamic-expression",
+      }),
+    ]));
+    expect(imports.find(item => item.module === "config.chunkName")
+      ?.targetSourcePath).toBeUndefined();
+  });
+
+  it("resolves a bundled .js dynamic specifier to one .ts source only when uniquely owned", () => {
+    const source = {
+      artifactId: "selected-map",
+      relativePath: "behavior_packs/a/scripts/main.ts",
+    };
+    const main = parseScriptFile("main",
+      "async function boot() { await import('./chunks/feature.js'); }",
+      source);
+    const tsTarget = parseScriptFile("typescript-chunk",
+      "export const feature = true;", {
+        artifactId: source.artifactId,
+        relativePath: "behavior_packs/a/scripts/chunks/feature.ts",
+      });
+    const lookup = resolveScriptImports([main, tsTarget]);
+    expect(lookup[0]).toMatchObject({
+      status: "resolved", targetIdentifier: "typescript-chunk",
+      importSyntax: "dynamic-literal",
+    });
+
+    const another = parseScriptFile("other", "export const feature = 2;", {
+      artifactId: source.artifactId,
+      relativePath: "behavior_packs/a/scripts/chunks/feature.jsx",
+    });
+    expect(resolveScriptImports([main, tsTarget, another])[0])
+      .toMatchObject({ status: "unresolved" });
+  });
+
+  it("does not join dynamic imports across packs, artifacts or duplicate source owners", () => {
+    const source = {
+      artifactId: "artifact-current",
+      relativePath: "behavior_packs/a/scripts/main.js",
+    };
+    const main = parseScriptFile("main", [
+      "import('./chunks/feature.js');",
+      "import('../../b/scripts/foreign.js');",
+    ].join("\n"), source);
+    const foreignArtifact = parseScriptFile("old-feature",
+      "export const old = 1;", {
+        artifactId: "artifact-previous",
+        relativePath: "behavior_packs/a/scripts/chunks/feature.js",
+      });
+    const crossPack = parseScriptFile("cross-pack",
+      "export const x = 1;", {
+        artifactId: source.artifactId,
+        relativePath: "behavior_packs/b/scripts/foreign.js",
+      });
+    expect(resolveScriptImports([main, foreignArtifact, crossPack])
+      .every(item => item.status === "unresolved")).toBe(true);
+
+    const current = parseScriptFile("current-feature", "export const x=1;", {
+      artifactId: source.artifactId,
+      relativePath: "behavior_packs/a/scripts/chunks/feature.js",
+    });
+    const duplicate = parseScriptFile("duplicate-feature", "export const x=2;", {
+      artifactId: source.artifactId,
+      relativePath: "behavior_packs/a/scripts/chunks/feature.js",
+    });
+    expect(resolveScriptImports([main, current, duplicate])[0])
+      .toMatchObject({ status: "unresolved" });
+  });
+
 });

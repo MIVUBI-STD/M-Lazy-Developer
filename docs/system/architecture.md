@@ -11,6 +11,12 @@ lifecycle: ACTIVE
 
 Lazy-Developer uses semantic ownership and one-way dependency direction.
 
+## Actual delivery: ChatGPT-native checking, GitHub-owned knowledge/source
+
+**There is currently no built, shipped, installed, or running M-Lazy-Developer application.** The user's working system is ChatGPT itself: it can inspect a selected Minecraft artifact using actually available ChatGPT tools; the `Local` GitHub branch maintains source, semantic contracts, evidence provenance, knowledge and reusable analysis logic. A TypeScript module, CLI source file, tests, UI folder or Node version configuration is not proof that any application was executed or deployed. No local-PC/Node24/VM/CI/app run may be demanded as a prerequisite for completing source-only ChatGPT checking.
+
+The source modules below document one canonical **intended** reasoning architecture. Their actual behavior at any commit can be called executed only if that exact source code was genuinely invoked and observed; ChatGPT's independent archive/script/NBT analysis is useful and valid but **must not be described as `runSelectedMapAudit()` or a completed app run**. Record the exact source, reasoning, confidence and missing proof for each fact, while leaving Minecraft gameplay and execution-dependent claims UNKNOWN unless independently observed. This note corrects product-language drift; it neither rewrites past commits nor removes valid reusable source models.
+
 ## Semantic reasoning path
 
 ```text
@@ -40,6 +46,12 @@ repair + preservation verification
         ↓
 orchestrator
 ```
+
+### Literal JavaScript `import()` requests versus executable gameplay
+
+The canonical source parser `engine/analyzers/scripts/src/parser/parse.ts` now records literal `import("./chunk.js")` requests in the **existing `ScriptImport` inventory** with `importSyntax=dynamic-literal`, owning SourceRef and execution region. Nonliteral `import(variable)` becomes `dynamic-expression`, `unresolved`, and can never be assigned a fabricated file path. The original `resolveScriptImports()` checks same-artifact and same-pack source ownership and uniqueness; `populateInspectionScriptImportGraph()` projects the dependency through the **existing semantic graph**, preserving `importSyntax` and the actual import call site.
+
+These are **module-lookup/dependency edges**, not Semantic IR execution edges. A `resolved` target means the selected source file is present; it does not establish the importing function ran, its branch condition was satisfied, the JavaScript engine loaded the module, any exported code ran, or any Minecraft gameplay happened. Dynamic imports must not be fed into cross-file ESM function-call ownership by spelling alone. Compiler-produced `.js` specifiers may match a unique corresponding `.ts` source; ambiguous competing targets, foreign artifacts, cross-pack traversal and computed expressions stay unresolved. No special rules or map identifiers are used.
 
 ## Game-centric Discovery production spine
 

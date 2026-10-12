@@ -135,7 +135,8 @@ export async function inspectDirectory(
   // Monolithic bundles without relative imports have no cross-file
   // executable call candidates; avoid parsing their scripts twice.
   const crossFileCallEdges = parsedScripts.some(({ parsed }) =>
-    parsed.imports.some(item => item.kind === "relative"))
+    parsed.imports.some(item =>
+      item.kind === "relative" && item.importSyntax === undefined))
     ? deriveCrossFileCallEdges(
         parsedScripts.flatMap(({ parsed, text }) => text === undefined ? [] : [{
           path: parsed.source.relativePath,

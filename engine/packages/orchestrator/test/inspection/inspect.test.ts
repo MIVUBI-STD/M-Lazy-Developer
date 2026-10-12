@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { inspectDirectory } from "../../src/inspection/inspect.js";
+import { parseScriptFile } from "../../../../analyzers/scripts/src/parser/parse.js";
+import { SemanticGraph } from "../../../graph/src/index.js";
+import type { SemanticNode } from "../../../graph/src/index.js";
+import { populateInspectionScriptImportGraph } from "../../src/inspection/inspect-script-import-graph.js";
 import { discoverInspectionPacks } from "../../src/inspection/inspect-packs.js";
 import { buildFilesystemInventory } from "../../../project-model/src/index.js";
 
@@ -153,6 +157,63 @@ describe("inspectDirectory", () => {
       const unknown = await discoverInspectionPacks(root, "artifact", entries);
       expect(unknown.packs.every(pack => pack.worldAttachment === "unknown")).toBe(true);
     } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it("keeps literal import() as a resolved source dependency, not a proven execution", () => {
+    const source = {
+      artifactId: "selected",
+      relativePath: "behavior_packs/demo/scripts/main.js",
+    };
+    const targetSource = {
+      artifactId: "selected",
+      relativePath: "behavior_packs/demo/scripts/chunks/arena.js",
+    };
+    const entry = parseScriptFile("entry", [
+      "import './chunks/arena.js';",
+      "async function start(name) {",
+      "  await import('./chunks/arena.js');",
+      "  await import(name);",
+      "}",
+    ].join("\n"), source);
+    const arena = parseScriptFile("arena", "export const value = 1;", targetSource);
+    const graph = new SemanticGraph();
+    const node = (id: string, s: typeof source): SemanticNode =>
+      ({
+        id,
+        identifier: id,
+        kind: "script",
+        identity: { kind: "script", scope: "project", identifier: id },
+        source: s,
+      }) as SemanticNode;
+    const a = node("script:entry", source);
+    const b = node("script:arena", targetSource);
+    graph.addNode(a);
+    graph.addNode(b);
+    populateInspectionScriptImportGraph(graph, [
+      { node: a, parsed: entry }, { node: b, parsed: arena },
+    ]);
+    const staticEdge = graph.allEdges().find(edge =>
+      edge.type === "IMPORTS_SCRIPT" && edge.importSyntax === undefined);
+    const literal = graph.allEdges().find(edge =>
+      edge.type === "IMPORTS_SCRIPT" && edge.importSyntax === "dynamic-literal");
+    const expression = graph.allEdges().find(edge =>
+      edge.type === "IMPORTS_SCRIPT" && edge.importSyntax === "dynamic-expression");
+    expect(staticEdge).toMatchObject({
+      status: "resolved", from: a.id, to: b.id,
+    });
+    expect(literal).toMatchObject({
+      status: "resolved", from: a.id, to: b.id,
+      importSyntax: "dynamic-literal",
+      evidence: { source: expect.objectContaining({
+        relativePath: source.relativePath,
+        range: expect.objectContaining({ lineStart: 3 }),
+      }) },
+    });
+    expect(expression).toMatchObject({
+      status: "unresolved", from: a.id,
+      importSyntax: "dynamic-expression",
+    });
+    expect(expression?.to).toBeUndefined();
   });
 
 });

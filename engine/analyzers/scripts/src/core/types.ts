@@ -28,10 +28,18 @@ import type {
 import type { ScriptArgumentKind } from "../../../../packages/compatibility/src/index.js";
 
 export interface ScriptImport {
+  /** Literal module specifier, or source expression when it cannot be resolved. */
   module: string;
-  kind: "minecraft" | "relative" | "external";
+  kind: "minecraft" | "relative" | "external" | "unresolved";
   bindings: string[];
   source: SourceRef;
+  /**
+   * Undefined means ordinary static ESM import. Dynamic forms are only
+   * authored requests: source lookup does not prove module execution.
+   */
+  importSyntax?: "dynamic-literal" | "dynamic-expression";
+  /** Exact source execution region of an authored import() call. */
+  executionRegion?: string;
 }
 
 export interface ScriptEventSubscription {

@@ -2665,6 +2665,29 @@ export function parseScriptFile(
       }
     }
 
+    // import("./literal.js") is not an ImportDeclaration. Recover the exact
+    // source request without treating it as an executed entrypoint/call edge.
+    // Expressions such as import(variable) remain an unresolved import,
+    // never a guessed relative path or an external module.
+    if (ts.isCallExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const specifier = node.arguments[0];
+      const literalModule = specifier && ts.isStringLiteralLike(specifier)
+        ? specifier.text : undefined;
+      const module = literalModule ??
+        (specifier?.getText(file).slice(0, 240) ??
+          "<missing dynamic import expression>");
+      imports.push({
+        module,
+        kind: literalModule !== undefined
+          ? classifyModule(literalModule) : "unresolved",
+        bindings: [],
+        source: lineSource(file, node, source),
+        importSyntax: literalModule !== undefined
+          ? "dynamic-literal" : "dynamic-expression",
+        executionRegion: localExecutionRegionId(node, file),
+      });
+    }
     if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier)) {
       const module = node.moduleSpecifier.text;
       imports.push({
