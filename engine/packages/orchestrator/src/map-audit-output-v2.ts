@@ -972,14 +972,112 @@ export function formatSelectedMapAuditBrief(input: {
         (contentDependencyEdges.length - 30));
     }
   }
+  // A navigable source tree over the SAME Intent edges, not a second graph.
+  // Source call direction is a technical dependency, not play chronology.
+  const designCallEdges = intent.edges.filter(edge =>
+    (edge.id.startsWith("source-method-call:") ||
+     edge.id.startsWith("source-instance-candidate:")) &&
+    edge.kind === "requires" && edge.status === "inferred");
+  if (designCallEdges.length > 0) {
+    const byNode = new Map(intent.nodes.map(node => [node.id,node]));
+    const outgoing = new Map<string, typeof designCallEdges>();
+    const inbound = new Set<string>();
+    for (const edge of designCallEdges) {
+      if (!byNode.has(edge.from) || !byNode.has(edge.to)) continue;
+      outgoing.set(edge.from,[...(outgoing.get(edge.from) ?? []),edge]);
+      inbound.add(edge.to);
+    }
+    const stateNodes = new Map<string,string[]>();
+    for (const edge of intent.edges) {
+      if (!edge.id.startsWith("source-method-state:") ||
+          edge.kind !== "participates-in" ||
+          edge.status !== "inferred") continue;
+      const label = byNode.get(edge.to)?.label;
+      if (!label) continue;
+      stateNodes.set(edge.from,[...(stateNodes.get(edge.from) ?? []),label]);
+    }
+    const informative = (id:string):boolean =>
+      (stateNodes.get(id)?.length ?? 0) > 0 ||
+      (byNode.get(id)?.evidenceIds.some(ref =>
+        ref.startsWith("source-method-property-site:") ||
+        ref.startsWith("source-unresolved-receiver-site:")) ?? false);
+    const reachableInformative = (id:string,visited:Set<string>,
+      depth:number):boolean => {
+      if (informative(id)) return true;
+      if (depth >= 5) return false;
+      for (const edge of outgoing.get(id) ?? []) {
+        if (visited.has(edge.to)) continue;
+        const next = new Set(visited);
+        next.add(edge.to);
+        if (reachableInformative(edge.to,next,depth+1)) return true;
+      }
+      return false;
+    };
+    const roots = [...outgoing.keys()]
+      .filter(id=>!inbound.has(id))
+      .sort((a,b)=>
+        Number(reachableInformative(b,new Set([b]),0)) -
+        Number(reachableInformative(a,new Set([a]),0)) ||
+        a.localeCompare(b));
+    // Cyclic graphs have no root; expose each technical component once as
+    // a candidate rather than fabricate a source entry.
+    const entries = roots.length ? roots : [...outgoing.keys()].sort();
+    const maxRoots = 12;
+    let visitedBudget = 0;
+    const maxNodes = 120;
+    const outputTree = (id:string, depth:number, seen:Set<string>,
+      relation?:string):void => {
+      if(visitedBudget>=maxNodes)return;
+      visitedBudget++;
+      const node=byNode.get(id);
+      if(!node)return;
+      const indent="  ".repeat(depth);
+      out.push(indent + "- " +
+        (relation ? relation + " → " : "") +
+        "**" + concise(node.label) + "**" +
+        (seen.has(id)?" [cycle]":""));
+      if(seen.has(id))return;
+      for(const label of (stateNodes.get(id)??[]).slice(0,3))
+        out.push(indent + "  - Authored state value: " + concise(label) +
+          " [NOT OBSERVED]");
+      const facts=(node.evidenceIds??[])
+        .filter(ref=>ref.startsWith("source-method-property-site:") ||
+          ref.startsWith("source-unresolved-receiver-site:"))
+        .map(ref=>evidenceById.get(ref))
+        .filter(item=>item?.scope==="selected-artifact");
+      for (const fact of facts.slice(0,3)) out.push(indent +
+        "  - " + concise(fact!.summary));
+      if(depth>=5)return;
+      const next=new Set(seen);next.add(id);
+      for(const edge of (outgoing.get(id)??[]).slice(0,12)) {
+        if(visitedBudget>=maxNodes)break;
+        outputTree(edge.to,depth+1,next,
+          edge.id.startsWith("source-instance-candidate:")
+            ? "candidate receiver" : "source call");
+      }
+    };
+    if(entries.length) {
+      out.push("", "### Source-backed method dependency tree (NOT PLAY SEQUENCE)");
+      out.push("Source call and candidate receiver links are navigational " +
+        "only. State labels and property writes are authored source facts, " +
+        "not a guaranteed player route, score settlement or observed result.");
+      for(const root of entries.slice(0,maxRoots)) {
+        if(visitedBudget>=maxNodes)break;
+        outputTree(root,0,new Set());
+      }
+      if(entries.length>maxRoots || visitedBudget>=maxNodes)
+        out.push("Additional source branches omitted by presentation limit; " +
+          "the existing Intent/Semantic IR graph remains the authority.");
+    }
+  }
   const methodCallEdges = intent.edges.filter(edge =>
     edge.id.startsWith("source-method-call:") &&
     edge.kind === "requires" && edge.status === "inferred");
   if (methodCallEdges.length > 0) {
     out.push("", "### Source-local method call graph (NOT PLAY ORDER)");
     out.push("Each directed call comes from an exact, uniquely resolved " +
-      "Semantic IR source site in a script already containing an " +
-      "evidence-backed content reader. It does not prove method execution, " +
+      "Semantic IR source site near an exact content reader or " +
+      "authored literal state-write anchor. It does not prove method execution, " +
       "state activation, gameplay sequence or scoring success.");
     const byNode = new Map(intent.nodes.map(node => [node.id,node]));
     // Terminal/state-bearing methods and methods with exact property or

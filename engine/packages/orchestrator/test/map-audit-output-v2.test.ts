@@ -684,4 +684,56 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("shows one navigable method dependency tree with source-only state and receiver links", () => {
+    const report:any={
+      mapVersion:"1.0",evidenceScope:{selectedArtifact:"example.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const intent:any={
+      evidence:[
+        {id:"source-method-property-site:score",scope:"selected-artifact",
+          locator:"bp/scripts/manager.js:421:5",origin:"source-code",
+          summary:"Authored JS property mutation: player.score += points"},
+      ],
+      nodes:[
+        {id:"prepare",kind:"mechanic",label:"prepareRound()",evidenceIds:[]},
+        {id:"finish",kind:"mechanic",label:"finish()",evidenceIds:[]},
+        {id:"settle",kind:"mechanic",label:"settleResult()",
+          evidenceIds:["source-method-property-site:score"]},
+        {id:"summary",kind:"mechanic",label:"matchSummary()",evidenceIds:[]},
+        {id:"state",kind:"state",label:"Match End",evidenceIds:[]},
+      ],
+      edges:[
+        {id:"source-method-call:one",from:"prepare",to:"finish",
+          kind:"requires",status:"inferred",evidenceIds:[]},
+        {id:"source-method-call:two",from:"finish",to:"settle",
+          kind:"requires",status:"inferred",evidenceIds:[]},
+        {id:"source-instance-candidate:three",from:"finish",to:"summary",
+          kind:"requires",status:"inferred",evidenceIds:[]},
+        {id:"source-method-state:state",from:"finish",to:"state",
+          kind:"participates-in",status:"inferred",evidenceIds:[]},
+      ],
+      unknowns:[],
+    };
+    const brief=formatSelectedMapAuditBrief({report,intent,modelTaskPackets:[]});
+    const treeStart=brief.indexOf("### Source-backed method dependency tree");
+    expect(treeStart).toBeGreaterThan(0);
+    const tree=brief.slice(treeStart,brief.indexOf("### Source-local method call graph",treeStart));
+    expect(tree).toContain("prepareRound()");
+    expect(tree).toContain("source call → **finish()**");
+    expect(tree).toContain("source call → **settleResult()**");
+    expect(tree).toContain("candidate receiver → **matchSummary()**");
+    expect(tree).toContain("Authored state value: Match End");
+    expect(tree).toContain("player.score += points");
+    expect(tree).toContain("NOT PLAY SEQUENCE");
+    expect(brief).toContain("No published finding");
+  });
+
 });

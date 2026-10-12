@@ -1837,4 +1837,45 @@ describe("exact authored return-policy source admission", () => {
       "source-instance-candidate:"))).toEqual([]);
   });
 
+  it("rejects shadowed constructors, rebound formals, nested this, and computed service-field rewrites", () => {
+    const artifactId="source:negative";
+    const ref={artifactId,relativePath:"behavior_packs/demo/scripts/a.js"};
+    const shadowed=parseScriptFile("shadowed",[
+      'import { Manager } from "./manager.js";',
+      'export class Service {',
+      ' boot(Manager) { return new Manager(this); }',
+      ' prepareRound(game) { return game; }',
+      '}',
+    ].join("\n"),ref);
+    expect(shadowed.importedThisConstructions).toEqual([]);
+
+    const nested=parseScriptFile("nested",[
+      'import { Manager } from "./manager.js";',
+      'export class Service {',
+      ' boot() { function other() { return new Manager(this); } }',
+      '}',
+    ].join("\n"),ref);
+    expect(nested.importedThisConstructions).toEqual([]);
+
+    const rebound=parseScriptFile("manager",[
+      'export class Manager {',
+      ' constructor(service) { service = replacement; this.service = service; }',
+      ' tick() { this.service.prepareRound(this); }',
+      ' prepareRound(game) {}',
+      '}',
+    ].join("\n"),{artifactId,
+      relativePath:"behavior_packs/demo/scripts/manager.js"});
+    expect(rebound.constructorFieldBindings).toEqual([]);
+
+    const computed=parseScriptFile("computed",[
+      'export class Manager {',
+      ' constructor(service) { this.service = service; }',
+      ' tick() { this["service"] = replacement; this.service.prepareRound(this); }',
+      ' prepareRound(game) {}',
+      '}',
+    ].join("\n"),{artifactId,
+      relativePath:"behavior_packs/demo/scripts/manager.js"});
+    expect(computed.constructorFieldBindings).toEqual([]);
+  });
+
 });

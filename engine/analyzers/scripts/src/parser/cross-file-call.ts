@@ -973,7 +973,35 @@ export function extractScriptClassWiring(
     if (constructorDeclarations.length === 1) {
       const ctor = constructorDeclarations[0]!;
       const params = ctor.parameters.map(p =>
-        ts.isIdentifier(p.name) ? p.name.text : undefined);
+        ts.isIdentifier(p.name) && !p.dotDotDotToken && !p.initializer
+          ? p.name.text : undefined);
+      // A constructor argument that is reassigned before the field write
+      // does not preserve the imported instance. Conservatively reject any
+      // authored rebind of the formal anywhere in this constructor.
+      const reboundParameters = new Set<string>();
+      if (ctor.body) {
+        const scan = (node: ts.Node): void => {
+          if (ts.isBinaryExpression(node) &&
+              ts.isIdentifier(node.left) &&
+              node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+              node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+            reboundParameters.add(node.left.text);
+          }
+          if ((ts.isPrefixUnaryExpression(node) ||
+               ts.isPostfixUnaryExpression(node)) &&
+              ts.isIdentifier(node.operand) &&
+              (node.operator === ts.SyntaxKind.PlusPlusToken ||
+               node.operator === ts.SyntaxKind.MinusMinusToken)) {
+            reboundParameters.add(node.operand.text);
+          }
+          if (ts.isVariableDeclaration(node) &&
+              ts.isIdentifier(node.name)) {
+            reboundParameters.add(node.name.text);
+          }
+          ts.forEachChild(node,scan);
+        };
+        scan(ctor.body);
+      }
       const seen = new Map<string, {index:number;node:ts.Node}[]>();
       if (ctor.body) {
         const visit = (node:ts.Node):void => {
@@ -994,22 +1022,32 @@ export function extractScriptClassWiring(
       }
       // Reject reassignments to this.field outside the constructor too.
       const laterWrites = new Set<string>();
+      let dynamicFieldWrite = false;
       for (const method of methodList) {
         if (!method.body) continue;
         const visit=(node:ts.Node):void => {
           if (ts.isBinaryExpression(node) &&
               node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
-              node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
-              ts.isPropertyAccessExpression(node.left) &&
-              node.left.expression.kind === ts.SyntaxKind.ThisKeyword)
-            laterWrites.add(node.left.name.text);
+              node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+            if (ts.isPropertyAccessExpression(node.left) &&
+                node.left.expression.kind === ts.SyntaxKind.ThisKeyword)
+              laterWrites.add(node.left.name.text);
+            if (ts.isElementAccessExpression(node.left) &&
+                node.left.expression.kind === ts.SyntaxKind.ThisKeyword) {
+              const key=node.left.argumentExpression;
+              if (key && ts.isStringLiteralLike(key))
+                laterWrites.add(key.text);
+              else dynamicFieldWrite = true;
+            }
+          }
           ts.forEachChild(node,visit);
         };
         visit(method.body);
       }
       for (const [field, entries] of seen) {
         if (entries.length !== 1 || entries[0]!.index < 0 ||
-            laterWrites.has(field)) continue;
+            dynamicFieldWrite || laterWrites.has(field) ||
+            reboundParameters.has(params[entries[0]!.index]!)) continue;
         fields.push({
           source:nodeSource(file,entries[0]!.node,owner),
           className,fieldName:field,parameterIndex:entries[0]!.index,
@@ -1017,10 +1055,57 @@ export function extractScriptClassWiring(
       }
     }
 
-    const walk=(node:ts.Node):void => {
+    const shadowedNames = new Map<ts.Node,Set<string>>();
+    const lexicalShadow = (
+      member:ts.ConstructorDeclaration | ts.MethodDeclaration,
+      name:string,
+    ):boolean => {
+      let names=shadowedNames.get(member);
+      if (!names) {
+        names=new Set<string>();
+        for (const param of member.parameters)
+          if (ts.isIdentifier(param.name)) names.add(param.name.text);
+        const walkBinding=(node:ts.Node):void => {
+          if ((ts.isVariableDeclaration(node) ||
+               ts.isFunctionDeclaration(node) ||
+               ts.isClassDeclaration(node)) &&
+              node.name && ts.isIdentifier(node.name))
+            names!.add(node.name.text);
+          ts.forEachChild(node,walkBinding);
+        };
+        if(member.body) walkBinding(member.body);
+        shadowedNames.set(member,names);
+      }
+      return names.has(name);
+    };
+    const conflictingTopLevel = new Set<string>();
+    for (const statement of file.statements) {
+      if ((ts.isFunctionDeclaration(statement) ||
+           ts.isClassDeclaration(statement)) && statement.name) {
+        conflictingTopLevel.add(statement.name.text);
+      } else if (ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          if (ts.isIdentifier(declaration.name))
+            conflictingTopLevel.add(declaration.name.text);
+        }
+      }
+    }
+    const walk=(node:ts.Node,member:ts.ConstructorDeclaration | ts.MethodDeclaration):void => {
+      // A nested ordinary function/class binds its own 'this'. Arrow
+      // callbacks inherit the enclosing class instance and are admissible.
+      if (node !== member &&
+          (ts.isFunctionDeclaration(node) ||
+           ts.isFunctionExpression(node) ||
+           ts.isMethodDeclaration(node) ||
+           ts.isConstructorDeclaration(node) ||
+           ts.isClassDeclaration(node) ||
+           ts.isClassExpression(node))) return;
       if (ts.isNewExpression(node) && ts.isIdentifier(node.expression)) {
-        const binding = imports.get(node.expression.text);
-        if (binding?.length === 1) {
+        const importedLocal = node.expression.text;
+        const binding = imports.get(importedLocal);
+        if (binding?.length === 1 &&
+            !conflictingTopLevel.has(importedLocal) &&
+            !lexicalShadow(member,importedLocal)) {
           for (let index = 0; index < (node.arguments?.length ?? 0); index++) {
             if (node.arguments![index]!.kind !== ts.SyntaxKind.ThisKeyword)
               continue;
@@ -1048,11 +1133,11 @@ export function extractScriptClassWiring(
           });
         });
       }
-      ts.forEachChild(node,walk);
+      ts.forEachChild(node,child=>walk(child,member));
     };
     for (const member of cls.members) {
       if (ts.isMethodDeclaration(member) || ts.isConstructorDeclaration(member))
-        walk(member);
+        walk(member,member);
     }
   }
   return {
