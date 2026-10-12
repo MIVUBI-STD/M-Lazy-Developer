@@ -897,6 +897,16 @@ export function formatSelectedMapAuditBrief(input: {
       concise(report.gameDesign.winCondition),
     "**Lose (" + report.gameDesign.loseConditionGrounding + "):** " +
       concise(report.gameDesign.loseCondition),
+    "**State route topology:** " +
+      (report.gameplayClosure.stateModelComplete
+        ? "Source-connected structural routes; player reachability NOT proven."
+        : "Incomplete or unresolved source state routes."),
+    "**Game terminal proof:** " +
+      (report.gameplayClosure.surfaceInventory.some(surface =>
+        surface.id === "runtime:terminal-outcome" &&
+        surface.status === "unknown")
+        ? "UNKNOWN: a source-state sink is not a win/loss or settlement."
+        : "See independently grounded win/lose conditions; runtime NOT proven."),
     "",
   ];
   // Navigation over the EXISTING canonical Intent owns edges. This is

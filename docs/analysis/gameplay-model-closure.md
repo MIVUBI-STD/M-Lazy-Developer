@@ -348,6 +348,26 @@ When the artifact contains an authored result surface (title, form, scoreboard, 
 
 ### Source-level reachability closure
 
+State-model topology and a complete game outcome are independent questions.
+`sourceRouteCoverageComplete` can establish only that one authored,
+selected-source structural entry reaches every modeled state and that all
+states have a directed route to an authored sink. Even this route coverage
+does not prove runtime activation, guard satisfiability, liveness or
+player-level reachability. A source sink is never automatically victory,
+defeat, game over, or result settlement.
+
+An authored selected-artifact `wins-by` or `loses-by` relation must tie
+each sink to an explicit outcome before the full terminal claim is supported.
+The existing parser does **not** manufacture those relations from an outcome
+return, function name or apparent source adjacency. Without them, report
+connected state topology as source-understood, but retain
+`runtime:terminal-outcome` as a material Game Design unknown. That yields
+a meaningful PARTIAL result rather than making a well-grounded state
+machine appear entirely undiscovered, without treating the game as closed.
+
+This uses the existing Gameplay Intent, Gameplay World and Surface Discovery
+owners. No new graph, parser, runner, registry or proof authority is added.
+
 State closure must distinguish **state adjacency** from an actual modeled
 entry-to-outcome route. Authored transitions with exact selected-artifact
 evidence may establish source topology; ownership, generic production and

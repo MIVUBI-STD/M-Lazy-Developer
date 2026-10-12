@@ -1663,19 +1663,25 @@ export function deriveGameplayWorldModel(
   }
 
 
-  const intentSurfaces =
-    buildIntentClosureSurfaces(source.intent);
-  const closureSurfaces = [
-    ...intentSurfaces,
-    ...runtimeSurfaces,
-  ];
-
-  const stateClosure =
-    assessGameplayStateClosure(
-      source.intent,
-    );
-  const stateModelComplete =
-    stateClosure.complete;
+  const stateClosure = assessGameplayStateClosure(source.intent);
+  // A selected-source transition topology can be understood while its
+  // game terminal rule remains unknown. Preserve both facts separately.
+  const stateModelComplete = stateClosure.sourceRouteCoverageComplete;
+  const terminalOutcomeUnresolved =
+    stateModelComplete && !stateClosure.terminalOutcomeGrounded;
+  if (terminalOutcomeUnresolved) {
+    runtimeSurfaces.push({
+      id: "runtime:terminal-outcome",
+      label: "Game terminal outcome authority",
+      kind: "runtime-domain",
+      status: "unknown",
+      material: true,
+      reason:
+        "Authored routes reach a state-machine sink, but no selected-artifact win/loss relation establishes game settlement. A sink is not an outcome.",
+    });
+  }
+  const intentSurfaces = buildIntentClosureSurfaces(source.intent);
+  const closureSurfaces = [...intentSurfaces, ...runtimeSurfaces];
 
   const arenaBoundariesExtracted =
     !arenaDetected ||
@@ -1707,6 +1713,7 @@ export function deriveGameplayWorldModel(
     arenaReplicaEvidence:
       replicaProof.length > 0,
     stateEvidence,
+    terminalOutcomeUnresolved,
     chunkEvidence,
     persistenceEvidence: persistenceApplicable,
     economyEvidence: economyApplicable,

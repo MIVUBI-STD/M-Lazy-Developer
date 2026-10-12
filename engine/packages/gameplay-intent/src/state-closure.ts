@@ -13,6 +13,13 @@ export interface GameplayStateClosureRecord {
 }
 
 export interface GameplayStateClosureResult {
+  /** Source-state graph connectivity, not an executable player journey. */
+  readonly sourceRouteCoverageComplete: boolean;
+  readonly structuralEntryStateId?: string;
+  /** Graph sinks are candidates, never implicit win/loss conditions. */
+  readonly sourceSinkStateIds: readonly string[];
+  readonly authoredTerminalOutcomeIds: readonly string[];
+  readonly terminalOutcomeGrounded: boolean;
   readonly complete: boolean;
   readonly records: readonly GameplayStateClosureRecord[];
   readonly openSubjectIds: readonly string[];
@@ -70,6 +77,13 @@ export function assessGameplayStateClosure(
   }
 
   const terminalIds = new Set(terminalEdges.map(edge => edge.from));
+  const sinkIds = new Set(states
+    .filter(node =>
+      (outgoing.get(node.id)?.length ?? 0) === 0 &&
+      (incoming.get(node.id)?.length ?? 0) > 0 &&
+      node.status === "authored" &&
+      node.evidenceIds.some(id => selectedEvidenceIds.has(id)))
+    .map(node => node.id));
   // This is only an unambiguous structural start candidate. It does not
   // establish that a player can enter the game or satisfy an event guard.
   const entryCandidates = states.filter(node =>
@@ -98,8 +112,27 @@ export function assessGameplayStateClosure(
   };
   const fromEntry = walk(entryId === undefined ? [] : [entryId], outgoing);
   const toTerminal = walk([...terminalIds], incoming);
+  const routeEndIds = new Set([...sinkIds, ...terminalIds]);
+  const toRouteEnd = walk([...routeEndIds], incoming);
   const unknownSubjects = new Set(model.unknowns
     .flatMap(unknown => unknown.blockedSubjectIds));
+  // Source-only route coverage is distinct from terminal game authority.
+  // The existence of a directed path does NOT prove guard feasibility,
+  // runtime activation or eventual termination of cyclic play.
+  const sourceRouteCoverageComplete =
+    states.length > 0 &&
+    entryId !== undefined &&
+    routeEndIds.size > 0 &&
+    states.every(node =>
+      node.status === "authored" &&
+      node.evidenceIds.some(id => selectedEvidenceIds.has(id)) &&
+      !unknownSubjects.has(node.id) &&
+      fromEntry.has(node.id) &&
+      toRouteEnd.has(node.id));
+  const terminalOutcomeGrounded =
+    terminalIds.size > 0 &&
+    [...sinkIds].every(id => terminalIds.has(id)) &&
+    states.every(node => fromEntry.has(node.id) && toTerminal.has(node.id));
 
   const records = states.map(node => {
     const hasEntry = (incoming.get(node.id)?.length ?? 0) > 0 ||
@@ -125,7 +158,9 @@ export function assessGameplayStateClosure(
       reasons.push("No source-grounded state transition enters this state.");
     }
     if (!hasExit) {
-      reasons.push("No source-grounded state transition or win/loss exit leaves this state.");
+      reasons.push(sinkIds.has(node.id)
+        ? "An authored state-machine sink is present, but no explicit game win/loss exit is proved."
+        : "No source-grounded state transition or win/loss exit leaves this state.");
     }
     if (!reachesTerminal) {
       reasons.push(
@@ -154,9 +189,13 @@ export function assessGameplayStateClosure(
   });
 
   return {
-    complete: records.length > 0 &&
-      entryId !== undefined &&
-      terminalIds.size > 0 &&
+    sourceRouteCoverageComplete,
+    ...(entryId === undefined ? {} : { structuralEntryStateId: entryId }),
+    sourceSinkStateIds: [...sinkIds].sort(),
+    authoredTerminalOutcomeIds: [...new Set(terminalEdges.map(edge => edge.to))].sort(),
+    terminalOutcomeGrounded,
+    complete: sourceRouteCoverageComplete &&
+      terminalOutcomeGrounded &&
       records.every(record => record.status === "closed"),
     records,
     openSubjectIds: records

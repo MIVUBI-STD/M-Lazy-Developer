@@ -7,6 +7,7 @@ export interface GameplaySurfaceDiscoveryInput {
   readonly arenaIsolationEvidence: boolean;
   readonly arenaReplicaEvidence?: boolean;
   readonly stateEvidence: boolean;
+  readonly terminalOutcomeUnresolved?: boolean;
   readonly chunkEvidence: boolean;
   readonly persistenceEvidence: boolean;
   readonly economyEvidence: boolean;
@@ -54,6 +55,9 @@ export function discoverGameplaySurfaces(
   }
   if (input.stateEvidence) {
     runtime.add("runtime:state");
+  }
+  if (input.terminalOutcomeUnresolved) {
+    runtime.add("runtime:terminal-outcome");
   }
   if (input.chunkEvidence) {
     runtime.add("runtime:chunks");
