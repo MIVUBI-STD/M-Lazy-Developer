@@ -22,10 +22,10 @@ The selected archive contains **529 ZIP entries** and approximately 127.8 millio
 | JSON | **171/171** `.json` entries parsed successfully by strict JSON decoder. Includes **63 behavior-pack**, **106 resource-pack**, and **2 world pack-binding** JSON files | JSON parseability is not proof of valid gameplay semantics or complete per-entity analysis. |
 | Structures | **77/77** `.mcstructure` entries traversed successfully as little-endian NBT containers; all report positive `size` dimensions | NBT framing and dimensions verified, **not** every block palette/state, placement in the native world or arena playability. 60 castle segments (4 for each level 1–15), 15 level pits, `kit` and `admin` structures. |
 | World `level.dat` | Entire little-endian NBT root parsed: **126** properties. `LevelName=Daigon Defense v1.1.5`, `GameType=2`, `Difficulty=2`, `MultiplayerGame=0`, `educationFeaturesEnabled=1`, `commandblocksenabled=1`, `doimmediaterespawn=1`. | Exported snapshot configuration, **not** proof of real multiplayer hosting, in-game player permissions, or runtime behavior. |
-| LevelDB | **11** native `db/` files inventoried | **Native LevelDB chunk/world contents NOT DECODED** in this review; native arena parity, chunk palette, command blocks and actual spatial population are UNKNOWN. |
+| LevelDB | **10** native DB files plus the `db/` directory entry: 8 live `.ldb` tables, `MANIFEST-000152` and `CURRENT`. The read-only decoder traced **309,146** raw SSTable records, checked the live tables against MANIFEST, reconstructed the latest key records, parsed **9,120** overworld subchunks with **0 decode failures** and compared the selected six physical arena boxes at exact block-coordinate/BlockState resolution. | This establishes stored geometry/palette and block-entity snapshot parity only; entity AI, placement/ticking during gameplay, unexamined native key families and real simultaneous sessions remain unproven. See Section 5. |
 | Manifest | World binds BP/RP; BP `manifest.json` version `[1,1,5]`, script entry `scripts/main.js`, minimum engine `[1,21,130]` and declared Minecraft SDK module dependencies | Minimum engine version is a declared compatibility floor, not the observed client/runtime version. |
 
-**Scope status:** TARGET identity = VERIFIED. DISCOVERY = **PARTIAL** (all archive entries inventoried; native DB and complete gameplay semantics not decoded). UNDERSTAND/MODEL = **PARTIAL**, supported by the following named source relations. No whole-map completeness, first-pass precision/recall, or 30-player runtime PASS.
+**Scope status:** TARGET identity = VERIFIED. DISCOVERY = **PARTIAL** (all archive entries inventoried; the selected six arena native terrain/subchunks and block entities decoded, but other native/world/AI semantics are not exhaustively closed). UNDERSTAND/MODEL = **PARTIAL**, supported by the named source relations and direct native comparisons below. Static **scoped geometry parity** is established; no whole-map understanding, first-pass precision/recall, six-arena session readiness, or Minecraft runtime PASS.
 
 ### Packaged script source labels
 
@@ -97,32 +97,75 @@ All file:line evidence below is relative to the exact selected SHA (compiled Jav
 | Claim to avoid | Current selected-source counter-evidence | Disposition |
 |---|---|---|
 | “Golden apple costs 16; price is a bug.” | `SHOP:61-67` explicitly prices `minecraft:golden_apple` at **6 coins**. No current approved specification requiring 16 was established. | **REJECT unsupported bug** |
-| “Arena 6 is mostly void/missing.” | Six arenas are configured; all 77 external mcstructure containers parse and have positive dimensions. No native LevelDB terrain/chunk comparison was performed. | **UNKNOWN**; do not claim arena is complete either |
+| “Arena 6 is mostly void/missing.” | **Native counterproof:** Arena 6 has 165/165 world chunk coordinates in its configured arena sample, 412,318 non-air blocks in those complete sampled chunk stacks, and 326,791 non-air blocks within the exact declared arena bounding volume. Across that volume its block names, full block states, and 498 block-entity positions/types match Arena 2, 3 and 5 after X-offset normalization. | **REJECT “mostly void/missing” for the selected stored arena geometry**, not a claim of successful runtime playability |
 | “Multiplayer hosting is broken because `MultiplayerGame=0`.” | This is a snapshot field from `level.dat`, not evidence of tested host/session behavior. | **REJECT runtime conclusion** |
 | “Six configured arenas prove 30 concurrent clients work.” | Party config allows 5 members × 6 arenas, but native residency is conditional and runtime absent. | **REJECT delivered-capacity conclusion** |
 | “Historical Defense bugs are all still present in v1.1.5.” | An older report is not version-identity proof. Only selected SHA evidence is admissible. | **REJECT automatic inheritance** |
 | “Developer reset failure proves ordinary level retry/reset broken.” | `StructureLoader.resetArena()` and `GameManager.performResetGame()` are different source paths. | **REJECT overgeneralization** |
 
-## 5. Open obligations (specific, not blanket failure)
+## 5. Native LevelDB arena parity — directly decoded 2026-10-12
 
-1. **Native arena/world parity — NATIVE_DB_NOT_DECODED.** Examine native LevelDB chunks to compare all six physical arenas, including Arena 6; compare baseline, placed structures and region extents. Do not infer incompleteness from missing visible chunks in this review.
+**Evidence class:** `CHATGPT_DIRECT_NATIVE_LEVELDB_NBT` for the **same v1.1.5 SHA-256**, using the actual ZIP's database files read-only. This is **not** a generated `runSelectedMapAudit()` result and **not** live Minecraft. The analysis used LevelDB SSTable index/data blocks and raw-DEFLATE type-4 decompression, selected latest-version values by internal key, and checked all 8 `.ldb` filenames/sizes as active in the exported `MANIFEST-000152` (levels 0/2). It then decoded Bedrock v9 subchunk palettes (Y-fastest/XZY storage), little-endian block-state NBT, and `0x31` block-entity NBT. The original map was never modified; the decoder was an ephemeral ChatGPT inspection tool, **not** an additional GitHub engine.
+
+**Sample definition, authored in `CONFIG:7-21, 57-80`:** each arena is an X-shifted copy of base X `[-70,90]`, Y `[-60,-20]`, Z `[-210,10]` (inclusive), with offsets `0,596,1192,1788,2384,2980`. Each source-mapped native chunk sample covers 11 × 15 = 165 X/Z chunks. The complete-chunk non-air count includes whole stored subchunks at those chunk X/Z positions, including neighboring blocks outside the exact arena border. Separately, **exact-volume** results decode and compare **1,458,821 voxel locations per arena** inside the inclusive source-configured bounds. Those two denominators must never be conflated.
+
+| Arena | Offset X | Stored X/Z chunk coordinates | Complete-chunk non-air blocks | Non-air blocks inside exact arena volume | Parsed native block entities within exact volume |
+|---|---:|---:|---:|---:|---:|
+| 1 | 0 | 165 | 415,783 | 326,791 | 498 |
+| 2 | 596 | 165 | 412,318 | 326,791 | 498 |
+| 3 | 1,192 | 165 | 428,178 | 326,791 | 498 |
+| 4 | 1,788 | 165 | 420,296 | 326,791 | 498 |
+| 5 | 2,384 | 165 | 414,991 | 326,791 | 498 |
+| 6 | 2,980 | 165 | 412,318 | 326,791 | 498 |
+
+All **9,120** selected-arena overworld subchunks decoded at palette/packed-index level with **zero failures**; the exact Y-bounded comparison intersected **2,613** native subchunks, again without decode errors. The complete-chunk non-air totals match the independently frozen Defense v1.1.5 source oracle exactly; this provides independent cross-method consistency. The native block entities per arena are **474 FlowerPot, 17 Barrel and 7 Chest**, with identical relative coordinates and types across all six arenas. This is **position/type parity**, NOT a statement that every item payload or NBT metadata field is identical.
+
+### 5.1 Full block state differences after arena-relative coordinate normalization
+
+Across the exact arena volume, **Arena 2, 3, 5, and 6 are identical for all 326,791 stored non-air block locations, names and decoded block-state properties**. Two localized differences remain relative to Arena 2:
+
+- **Arena 1: one same-block state difference.** At relative `(6,-40,-137)` (`minecraft:jungle_trapdoor`), `open_bit=1` in Arena 1 versus `open_bit=0` in Arenas 2/3/5/6; `direction=2` and `upside_down_bit=0` match. This is an observed native snapshot state difference in the playable area, **not proof of an intended or unintended gameplay effect**. It needs relevant level/path design context before issue classification.
+- **Arena 4: nine block-name substitutions**, each `minecraft:grass_path` in Arena 4 versus `minecraft:dirt` in Arena 2/3/5/6 at the **same non-air coordinates**. Their arena-relative X/Y/Z positions are `(-33,-56,-203)`, `(-17,-51,-157)`, `(4,-51,-159)`, `(4,-51,-153)`, `(5,-51,-159)`, `(6,-51,-159)`, `(7,-51,-159)`, `(8,-51,-159)`, `(44,-58,-200)`. No missing air/solid voxels were detected inside the scoped arena volume; physical gameplay significance of path/dirt difference is not established.
+
+**Disposition:** Five of six arenas match at block-name level (including Arena 6); Arena 1's one state difference and Arena 4's nine substitutions explain all full-block-state discrepancies found in the declared geometry bounds. **Reject the historical claim “Arena 6 is mostly empty” for v1.1.5's saved physical terrain**. Do **not** upgrade to whole-map parity, loaded structure behavior, per-client activation, or six-arena concurrency PASS.
+
+### 5.2 Block-entity inventory discrepancy and its source counter-evidence
+
+The native `Chest` at relative `(1,-48,-135)` is the arena starter-resource destination chest defined by `CONFIG:1174-1226`.
+
+- **Arena 4 world `(1789,-48,-135)`:** 3 item stacks in snapshot: `minecraft:blue_wool ×64` twice, plus `minecraft:oak_planks ×32`.
+- **The same relative chest in Arenas 1/2/3/5/6:** empty in the saved snapshot.
+- **Authored design counter-evidence:** `MARATHON_STARTING_BLOCK_RESOURCE` defines **exactly** those three stacks (`CONFIG:1137-1143`). Level 1 is a reset-preparation level (`PARTY:1283-1317, 1319-1336`), and `KitManager.prepareLevelChests()` builds this starter-resource snapshot and attempts to restore both configured source/destination chest (`GAME:2468-2504`). GameManager calls it for level preparation with `restoreStarterChest: levelConfig.reset === true` (`GAME:13213-13231`).
+- **Disposition:** **STORED SNAPSHOT INVENTORY DIFFERENCE, runtime outcome UNKNOWN.** This exact item set is authored starter content, not evidence of foreign loot. The source describes a recovery/refill mechanism for all arenas, which may eliminate the saved-state difference at initialization. Do not label a confirmed unfair-start bug without proving level initialization failed to equalize chest contents. Other **17 barrels and 6 remaining chests per arena are empty** in this saved bounded snapshot.
+
+### 5.3 Native proof boundaries
+
+The inspected `.ldb` files and block-entity `0x31` sources are actual saved-world records. Their equality does **not** prove the maps were imported, all spawn/wave positions have valid navigation, NPCs or dynamic entities exist and behave correctly, placed structures load as expected, world-block events are enforced, player interaction permissions work, or ticking areas support concurrency. Entity/actor record families, command-block execution and detailed AI behaviors remain separate, source-conditional work. Some non-gameplay block-entity metadata differs due to stored NBT versions and absolute `pairx` coordinates; do not interpret those fields as mismatched container positions.
+
+**Checklist result:** Native overworld terrain/block palette parity for the declared six static arena volumes = **SCOPED VERIFIED**. Developer-only reset contradiction and shop failure risk from Sections 3–4 remain unaffected. Native gameplay behavior = **NOT OBSERVED**.
+
+## 6. Open obligations (specific, not blanket failure)
+
+1. **Native geometry parity — SCOPED VERIFIED; deeper world semantics PARTIAL.** All six exact arena volumes were decoded and compared at block-name/state and block-entity location/type resolution (Section 5). Remaining work concerns uninspected actor/AI/command-block/runtime relations and any native world data outside the bounded arena volumes; do not reopen Arena 6 “missing terrain” based on older versions.
 2. **End-to-end gameplay activation — SOURCE_RELATION_PARTIAL.** Direct `main.js` requests modules and named methods form a plausible design, but all conditions/callbacks, wave spawn reachability, control permissions and terminal paths have not been exhaustively proven from the entire 8-module implementation.
 3. **Shop transactional failure — TRIGGER_UNPROVEN.** Determine current-version reachability of `giveCommand` failure with actual debit; inspect platform error/permissions and player inventory transaction semantics before any BUG promotion.
 4. **Per-arena chunk residency / concurrency — RUNTIME_REQUIRED.** A six-arena, 30-client delivery PASS is not inferable from declared slots or logical leases.
 5. **Reconnect/recovery — RUNTIME_REQUIRED.** Source has membership recovery and session resume branches; actual reconnect correctness, inventory lifecycle and second-run cleanup are not observed.
 6. **Per-entity and presentation semantics — PARTIAL.** Strict JSON parse succeeded for 171 files, but detailed per-entity AI path/animation/UI associations and block palettes have not all been inspected.
 
-## 6. Generalizable lessons for the ChatGPT checker (without changing engine code)
+## 7. Generalizable lessons for the ChatGPT checker (without changing engine code)
 
 - Start with byte-bound **artifact identity and full file inventory**, then independently close semantic understanding. Successful parsing does not mean game meaning or runtime is understood.
 - Trace **authored entrypoints → imported modules → source callbacks → guards → state writes → outcomes** with real source ownership; do not mistake a dynamic import request for execution.
 - Preserve **function-path scope**: a dead developer reset is not evidence that all player/session resets are dead.
 - Distinguish **declared arena capacity** from native residency and actual simultaneous sessions.
+- A true Bedrock LevelDB comparison must decode **live SSTable keys → chunk/subchunk palettes → block coordinates/states → block-entity NBT**, then normalize translated arena geometry at **block** resolution. Entire-chunk totals alone can mislead when the arena offset is not a multiple of 16.
+- Examine **saved chest inventories against authored restoration rules** before treating a cross-arena difference as a playable design mismatch; a template's item list may justify observed contents and a reset path may equalize exported initial snapshots.
 - Model **debit → delivery → success feedback/refund** as a transaction candidate, but do not assert an observed failure based on a catch branch alone.
 - Treat old bug reports and frozen independent expectations as **negative/positive search controls**, not authority for the current selected artifact. Do not hardcode this map's prices, arena offsets, coordinates, or names into reusable checker rules.
 
-## 7. Scope declaration / handoff
+## 8. Scope declaration / handoff
 
-This is the **first directly observed, source-backed gameplay design and bounded concern review** for the exact v1.1.5 world, not a whole-map audit PASS. There is **one confirmed developer-only source contradiction**, **one conditional shop transaction concern**, and **specific bounded unknowns**. No general player-facing BUG or DESIGN_MISMATCH has been approved, and no existing `bug-report.json`, `developer-notes.json` or project version binding was modified.
+This is the **first directly observed, source-backed gameplay design and bounded concern review** for the exact v1.1.5 world, now including **independently decoded native arena geometry and block-entity snapshots**. It is still not a whole-map audit PASS. There is **one confirmed developer-only source contradiction**, **one conditional shop transaction concern**, **two localized native block-state/name differences and one starter-chest inventory difference with relevant authored restoration counter-evidence**, and specific remaining runtime/semantic UNKNOWNs. No general player-facing BUG or DESIGN_MISMATCH has been approved, and no existing `bug-report.json`, `developer-notes.json` or project version binding was modified.
 
-**Next concrete source step:** complete native LevelDB/arena parity and exhaustive branch coverage for gameplay entry/retry, then contrast this review against a *different source style* before modifying general-purpose GitHub checker code. Use ChatGPT's actually available tools; no app, Node24, localtest, VM or Minecraft runtime is a prerequisite for further static inspection.
+**Next concrete source step:** finish source-reachable initialization/termination and scenario-specific state proof (especially starter-chest refill and the single trapdoor state), then apply the same read-only evidence method to a *different source style* for generalization. Static native terrain parity is already **SCOPED VERIFIED** in Section 5; do not turn every remaining runtime requirement into a blocker for source findings. No app, Node24, localtest, VM or Minecraft runtime is a prerequisite for further source inspection.
