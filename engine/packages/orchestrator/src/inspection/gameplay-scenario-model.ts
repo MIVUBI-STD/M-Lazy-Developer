@@ -158,8 +158,22 @@ export interface GameplayMechanicReconstruction {
   readonly exactSourceFlowIds: readonly string[];
   readonly exactSourceStepIds: readonly string[];
   readonly authoredBehaviorRelationIds: readonly string[];
-  /** Only source candidates whose exact write IR ID belongs to this feature. */
+  /** Candidate write IR ID is directly bound to feature source evidence; this is not proof of gameplay ownership or execution. */
   readonly sourceGuardedTransitionCandidateIds: readonly string[];
+  /**
+   * A candidate guard/read/write shares an EXACT Semantic IR source-flow
+   * with the feature. Trace co-membership is navigation context only:
+   * NOT mechanic ownership, state reachability, or executed causality.
+   * Optional for historical graph fixtures; canonical compilation emits it.
+   */
+  readonly sourceGuardedTransitionContexts?: readonly {
+    readonly readOperationId: string;
+    readonly writeOperationId: string;
+    readonly sharedSourceFlowIds: readonly string[];
+    readonly candidateStatus: "GUARDED_SOURCE_CANDIDATE" | "UNRESOLVED";
+  }[];
+  /** Source-only contexts omitted by the bounded per-feature navigation. */
+  readonly sourceGuardedTransitionContextOmitted?: number;
   /** Source-only entry references; neither authored invocation nor runtime activation. */
   readonly sourceActivationCandidates: readonly {
     readonly sourceFlowId: string;

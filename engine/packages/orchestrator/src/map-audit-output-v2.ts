@@ -1624,6 +1624,15 @@ export function formatSelectedMapAuditBrief(input: {
       "A source return is NOT a game terminal, a resource release site is " +
       "NOT successful settlement, and a world-effect site is NOT player feedback.");
     for (const transition of guarded.slice(0, 8)) {
+      const candidateId = transition.readOperationId + ":" + transition.writeOperationId;
+      const directReferences = [...reconstructionByFeature.values()]
+        .filter(feature => feature.sourceGuardedTransitionCandidateIds.includes(candidateId))
+        .map(feature => feature.name).sort();
+      const sourceContexts = [...reconstructionByFeature.values()]
+        .filter(feature => (feature.sourceGuardedTransitionContexts ?? [])
+          .some(context => context.readOperationId === transition.readOperationId &&
+            context.writeOperationId === transition.writeOperationId))
+        .map(feature => feature.name).sort();
       const continuation = transition.continuation;
       const calleeReleaseReturnPairs = continuation.directSynchronousCallees
         .reduce((sum, callee) => sum + callee.releaseReturnPairs.length, 0);
@@ -1639,6 +1648,14 @@ export function formatSelectedMapAuditBrief(input: {
           "; owning execution region " + concise(transition.executionRegionId) + ".",
         "  Exact evidence: read " + concise(transition.readOperationId) +
           "; write " + concise(transition.writeOperationId) + ".",
+        "  Mechanic matching: direct write-evidence=" +
+          directReferences.length + (directReferences.length === 0 ? "" :
+            " [" + directReferences.slice(0, 3).map(concise).join("; ") +
+            (directReferences.length > 3 ? "; additional omitted" : "") + "]") +
+          "; same exact source-flow context (NOT ownership)=" +
+          sourceContexts.length + (sourceContexts.length === 0 ? "" :
+            " [" + sourceContexts.slice(0, 3).map(concise).join("; ") +
+            (sourceContexts.length > 3 ? "; additional omitted" : "") + "]") + ".",
         "  Same-path source candidates: world-effect " +
           continuation.sourceOrderedWorldEffectIds.length +
           ", release " + continuation.sourceOrderedResourceReleaseIds.length +
@@ -1780,6 +1797,16 @@ export function formatSelectedMapAuditBrief(input: {
       ...((reconstructionByFeature.get(feature.id)?.sourceActivationCandidates.length ?? 0) > 2
         ? ["  Additional entry candidates omitted: " +
           (reconstructionByFeature.get(feature.id)!.sourceActivationCandidates.length - 2)]
+        : []),
+      ...((reconstructionByFeature.get(feature.id)?.sourceGuardedTransitionContexts ?? [])
+        .slice(0, 2).map(context =>
+          "  Guarded state candidate (SHARED_SOURCE_FLOW_CONTEXT; NOT OWNERSHIP): " +
+          concise(context.readOperationId) + " → " + concise(context.writeOperationId) +
+          " [" + context.candidateStatus + "; exact source flows " +
+          context.sharedSourceFlowIds.length + "].")),
+      ...((reconstructionByFeature.get(feature.id)?.sourceGuardedTransitionContextOmitted ?? 0) > 0
+        ? ["  Additional guarded source-flow contexts omitted: " +
+          reconstructionByFeature.get(feature.id)!.sourceGuardedTransitionContextOmitted]
         : []),
       ...feature.sourceBehaviorPaths.slice(0, 2).map(path =>
         "  Candidate effect (" + path.association + "; " + path.evidenceStatus +

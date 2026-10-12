@@ -2201,6 +2201,27 @@ function reconstructClassifiedMechanics(
   const featureKinds = new Set(["mechanic", "objective", "phase", "lifecycle", "outcome"]);
   const scopedEvidence = new Set(intent.evidence.filter(evidence =>
     evidence.scope === "selected-artifact").map(evidence => evidence.id));
+  // One source-flow index for all feature correlations. An IR flow can be
+  // broad or include mutually exclusive branches, so shared membership is
+  // context only and NEVER proof a feature owns the state transition.
+  const flowIdsByStep = new Map<string, Set<string>>();
+  for (const flow of flows) {
+    for (const step of flow.sourceSteps) {
+      const owners = flowIdsByStep.get(step.id) ?? new Set<string>();
+      owners.add(flow.id);
+      flowIdsByStep.set(step.id, owners);
+    }
+  }
+  const guardedFlowContexts = guardedTransitions
+    .filter(candidate => intent.artifactId === undefined ||
+      candidate.guardComparisonSource.artifactId === intent.artifactId)
+    .map(candidate => ({
+      candidate,
+      sharedSourceFlowIds: [...(flowIdsByStep.get(candidate.readOperationId) ??
+        new Set<string>())]
+        .filter(id => flowIdsByStep.get(candidate.writeOperationId)?.has(id))
+        .sort(),
+    }));
   return intent.nodes.filter(node =>
     featureKinds.has(node.kind) && node.status !== "hypothesis" &&
     node.evidenceIds.some(id => scopedEvidence.has(id)))
@@ -2234,6 +2255,25 @@ function reconstructClassifiedMechanics(
         .filter(candidate => evidenceIds.has(candidate.writeOperationId))
         .map(candidate => candidate.readOperationId + ":" +
           candidate.writeOperationId).sort();
+      // The node may share an exact IR trace with a guarded transition
+      // without directly owning its read or write. Keep that source context
+      // distinct from the existing direct write-evidence binding.
+      const featureFlowIds = new Set(exactSourceFlowIds);
+      const guardedContexts = guardedFlowContexts.flatMap(({ candidate, sharedSourceFlowIds }) => {
+        if (evidenceIds.has(candidate.writeOperationId) ||
+            evidenceIds.has(candidate.readOperationId)) return [];
+        const shared = sharedSourceFlowIds.filter(id => featureFlowIds.has(id));
+        return shared.length === 0 ? [] : [{
+          readOperationId: candidate.readOperationId,
+          writeOperationId: candidate.writeOperationId,
+          sharedSourceFlowIds: shared,
+          candidateStatus: candidate.status,
+        }];
+      }).sort((a, b) => a.readOperationId.localeCompare(b.readOperationId) ||
+        a.writeOperationId.localeCompare(b.writeOperationId));
+      const sourceGuardedTransitionContexts = guardedContexts.slice(0, 16);
+      const sourceGuardedTransitionContextOmitted =
+        Math.max(0, guardedContexts.length - sourceGuardedTransitionContexts.length);
       // Do not mistake synchronous helper "requires" for a game trigger.
       // Exact event / dialogue / animation source links may establish an
       // authored entry REFERENCE only, never player reachability or execution.
@@ -2315,6 +2355,8 @@ function reconstructClassifiedMechanics(
         exactSourceStepIds,
         authoredBehaviorRelationIds,
         sourceGuardedTransitionCandidateIds,
+        sourceGuardedTransitionContexts,
+        sourceGuardedTransitionContextOmitted,
         sourceActivationCandidates,
         relations,
         unresolvedDimensions,

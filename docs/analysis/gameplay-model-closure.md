@@ -393,7 +393,17 @@ Use its `semanticIrCoverage.observedSourceRelationships` and the existing
 `gameplayStructure.guardedSourceTransitions` to show evidence-backed
 guard → state-write → candidate effect/resource release/return paths.
 Keep exact IR operation IDs, bounded source locators, status and omitted
-counts visible. No extra parser, graph, proof owner, persisted report
+counts visible. The existing Scenario Graph mechanic reconstruction must
+distinguish (1) a directly bound guarded write ID carried by the feature's
+selected-source evidence from (2) a guarded read/write candidate merely
+co-present in one exact source-flow trace associated with a feature.
+The latter is source navigation CONTEXT, not demonstrated ownership,
+guard satisfiability, feature execution, or a causal path. Bound contextual
+matches per feature, report omitted counts, and keep unassociated candidates
+visible in the existing global guarded-path section. Use the canonical
+Behavior Model guarded transitions and Semantic IR flow identities; never
+infer links from matching symbol names, filenames, map genre or historic bugs.
+No extra parser, graph, proof owner, persisted report
 authority or second runtime observation is permitted.
 
 A typed guard can constrain a source write without proving it ran.
