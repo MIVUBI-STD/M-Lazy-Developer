@@ -1001,6 +1001,35 @@ export function formatSelectedMapAuditBrief(input: {
         (methodCallEdges.length - 48));
     }
   }
+  const methodPropertyNodes = intent.nodes.flatMap(node => {
+    const writes = node.evidenceIds
+      .filter(id => id.startsWith("source-method-property-site:"))
+      .map(id => evidenceById.get(id))
+      .filter(record => record?.scope === "selected-artifact");
+    return writes.length ? [{node,writes}] : [];
+  });
+  if (methodPropertyNodes.length > 0) {
+    out.push("", "### Source method property changes (NOT SETTLED RESULTS)");
+    out.push("These are exact authored JavaScript assignments in source methods " +
+      "identified by the local call graph. A score-looking property write is " +
+      "not proof of a player award, durable ledger, terminal ranking or " +
+      "player-visible match result.");
+    for (const entry of methodPropertyNodes.slice(0, 24)) {
+      out.push("- **" + concise(entry.node.label) + "**");
+      for (const write of entry.writes.slice(0, 12)) {
+        out.push("  - " + concise(write!.summary),
+          "    Source: " + concise(write!.locator));
+      }
+      if (entry.writes.length > 12) {
+        out.push("  Additional direct writes omitted: " +
+          (entry.writes.length - 12));
+      }
+    }
+    if (methodPropertyNodes.length > 24) {
+      out.push("Additional source methods omitted: " +
+        (methodPropertyNodes.length - 24));
+    }
+  }
   const sourceMethodStateEdges = intent.edges.filter(edge =>
     edge.id.startsWith("source-method-state:") &&
     edge.kind === "participates-in" && edge.status === "inferred");

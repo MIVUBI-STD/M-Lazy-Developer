@@ -1635,6 +1635,18 @@ describe("exact authored return-policy source admission", () => {
     expect(stateEdges.some(e =>
       node(e.from).includes("endRound") &&
       node(e.to).toLowerCase().includes("round end"))).toBe(true);
+    const contribution = model.nodes.find(n =>
+      n.label.includes("addContribution") &&
+      n.id.startsWith("mechanic:source-method:"));
+    expect(contribution).toBeDefined();
+    const authoredMutations = (contribution?.evidenceIds ?? [])
+      .map(id => model.evidence.find(e => e.id === id))
+      .filter((e): e is NonNullable<typeof e> =>
+        e !== undefined && e.id.startsWith("source-method-property-site:"));
+    expect(authoredMutations).toHaveLength(1);
+    expect(authoredMutations[0]?.summary).toContain("this.player.score += points");
+    expect(authoredMutations[0]?.scope).toBe("selected-artifact");
+    expect(authoredMutations[0]?.locator).toContain("manager.js:");
     expect(model.edges.filter(e =>
       e.id.startsWith("source-method-call:") &&
       e.kind === "transitions-to")).toEqual([]);

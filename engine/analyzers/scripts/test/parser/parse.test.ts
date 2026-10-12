@@ -1315,4 +1315,37 @@ const arenas = joins.map((entry, index) => {
     expect(parsed.authoredGameplayCatalog).toEqual([]);
   });
 
+  it("retains source method property writes with exact branch context, not score settlement", () => {
+    const src = {artifactId:"world:guess",
+      relativePath:"behavior_packs/demo/scripts/score.js"};
+    const parsed = parseScriptFile("score", [
+      'class GuessGame {',
+      '  addContribution(points) {',
+      '    const player = this.state.players[id];',
+      '    player.score += points;',
+      '    player.scores_by_difficulty[this.state.difficulty] += points;',
+      '  }',
+      '  guess(correct) {',
+      '    if (correct) this.state.players[id].score += 5;',
+      '  }',
+      '}',
+    ].join("\n"), src);
+    const writes = parsed.authoredPropertyMutations ?? [];
+    expect(writes).toHaveLength(3);
+    expect(writes.map(item => [
+      item.executionRegion, item.targetExpression,
+      item.operator,item.valueExpression,
+    ])).toEqual([
+      ["function:addContribution","player.score","+=","points"],
+      ["function:addContribution",
+        "player.scores_by_difficulty[this.state.difficulty]","+=","points"],
+      ["function:guess","this.state.players[id].score","+=","5"],
+    ]);
+    expect(writes[2]?.lexicalGuards?.some(g =>
+      g.conditionText === "correct" && g.branch === "true")).toBe(true);
+    expect(writes[0]?.source.range?.lineStart).toBe(4);
+    expect(writes.every(write => write.source.artifactId === "world:guess"))
+      .toBe(true);
+  });
+
 });

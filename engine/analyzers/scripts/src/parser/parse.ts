@@ -18,6 +18,7 @@ import type {
   ScriptLexicalGuard,
   ScriptBlockMatchGuard,
   ScriptCommandLiteral,
+  ScriptAuthoredPropertyMutation,
   ScriptImport,
   ScriptImportedSymbol,
   ScriptModuleMemberAccess,
@@ -2291,6 +2292,7 @@ export function parseScriptFile(
   const propertyWrites = inferScriptPropertyWrites(file, source);
   const entityEventTriggers: ScriptEntityEventTrigger[] = [];
   const commandLiterals: ScriptCommandLiteral[] = [];
+  const authoredPropertyMutations: ScriptAuthoredPropertyMutation[] = [];
   const lifecycleMemberExposures = inferScriptLifecycleMemberExposures(
     file,
     source,
@@ -2798,6 +2800,28 @@ export function parseScriptFile(
     }
 
     if (ts.isBinaryExpression(node)) {
+      const op = node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+        ? "=" as const
+        : node.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken
+          ? "+=" as const
+          : node.operatorToken.kind === ts.SyntaxKind.MinusEqualsToken
+            ? "-=" as const
+            : undefined;
+      if (op && (ts.isPropertyAccessExpression(node.left) ||
+          ts.isElementAccessExpression(node.left))) {
+        const executionRegion = localExecutionRegionId(node, file);
+        if (executionRegion.startsWith("function:")) {
+          authoredPropertyMutations.push({
+            executionRegion,
+            targetExpression: node.left.getText(file).slice(0, 180),
+            valueExpression: node.right.getText(file).slice(0, 180),
+            operator: op,
+            source: lineSource(file, node, source),
+            lexicalGuards: lexicalBranchGuards(node, file, source),
+            precedenceGuards: precedingEarlyExitGuards(node, file, source),
+          });
+        }
+      }
       if (node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
         const target = stateMutationTarget(node.left);
         const value = stateMutationValue(node.right);
@@ -3229,6 +3253,7 @@ export function parseScriptFile(
     authoredGameplayCatalog: extractScriptGameplayCatalog(file, source),
     authoredContentCollections: extractScriptContentCollections(file, source),
     authoredContentUses: extractScriptContentUseSites(file, source),
+    authoredPropertyMutations,
     blockCustomComponentRegistrations,
     persistentReconciliation,
     arenaAuthorityEvidence,

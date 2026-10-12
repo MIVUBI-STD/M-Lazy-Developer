@@ -552,4 +552,44 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("keeps exact source score mutation separate from final-result proof", () => {
+    const report: any = {
+      mapVersion:"1.1.3",evidenceScope:{selectedArtifact:"source.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{surfaceInventory:[],status:"PARTIAL"},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const content: any = {
+      evidence:[{
+        id:"source-method-property-site:score",scope:"selected-artifact",
+        origin:"source-code",
+        locator:"behavior_packs/demo/scripts/guess.js:421:5",
+        summary:"Authored JS property mutation in function:addContribution: " +
+          "player.score += points. Source attempt only: not proof of " +
+          "authoritative scoring, accepted action, committed result " +
+          "or Minecraft execution.",
+      }],
+      nodes:[{
+        id:"mechanic:source-method:score",
+        kind:"mechanic",
+        label:"function:addContribution (source method; gameplay purpose UNKNOWN)",
+        evidenceIds:["source-method-property-site:score"],
+      }],
+      edges:[],unknowns:[],
+    };
+    const brief = formatSelectedMapAuditBrief({
+      report,intent:content,modelTaskPackets:[],
+    });
+    expect(brief).toContain("Source method property changes (NOT SETTLED RESULTS)");
+    expect(brief).toContain("player.score += points");
+    expect(brief).toContain("guess.js:421:5");
+    expect(brief).not.toContain("confirmed winner");
+    expect(brief).toContain("No published finding");
+  });
+
 });

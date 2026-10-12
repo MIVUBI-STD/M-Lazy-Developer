@@ -136,6 +136,17 @@ export interface ScriptMethodCall {
   precedenceGuards?: readonly ScriptLexicalGuard[];
 }
 
+/** Direct JavaScript method-local assignment, NOT proof of gameplay settlement. */
+export interface ScriptAuthoredPropertyMutation {
+  readonly executionRegion: string;
+  readonly targetExpression: string;
+  readonly valueExpression: string;
+  readonly operator: "=" | "+=" | "-=";
+  readonly source: SourceRef;
+  readonly lexicalGuards?: readonly ScriptLexicalGuard[];
+  readonly precedenceGuards?: readonly ScriptLexicalGuard[];
+}
+
 export interface ScriptPropertyWrite {
   receiverType: ScriptApiReceiverType;
   property: string;
@@ -552,6 +563,8 @@ export interface ParsedScriptFile {
   authoredContentCollections?: readonly ScriptAuthoredContentCollection[];
   /** Exact named-ESM collection method reference, NOT an executed round. */
   authoredContentUses?: readonly ScriptContentUseSite[];
+  /** Source facts for direct JS property writes, not live state or score proof. */
+  authoredPropertyMutations?: readonly ScriptAuthoredPropertyMutation[];
   blockCustomComponentRegistrations?: BlockCustomComponentRegistrationEvidence[];
   persistentReconciliation?: PersistentReconciliationEvidence;
   imports: ScriptImport[];

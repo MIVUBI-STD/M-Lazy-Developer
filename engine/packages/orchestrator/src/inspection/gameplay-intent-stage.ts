@@ -1325,11 +1325,52 @@ export function buildGameplayIntentModel(
       });
     }
 
+    // The existing source-method graph also needs the ordinary JavaScript
+    // property writes occurring in its owned methods. An authored update to
+    // player.score is not necessarily the authoritative settled score, but
+    // hiding the source mutation makes the player journey unusable.
+    const methodRegions = new Set(sourceCalls.flatMap(call =>
+      [call.callerRegion,call.targetRegion]));
+    const propertyCounts = new Map<string,number>();
+    for (const mutation of script.authoredPropertyMutations ?? []) {
+      if (!methodRegions.has(mutation.executionRegion) ||
+          mutation.source.artifactId !== script.source.artifactId ||
+          mutation.source.relativePath !== path) continue;
+      const ownerId = methodId(mutation.executionRegion);
+      const existing = nodes.get(ownerId);
+      if (!existing) continue;
+      const count = propertyCounts.get(ownerId) ?? 0;
+      if (count >= 32) continue;
+      propertyCounts.set(ownerId,count + 1);
+      const siteId = "source-method-property-site:" +
+        encodeURIComponent(ownerId + "#" + sourceLocator(mutation.source));
+      const lexical = [
+        ...(mutation.lexicalGuards ?? []).map(g =>
+          g.branch + ":" + g.conditionText),
+        ...(mutation.precedenceGuards ?? []).map(g =>
+          "preceding:" + g.branch + ":" + g.conditionText),
+      ];
+      evidence.set(siteId,{
+        id:siteId,origin:"source-code",scope:"selected-artifact",
+        locator:sourceLocator(mutation.source),
+        summary:"Authored JS property mutation in " +
+          mutation.executionRegion + ": " +
+          mutation.targetExpression + " " +
+          mutation.operator + " " + mutation.valueExpression +
+          (lexical.length ? "; source guards: " +
+            lexical.join(" AND ") : "") +
+          ". Source attempt only: not proof of authoritative scoring, " +
+          "accepted action, committed result or Minecraft execution.",
+      });
+      nodes.set(ownerId,{
+        ...existing,
+        evidenceIds:[...new Set([...existing.evidenceIds,siteId])].sort(),
+      });
+    }
+
     // Reuse the exact canonical state subject for a source method's literal
     // assignment. This is not an edge from a *previous* state, and does not
     // establish reachability, phase duration or runtime player ownership.
-    const methodRegions = new Set(sourceCalls.flatMap(call =>
-      [call.callerRegion,call.targetRegion]));
     for (const mutation of script.stateMutations ?? []) {
       if (!methodRegions.has(mutation.executionRegion) ||
           mutation.source.artifactId !== script.source.artifactId ||
