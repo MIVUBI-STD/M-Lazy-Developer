@@ -23,12 +23,12 @@ import type {
   SectionRetrievalResult,
 } from "../../../analysis-planner/src/index.js";
 import type { MinecraftRuntimeProfile } from "../../../runtime-profile/src/index.js";
+import type { SemanticIr } from "../../../semantic-ir/src/index.js";
 import {
   compileResourceContext,
   compileSectionContext,
   compileDeveloperPracticeReferenceContext,
   type DeveloperPracticeReferenceData,
-  type SelectedArtifactReferenceSignal,
   type CompiledDeveloperPracticeReferenceContext,
   type CompiledResourceContext,
   type CompiledSectionContext,
@@ -66,9 +66,9 @@ export interface ContextCompilerRequest {
   /** Opt-in developer REFERENCE data; NEVER generated from Intent labels. */
   developerPractice?: {
     readonly data: DeveloperPracticeReferenceData;
-    /** Source cues must be grounded in this exact selected artifact. */
-    readonly evidence: readonly SelectedArtifactReferenceSignal[];
-    /** The specific semantic question domains chosen by the operator. */
+    /** Canonical selected-map Semantic IR, not caller-authored signal labels. */
+    readonly semanticIr: SemanticIr;
+    /** Specific interpretation question domains, chosen independently. */
     readonly domains: readonly string[];
   };
   budget?: Partial<ContextCompilerBudget>;
@@ -348,7 +348,7 @@ export function compileContextPack(
     : compileDeveloperPracticeReferenceContext({
         data: input.developerPractice.data,
         selectedArtifactId: input.intent.artifactId,
-        evidence: input.developerPractice.evidence,
+        semanticIr: input.developerPractice.semanticIr,
         domains: input.developerPractice.domains,
       });
   const semanticPool =

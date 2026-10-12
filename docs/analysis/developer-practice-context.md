@@ -158,20 +158,40 @@ The request must include:
 
 - already-loaded current-version `developer-practice-signals.json`;
 - selected-map artifact ID from canonical `GameplayIntentModel.artifactId`;
-- recognized source cue(s) with exact evidence ID, source path and
-  matching artifact ID (not natural-language filename or report keywords);
-- the operator's precise question domain(s), e.g. `ui` + `session`.
+- the existing `SemanticIr` from the same selected inspection; not
+  manually supplied signal names, filenames or generated map-design guesses;
+- the operator's precise question domain(s), e.g. `state` +
+  `persistence`, `spatial`, or `scheduler`.
+
+The selector derives `SelectedArtifactReferenceSignal` from exact
+Semantic IR state-operation, world-effect and scheduler-edge IDs carrying
+the same selected artifact ID and a non-empty source path. Supported
+source cues are deliberately limited to typed/normalized observations:
+`getDynamicProperty`, `setDynamicProperty`, `scoreboard`,
+`teleport`, `system.runTimeout` and `system.runInterval`.
+For example, `teleport` means a source-observed attempted effect, **not**
+necessarily `Player.teleport` or completed arrival. Equal scoreboard
+labels do not establish actor ownership or gameplay scoring.
+
+Other cues such as `ActionFormData`, `onScreenDisplay.setActionBar`
+and arbitrary minified aliases are **NOT** promoted from raw text: the
+existing Semantic IR does not currently expose them as exact typed
+observations. The operator may still inspect such source directly and
+document it separately, but no automatic developer-reference selection
+is claimed for it.
 
 This helper filters to SOURCE_REVIEWED/CORROBORATED, interpretation-eligible
 source files with SHA-256 provenance, exact signal+domain matches, and a
 default maximum of **two** reference patterns. It returns `REFERENCE`
 context with the original question, sample relation hypotheses,
 `negativeControl`, `prohibits`, matching selected-evidence IDs,
-source-file SHA, and source-archive SHA. A mismatch, absent source proof,
-workflow-only source or unknown source alias results in abstention.
+source-file SHA, and source-archive SHA. A mismatch, absent typed IR source proof, workflow-only source or unknown
+source alias results in abstention.
 Selecting a hint **cannot** change Game Design closure or issue disposition.
-This opt-in context exists as source code; full ContextCompiler pipeline
-execution and automatic source/ZIP hydration have not been demonstrated.
+This opt-in context exists as source code; it does not run automatically
+from `runSelectedMapAudit()`. Repository TypeScript execution, full
+ContextCompiler pipeline acceptance and automatic source/ZIP hydration
+have not been demonstrated.
 
 **Real-source calibration example (HISTORICAL only):**
 [developer-practice UI context source inspection](../../engine/reliability/history/audit-runs/learning/developer-practice-ui-context-2026-10-13.json).
@@ -206,8 +226,9 @@ never because this ZIP says the pattern is preferred.
 ## Acceptance / evidence ceiling
 
 This curated snapshot makes **all active skills discoverable and
-fingerprinted**, **13 interpretation records conditionally selectable** via
-the existing opt-in Context Compiler contract, and **20 pending/research/
+fingerprinted**, **13 interpretation records searchable** and a conservative
+subset conditionally selectable from existing typed Semantic IR through
+the opt-in Context Compiler contract, and **20 pending/research/
 feedback source documents** traceable for future comparison. The other ZIP
 contents (code examples, assets, checkers, archive/history) remain in the
 external original source and are not claimed fully ingested.

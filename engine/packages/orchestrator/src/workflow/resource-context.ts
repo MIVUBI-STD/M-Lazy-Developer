@@ -7,6 +7,7 @@ import {
   runtimeConstraintFromLegacyKnowledgeApplicability,
   type KnowledgeApplicabilityDecision,
 } from "../../../knowledge/src/index.js";
+import type { SemanticIr } from "../../../semantic-ir/src/index.js";
 import {
   validateMinecraftRuntimeProfile,
   type MinecraftRuntimeProfile,
@@ -199,6 +200,73 @@ export interface SelectedArtifactReferenceSignal {
   readonly signal: string;
 }
 
+/**
+ * Derive lookup cues ONLY from canonical typed Semantic IR sites in the
+ * selected artifact. Never search lexical source text or infer an API
+ * receiver/behavior from a filename, alias, or a broad execution trace.
+ *
+ * Supported cues are intentionally a bounded subset of the developer
+ * reference vocabulary. Source signals without a matching typed IR witness
+ * abstain until the existing analyzer provides that witness.
+ */
+export function developerPracticeSignalsFromSemanticIr(
+  ir: SemanticIr,
+  selectedArtifactId: string,
+): readonly SelectedArtifactReferenceSignal[] {
+  if (!selectedArtifactId.trim()) return [];
+  const cues: SelectedArtifactReferenceSignal[] = [];
+  const add = (
+    evidenceId: string,
+    source: { readonly artifactId: string; readonly relativePath: string },
+    signal: string,
+  ): void => {
+    if (!evidenceId.trim() || source.artifactId !== selectedArtifactId ||
+        !source.relativePath.trim()) return;
+    cues.push({
+      evidenceId,
+      artifactId: selectedArtifactId,
+      sourcePath: source.relativePath,
+      signal,
+    });
+  };
+  const surfaces = new Map(ir.state.surfaces.map(surface =>
+    [surface.id, surface.ref] as const));
+  for (const operation of ir.state.operations) {
+    const surface = surfaces.get(operation.surfaceId);
+    if (surface?.kind === "dynamic-property") {
+      if (operation.operation === "read") {
+        add(operation.id, operation.source, "getDynamicProperty");
+      } else if (operation.operation === "write") {
+        add(operation.id, operation.source, "setDynamicProperty");
+      }
+    } else if (surface?.kind === "scoreboard") {
+      // Scoreboard is technical state, NOT necessarily an economy or score.
+      add(operation.id, operation.source, "scoreboard");
+    }
+    // Tag operations are already in IR, but current reference patterns lack
+    // exact tag operation cues. Do not invent hasTag/addTag from state kind.
+  }
+  for (const effect of ir.execution.worldEffects ?? []) {
+    if (effect.kind === "teleport") {
+      // This is a typed/parsing-backed teleport attempt; it does not prove
+      // Player.teleport, player arrival or any design requirement.
+      add(effect.id, effect.source, "teleport");
+    }
+  }
+  for (const edge of ir.execution.edges) {
+    if (edge.scheduler === "runTimeout" || edge.scheduler === "runInterval") {
+      // Scheduler observation comes from the already-authored execution edge.
+      add(edge.id, edge.source, "system." + edge.scheduler);
+    }
+  }
+  const unique = new Map(cues.map(cue =>
+    [[cue.evidenceId, cue.sourcePath, cue.signal].join("::"), cue] as const));
+  return [...unique.values()].sort((a, b) =>
+    a.evidenceId.localeCompare(b.evidenceId) ||
+    a.signal.localeCompare(b.signal) ||
+    a.sourcePath.localeCompare(b.sourcePath));
+}
+
 export interface CompiledDeveloperPracticeReferenceContext {
   readonly authority: "REFERENCE";
   readonly status: "INVESTIGATION_HINTS_ONLY";
@@ -231,7 +299,8 @@ export interface CompiledDeveloperPracticeReferenceContext {
 export function compileDeveloperPracticeReferenceContext(input: {
   readonly data: DeveloperPracticeReferenceData;
   readonly selectedArtifactId: string;
-  readonly evidence: readonly SelectedArtifactReferenceSignal[];
+  /** Canonical source observations, not user-provided lookup labels. */
+  readonly semanticIr: SemanticIr;
   readonly domains: readonly string[];
   readonly maximum?: number;
 }): CompiledDeveloperPracticeReferenceContext | undefined {
@@ -241,10 +310,9 @@ export function compileDeveloperPracticeReferenceContext(input: {
       !/^[a-f0-9]{64}$/.test(data.sourceSnapshot.archiveSha256) ||
       !selectedArtifactId.trim()) return undefined;
   const queryDomains = new Set(input.domains.filter(Boolean));
-  const observed = input.evidence.filter(item =>
-    item.artifactId === selectedArtifactId &&
-    item.evidenceId.trim() !== "" && item.sourcePath.trim() !== "" &&
-    item.signal.trim() !== "");
+  const observed = developerPracticeSignalsFromSemanticIr(
+    input.semanticIr, selectedArtifactId,
+  );
   if (queryDomains.size === 0 || observed.length === 0) return undefined;
   const sourceById = new Map(data.sourceFiles.map(file => [file.id, file]));
   const sorted = (items: readonly string[]) => [...new Set(items)].sort();
