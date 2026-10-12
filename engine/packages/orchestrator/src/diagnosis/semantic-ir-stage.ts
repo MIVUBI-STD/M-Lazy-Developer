@@ -525,6 +525,40 @@ export function buildInspectionSemanticIr(
       });
     }
 
+    // Canonical typed Entity/Player tag accesses join the SAME Semantic IR
+    // state surface used by mcfunctions and authored commands. A lexical
+    // literal is required: computed keys, escaped spellings and ambiguous
+    // receivers must not be silently promoted to exact tag identity.
+    // This observes a source operation, NOT a completed tag mutation,
+    // player state, lifecycle transition or validated game rule.
+    for (const call of parsed.methodCalls) {
+      if ((call.receiverType !== "Entity" && call.receiverType !== "Player") ||
+          !["hasTag", "addTag", "removeTag"].includes(call.method)) continue;
+      const literal = call.argumentTexts?.[0];
+      const literalTag = call.argumentCount === 1 &&
+        !call.hasSpreadArgument && call.argumentKinds[0] === "string" &&
+        literal !== undefined && /^(?:"[^"\\]*"|'[^'\\]*')$/.test(literal)
+          ? literal.slice(1, -1)
+          : undefined;
+      // Keep dynamic/unresolved tag keys as *source* evidence. A wildcard
+      // is NOT a real tag, nor authority to merge different tag expressions.
+      const tag = literalTag && literalTag.length > 0 ? literalTag : "*";
+      const operation: StateOperationKind = call.method === "hasTag"
+        ? "read" : call.method === "addTag" ? "write" : "delete";
+      addStateOperation(
+        ensureScriptRegion(parsed, call.executionRegion ?? "module", call.source),
+        { kind: "tag", key: tag },
+        operation,
+        call.source,
+        call.receiverHint,
+        operation === "write"
+          ? { kind: "literal", value: "true", scalarKind: "boolean" }
+          : undefined,
+        irGuards(call.lexicalGuards),
+        irGuards(call.precedenceGuards),
+      );
+    }
+
     // Only typed API call sites are admitted; unknown receiver calls are not.
     for (const call of parsed.methodCalls) {
       const kind: AuthoredWorldEffect["kind"] | undefined =

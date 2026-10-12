@@ -1745,6 +1745,89 @@ export function formatSelectedMapAuditBrief(input: {
         (outcomeGroups.length - 8) + ".");
     }
   }
+  // Unified technical state-surface view: typed script tag calls and
+  // authored command accesses refer to the SAME normalized Semantic IR
+  // resource identity. A named tag/scoreboard is not a gameplay objective,
+  // shared player-state identity or evidence the operation succeeded.
+  const technicalSourceSteps = new Map<string,
+    NonNullable<GameplayArchitectureNavigation["gameplayStructure"][
+      "sourceFlowCandidates"]>[number]["sourceSteps"][number]>();
+  for (const flow of input.architecture?.gameplayStructure.sourceFlowCandidates ?? []) {
+    for (const step of flow.sourceSteps) {
+      if (step.kind === "state") technicalSourceSteps.set(step.id, step);
+    }
+  }
+  const technicalResources = intent.nodes.filter(node =>
+    node.kind === "resource" &&
+    (node.id.startsWith("resource:tag:") ||
+      node.id.startsWith("resource:scoreboard:")) &&
+    node.evidenceIds.some(id =>
+      evidenceById.get(id)?.scope === "selected-artifact" &&
+      technicalSourceSteps.has(id)))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (technicalResources.length > 0) {
+    out.push("", "### Tag and scoreboard technical state (SOURCE ONLY)");
+    out.push("Same technical key across different actors, arenas or sessions " +
+      "does NOT prove shared live storage, gameplay phase or successful " +
+      "mutation. Unresolved receiver aliases and dynamic keys remain unknown.");
+    for (const resource of technicalResources.slice(0, 12)) {
+      const steps = resource.evidenceIds
+        .flatMap(id => {
+          const step = technicalSourceSteps.get(id);
+          return step === undefined ? [] : [step];
+        });
+      const locations = [...new Set(steps.map(step =>
+        step.source.relativePath +
+        (step.source.range?.lineStart === undefined ? "" :
+          ":" + step.source.range.lineStart)))].sort();
+      out.push(
+        "- **" + concise(resource.label) + "**" +
+          " [source-observed technical surface; game rule UNKNOWN].",
+        "  Access candidates: read=" + steps.filter(step =>
+          step.operation === "read").length +
+          ", write=" + steps.filter(step => step.operation === "write").length +
+          ", delete=" + steps.filter(step => step.operation === "delete").length +
+          ", other=" + steps.filter(step =>
+            !["read", "write", "delete"].includes(step.operation ?? "")).length + ".",
+        "  Source: " + (locations.length === 0 ? "UNRESOLVED" :
+          locations.slice(0, 3).map(concise).join("; ")) +
+          (locations.length > 3 ? "; additional sources omitted" : "") + ".",
+      );
+    }
+    if (technicalResources.length > 12) {
+      out.push("Additional technical surfaces omitted: " +
+        (technicalResources.length - 12) + ".");
+    }
+  }
+
+  const dynamicTagQuestions = intent.unknowns
+    .filter(unknown => unknown.id.startsWith("unknown:script-tag-dynamic-key:"))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (dynamicTagQuestions.length > 0) {
+    out.push("", "### Unresolved dynamic tag state (SOURCE EVIDENCE; UNKNOWN)");
+    out.push("Computed tag keys are NOT collapsed into a fictitious literal " +
+      "tag name. Source references are preserved without attributing a " +
+      "gameplay condition or player/arena instance.");
+    for (const question of dynamicTagQuestions.slice(0, 6)) {
+      const sourceLocations = [...new Set((question.evidenceIds ?? [])
+        .flatMap(id => {
+          const evidence = evidenceById.get(id);
+          return evidence?.scope === "selected-artifact"
+            ? [evidence.locator] : [];
+        }))].sort();
+      out.push(
+        "- Dynamic tag group: " + (question.evidenceIds ?? []).length +
+          " exact source operation(s); key and effective state UNKNOWN.",
+        "  Source: " + (sourceLocations.length === 0 ? "UNRESOLVED" :
+          sourceLocations.slice(0, 3).map(concise).join("; ")) + ".",
+      );
+    }
+    if (dynamicTagQuestions.length > 6) {
+      out.push("Additional unresolved tag source groups omitted: " +
+        (dynamicTagQuestions.length - 6) + ".");
+    }
+  }
+
   out.push("", "### Other mechanics (source inspection; not gameplay execution)");
   if (features.length === 0) {
     out.push("No recognized gameplay features in this view; the map may still contain unclassified gameplay.");

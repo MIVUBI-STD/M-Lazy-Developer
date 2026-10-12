@@ -717,6 +717,113 @@ export function buildGameplayIntentModel(
     }
   }
 
+  // Reconcile selected-script tag and scoreboard state operations with the
+  // same technical resource subjects already used for mcfunctions. The
+  // operation site is canonical Semantic IR evidence: a tag name or score
+  // objective is not itself a game objective, an entity instance or a
+  // successful mutation. A classified mechanic receives an INFERRED
+  // participates-in relation only when its EXACT IR region evidence uniquely
+  // owns the operation's region in this selected source artifact.
+  if (input.semanticIr) {
+    const surfaces = new Map(input.semanticIr.state.surfaces.map(surface =>
+      [surface.id, surface.ref] as const));
+    const scriptRegions = new Map(input.semanticIr.execution.regions
+      .filter(region => region.kind === "script-function" ||
+        region.kind === "script-callback" ||
+        region.kind === "script-module")
+      .map(region => [region.id, region] as const));
+    const byRegion = new Map<string, GameplayIntentNode[]>();
+    for (const node of nodes.values()) {
+      if (node.kind !== "mechanic" &&
+          node.kind !== "phase" && node.kind !== "lifecycle" &&
+          node.kind !== "objective") continue;
+      for (const evidenceId of node.evidenceIds) {
+        if (!scriptRegions.has(evidenceId)) continue;
+        const owners = byRegion.get(evidenceId) ?? [];
+        owners.push(node);
+        byRegion.set(evidenceId, owners);
+      }
+    }
+    const unresolvedTagKeys = new Map<string, Set<string>>();
+    for (const operation of input.semanticIr.state.operations) {
+      const surface = surfaces.get(operation.surfaceId);
+      const region = scriptRegions.get(operation.executionRegionId);
+      if (!surface || (surface.kind !== "tag" &&
+                       surface.kind !== "scoreboard") ||
+          !region ||
+          (input.artifactId !== undefined &&
+            operation.source.artifactId !== input.artifactId) ||
+          region.source?.artifactId !== operation.source.artifactId ||
+          region.source?.relativePath !== operation.source.relativePath) continue;
+
+      evidence.set(operation.id, {
+        id: operation.id,
+        origin: surface.kind === "tag" ? "tag" : "scoreboard",
+        locator: operation.source.relativePath,
+        scope: "selected-artifact",
+        summary: "Exact script/command source operation on a technical " +
+          surface.kind + " surface; receiver alias, runtime state and game-design meaning remain unresolved.",
+      });
+      if (surface.key === "*") {
+        if (surface.kind === "tag") {
+          const sites = unresolvedTagKeys.get(region.id) ?? new Set<string>();
+          sites.add(operation.id);
+          unresolvedTagKeys.set(region.id, sites);
+        }
+        // A wildcard key has no exact, source-backed technical resource
+        // identity. Do not merge computed tags with each other or with
+        // known literal tags, even within one method or actor.
+        continue;
+      }
+      const key = "resource:" + surface.kind + ":" +
+        encodeURIComponent(surface.key);
+      const previous = nodes.get(key);
+      nodes.set(key, previous
+        ? {
+            ...previous,
+            evidenceIds: [...new Set([...previous.evidenceIds, operation.id])].sort(),
+          }
+        : {
+            id: key, kind: "resource",
+            label: (surface.kind === "tag" ? "Tag " : "Scoreboard ") + surface.key,
+            status: "authored",
+            evidenceIds: [operation.id],
+            description:
+              "Source-observed technical surface only; actor/arena ownership and gameplay meaning are unknown.",
+          });
+      const owners = byRegion.get(region.id) ?? [];
+      if (owners.length !== 1) continue;
+      const owner = owners[0]!;
+      const edgeKey = ["participates-in", owner.id, key].join("::");
+      const existing = edges.get(edgeKey);
+      edges.set(edgeKey, existing
+        ? {
+            ...existing,
+            evidenceIds: [...new Set([...existing.evidenceIds, operation.id])].sort(),
+          }
+        : {
+            id: "intent-edge:participates-in:" + owner.id + ":" + key,
+            from: owner.id, to: key, kind: "participates-in",
+            status: "inferred", evidenceIds: [operation.id],
+            description:
+              "Classified source region references an exact tag/scoreboard operation. " +
+              "Source association only; effect, scope and gameplay purpose are unproven.",
+          });
+    }
+    for (const [regionId, sites] of [...unresolvedTagKeys]
+      .sort(([a], [b]) => a.localeCompare(b))) {
+      intentUnknowns.push({
+        id: "unknown:script-tag-dynamic-key:" + encodeURIComponent(regionId),
+        question:
+          "Typed Entity/Player tag access uses a dynamic or unsupported tag key. " +
+          "Its exact source operations are recorded, but the tag name, runtime " +
+          "receiver identity and relationship to other gameplay state are UNKNOWN.",
+        blockedSubjectIds: [],
+        evidenceIds: [...sites].sort(),
+      });
+    }
+  }
+
   // Link only an exact IR world effect to ONE already classified candidate
   // that owns the same execution region; never manufacture new mechanics.
   for (const effect of input.semanticIr?.execution.worldEffects ?? []) {

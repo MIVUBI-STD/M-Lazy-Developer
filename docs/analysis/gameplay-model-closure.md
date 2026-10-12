@@ -385,6 +385,42 @@ unowned by the composed Intent/Scenario graph. Those unknowns are review
 obligations, not automatically gameplay bugs. This is a stricter closure
 contract using existing owners and production paths, not a new graph/runner.
 
+### Global technical state normalization (tags and scoreboards)
+
+The canonical Semantic IR must retain selected-artifact tag accesses from
+*typed* Entity/Player JavaScript API calls (`hasTag`, `addTag`,
+`removeTag`) using the same `tag` state surface identity already used
+for authored Minecraft commands/mcfunctions. Only a directly authored,
+unescaped string-literal tag argument is admitted as an exact key.
+Typed calls with computed/unsupported keys are recorded as `tag:*`
+unknown-key state operations, NOT merged into a fictitious literal tag.
+The canonical Gameplay Intent owner aggregates these unknown-key operations
+by exact source execution region into material questions with attached IR
+evidence; the brief renders their counts and source locations separately.
+Unknown/untyped receivers remain outside this bounded recognition and must
+not be treated as an absence of tag behavior. Observed `read`, `write`
+or `delete` operations carry exact source and lexical guard evidence; these
+records are technical source facts, not applied Minecraft mutations.
+
+The existing Gameplay Intent owner may bind exact IR tag/scoreboard
+operation evidence to its existing technical resource subject. Association
+with a classified source mechanic requires exactly one already-bound
+Semantic IR execution-region owner from the same selected artifact. That
+edge stays `inferred` / `participates-in`, NEVER an authored state
+transition or proof that two equal tag names reference the same player,
+arena, session or runtime instance. An unresolved owner remains unplaced
+without guessed gameplay meaning. The canonical audit brief must expose
+a bounded read/write/delete accounting from the SAME source-flow IR,
+separately from gameplay objectives, outcomes and terminal rules.
+
+`reconcileSourceGuardedStateTransitions` remains intentionally strict:
+its current literal dynamic-property comparison rules must not be silently
+applied to `hasTag` predicates or scoreboard operations without exact
+branch/predicate/receiver evidence. The normalization extends the
+discoverable state vocabulary, **not** general executable state-transition
+or whole-game design proof. This behavior is global across source styles
+and must never be selected by known map titles or benchmark expectations.
+
 ### Operator-visible source decision and outcome chain
 
 The canonical selected-map audit brief must consume the SAME
