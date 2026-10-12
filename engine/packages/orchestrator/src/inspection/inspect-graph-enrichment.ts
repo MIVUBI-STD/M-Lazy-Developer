@@ -1,4 +1,7 @@
-import { populateFunctionEdges } from "../../../../analyzers/references/src/index.js";
+import {
+  populateFunctionEdges,
+  populateEntityLootTableEdges,
+} from "../../../../analyzers/references/src/index.js";
 import type { ParsedFunction } from "../../../../analyzers/functions/src/index.js";
 import type { SemanticGraph } from "../../../graph/src/index.js";
 import type { SemanticNode } from "../../../graph/src/index.js";
@@ -24,6 +27,8 @@ export interface InspectionGraphEnrichmentInput {
     node: SemanticNode;
     parsed: ParsedFunction;
   }[];
+  /** Existing source index owns parsed entity/component-group evidence. */
+  parsedEntities?: InspectionSourceIndex["parsedEntities"];
   parsedDialogueDocuments:
     InspectionSourceIndex["parsedDialogueDocuments"];
   parsedStructureModels:
@@ -175,6 +180,13 @@ export function enrichInspectionSemanticGraph(
       input.nodes,
     );
   }
+  // File presence is source reference integrity only. Entity component-group
+  // activation, table load, inventory drops and gameplay remain unproven.
+  populateEntityLootTableEdges(
+    input.graph,
+    input.parsedEntities ?? [],
+    input.nodes,
+  );
 
   for (const dialogue of dialogueGraphDocuments) {
     populateDialogueCommandGraph(

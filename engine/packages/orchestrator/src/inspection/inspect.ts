@@ -261,6 +261,7 @@ export async function inspectDirectory(
     nodes,
     artifactId,
     parsedFunctions,
+    parsedEntities,
     parsedDialogueDocuments,
     parsedStructureModels,
     tickFunctionRegistrations,

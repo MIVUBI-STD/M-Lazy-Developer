@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import { inspectDirectory } from "../../src/inspection/inspect.js";
 import { parseScriptFile } from "../../../../analyzers/scripts/src/parser/parse.js";
 import { SemanticGraph } from "../../../graph/src/index.js";
+import { parseEntityDefinition } from "../../../../analyzers/entities/src/index.js";
+import { populateEntityLootTableEdges } from "../../../../analyzers/references/src/index.js";
 import type { SemanticNode } from "../../../graph/src/index.js";
 import { populateInspectionScriptImportGraph } from "../../src/inspection/inspect-script-import-graph.js";
 import { discoverInspectionPacks } from "../../src/inspection/inspect-packs.js";
@@ -215,5 +217,148 @@ describe("inspectDirectory", () => {
     });
     expect(expression?.to).toBeUndefined();
   });
+
+  it("joins entity loot/equipment declarations only to exact same-pack table sources", () => {
+    const artifactId = "source-artifact";
+    const entitySource = {
+      artifactId,
+      relativePath: "behavior_packs/a/entities/archer.json",
+    };
+    const entity = parseEntityDefinition({
+      "minecraft:entity": {
+        description: { identifier: "sample:archer" },
+        components: {
+          "minecraft:loot": { table: "loot_tables/entities/normal.json" },
+        },
+        component_groups: {
+          "sample:ranged_attack": {
+            "minecraft:equipment": {
+              table: "loot_tables/entities/pillager_gear.json",
+            },
+          },
+          "sample:other": {
+            "minecraft:equipment": {
+              table: "loot_tables/entities/other.json",
+            },
+          },
+        },
+        events: {
+          "sample:enable_ranged": {
+            add: { component_groups: ["sample:ranged_attack"] },
+          },
+        },
+      },
+    }, entitySource);
+    const node = (
+      id: string, kind: "entity" | "loot_table", source: typeof entitySource,
+    ): SemanticNode => ({
+      id,
+      kind,
+      identifier: id,
+      identity: { kind, scope: "project", identifier: id },
+      source,
+    }) as SemanticNode;
+    const entityNode = node("entity:archer", "entity", entitySource);
+    const normal = node("loot:normal", "loot_table", {
+      artifactId,
+      relativePath: "behavior_packs/a/loot_tables/entities/normal.json",
+    });
+    const otherPack = node("loot:foreign-pack", "loot_table", {
+      artifactId,
+      relativePath: "behavior_packs/b/loot_tables/entities/pillager_gear.json",
+    });
+    const previousMap = node("loot:foreign-version", "loot_table", {
+      artifactId: "previous-artifact",
+      relativePath: "behavior_packs/a/loot_tables/entities/pillager_gear.json",
+    });
+    const groupOther = node("loot:other", "loot_table", {
+      artifactId,
+      relativePath: "behavior_packs/a/loot_tables/entities/other.json",
+    });
+    const graph = new SemanticGraph();
+    for (const n of [entityNode, normal, otherPack, previousMap, groupOther]) {
+      graph.addNode(n);
+    }
+    populateEntityLootTableEdges(
+      graph, [{ node: entityNode, parsed: entity }],
+      [entityNode, normal, otherPack, previousMap, groupOther],
+    );
+    const edges = graph.allEdges();
+    expect(edges).toHaveLength(3);
+    expect(edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "REFERENCES",
+        status: "resolved",
+        to: normal.id,
+        evidence: { source: expect.objectContaining({
+          artifactId,
+          relativePath: entitySource.relativePath,
+          jsonPointer: "/minecraft:entity/components/minecraft:loot/table",
+        }) },
+      }),
+      expect.objectContaining({
+        type: "REFERENCES",
+        status: "resolved",
+        to: groupOther.id,
+      }),
+      expect.objectContaining({
+        type: "REFERENCES",
+        status: "unresolved",
+        targetIdentifier: "loot_tables/entities/pillager_gear.json",
+        evidence: { source: expect.objectContaining({
+          jsonPointer:
+            "/minecraft:entity/component_groups/sample:ranged_attack/minecraft:equipment/table",
+        }) },
+      }),
+    ]));
+    expect(edges.find(edge =>
+      edge.targetIdentifier === "loot_tables/entities/pillager_gear.json")?.to
+    ).toBeUndefined();
+    expect(edges.every(edge => edge.type !== "EXECUTES_EVENT")).toBe(true);
+  });
+
+  it("surfaces the missing packaged equipment reference through the existing inspection diagnostics", async () => {
+    const root = await mkdtemp(join(tmpdir(), "entity-loot-ref-"));
+    const pack = join(root, "behavior_packs/a");
+    try {
+      await mkdir(join(pack, "entities"), { recursive: true });
+      await mkdir(join(pack, "loot_tables/entities"), { recursive: true });
+      await writeFile(join(pack, "entities/archer.json"), JSON.stringify({
+        "minecraft:entity": {
+          description: { identifier: "sample:ranged" },
+          component_groups: {
+            "sample:ranged": {
+              "minecraft:equipment": {
+                table: "loot_tables/entities/missing.json",
+              },
+            },
+          },
+          events: { "sample:range": {
+            add: { component_groups: ["sample:ranged"] },
+          } },
+        },
+      }));
+      await writeFile(join(pack, "loot_tables/entities/present.json"),
+        JSON.stringify({ pools: [] }));
+      const result = await inspectDirectory(root, "selected-artifact");
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: "UNRESOLVED_REFERENCE",
+          source: expect.objectContaining({
+            artifactId: "selected-artifact",
+            relativePath: "behavior_packs/a/entities/archer.json",
+            jsonPointer:
+              "/minecraft:entity/component_groups/sample:ranged/minecraft:equipment/table",
+          }),
+        }),
+      ]));
+      expect(result.unresolvedReferences).toBeGreaterThan(0);
+      // This is authored file-reference evidence, NOT a proof a mob spawned
+      // with bad equipment or that Minecraft executed the source group.
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
 
 });
