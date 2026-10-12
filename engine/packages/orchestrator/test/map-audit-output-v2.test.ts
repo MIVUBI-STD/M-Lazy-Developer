@@ -500,4 +500,44 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("projects exact intent content dependencies rather than only a detached list", () => {
+    const report: any = {
+      mapVersion:"1.1.3", evidenceScope:{selectedArtifact:"building.mcworld"},
+      control:{status:"BLOCKED",currentStage:"UNDERSTAND",
+        allowedNextAction:"RESOLVE_BLOCKING_STAGE"},
+      gameDesign:{objective:"UNKNOWN",objectiveGrounding:"unresolved",
+        winCondition:"UNKNOWN",winConditionGrounding:"unresolved",
+        loseCondition:"UNKNOWN",loseConditionGrounding:"unresolved"},
+      gameplayClosure:{status:"PARTIAL",surfaceInventory:[]},
+      multiArena:{isolationRules:[]},stateTransitions:[],
+      bugs:[],designMismatches:[],unresolved:{total:1},
+    };
+    const model: any = {
+      evidence:[
+        {id:"definition",scope:"selected-artifact",origin:"source-code",
+          locator:"behavior_packs/a/scripts/words.js:28:1"},
+        {id:"use",scope:"selected-artifact",origin:"source-code",
+          locator:"behavior_packs/a/scripts/round.js:246:19"},
+      ],
+      nodes:[
+        {id:"r",kind:"resource",label:"GuessText"},
+        {id:"c",kind:"mechanic",label:"method:Round.selectRound (source content reader)"},
+      ],
+      edges:[{id:"source-content-requires:current",kind:"requires",
+        status:"inferred",from:"c",to:"r",
+        evidenceIds:["definition","use"]}],
+      unknowns:[],
+    };
+    const brief = formatSelectedMapAuditBrief({
+      report,intent:model,modelTaskPackets:[],
+    });
+    expect(brief).toContain("Source-content dependencies (INTENT GRAPH");
+    expect(brief).toContain("Round.selectRound");
+    expect(brief).toContain("requires; SOURCE ONLY");
+    expect(brief).toContain("GuessText");
+    expect(brief).toContain("words.js:28:1");
+    expect(brief).toContain("round.js:246:19");
+    expect(brief).toContain("No published finding");
+  });
+
 });

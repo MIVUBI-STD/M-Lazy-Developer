@@ -1472,4 +1472,90 @@ describe("exact authored return-policy source admission", () => {
     expect(foreignOnly.unknowns.some(item =>
       item.id === "unknown:no-intent-signals")).toBe(true);
   });
+  it("links a source content pool to an exact imported consumer without inventing round progression", () => {
+    const artifactId = "world:builder";
+    const definition = parseScriptFile("words", [
+      'export const PromptPool = [',
+      '  {text:"Camera", difficulty:"easy"},',
+      '  {text:"Cart", difficulty:"easy"},',
+      '];',
+    ].join("\n"), {
+      artifactId,
+      relativePath:"behavior_packs/a/scripts/content/words.js",
+    });
+    const consumer = parseScriptFile("round-manager", [
+      'import { PromptPool as words } from "./content/words.js";',
+      'class RoundManager {',
+      '  chooseRound() {',
+      '    const candidate = words.filter(w => w.difficulty === "easy");',
+      '    this.state.phase = "round_countdown";',
+      '    return candidate;',
+      '  }',
+      '}',
+    ].join("\n"), {
+      artifactId,
+      relativePath:"behavior_packs/a/scripts/round-manager.js",
+    });
+    expect(definition.authoredContentCollections?.[0]?.exported).toBe(true);
+    expect(consumer.authoredContentUses).toEqual([
+      expect.objectContaining({
+        importedName:"PromptPool",localName:"words",method:"filter",
+        executionRegion:"method:RoundManager.chooseRound",
+      }),
+    ]);
+    const model = buildGameplayIntentModel({
+      id:"intent:build",artifactId,
+      parsedScripts:[{parsed:definition},{parsed:consumer}],
+    });
+    const edge = model.edges.find(item =>
+      item.id.startsWith("source-content-requires:"));
+    expect(edge).toMatchObject({kind:"requires",status:"inferred"});
+    const src = model.nodes.find(node => node.id === edge?.to);
+    const use = model.nodes.find(node => node.id === edge?.from);
+    expect(src).toMatchObject({kind:"resource",label:"PromptPool"});
+    expect(use).toMatchObject({kind:"mechanic",
+      label:"method:RoundManager.chooseRound (source content reader)"});
+    expect(edge?.evidenceIds.every(id =>
+      model.evidence.some(record =>
+        record.id === id && record.scope === "selected-artifact"))).toBe(true);
+    expect(model.edges.some(item =>
+      item.kind === "transitions-to" && item.id.startsWith("source-content-")))
+      .toBe(false);
+  });
+
+  it("does not conflate missing, shadowed or foreign-pack content dependencies", () => {
+    const source = {artifactId:"current",
+      relativePath:"behavior_packs/a/scripts/round.js"};
+    const consumer = parseScriptFile("round", [
+      'import { PromptPool } from "./words.js";',
+      'function select(PromptPool) { return PromptPool.filter(Boolean); }',
+      'import { OtherPool } from "../../b/scripts/other.js";',
+      'function active() { return OtherPool.filter(Boolean); }',
+    ].join("\n"), source);
+    const other = parseScriptFile("other", [
+      'export const OtherPool = [',
+      '{text:"wrong", difficulty:"easy"},',
+      '{text:"foreign",difficulty:"hard"}',
+      '];',
+    ].join("\n"), {
+      artifactId:"current",
+      relativePath:"behavior_packs/b/scripts/other.js",
+    });
+    const historical = parseScriptFile("old", [
+      'export const PromptPool = [',
+      '{text:"old",difficulty:"easy"},',
+      '{text:"stale",difficulty:"hard"}',
+      '];',
+    ].join("\n"), {
+      artifactId:"previous",
+      relativePath:"behavior_packs/a/scripts/words.js",
+    });
+    const model = buildGameplayIntentModel({
+      id:"intent:no-false-import",artifactId:"current",
+      parsedScripts:[{parsed:consumer},{parsed:other},{parsed:historical}],
+    });
+    expect(model.edges.filter(edge =>
+      edge.id.startsWith("source-content-requires:"))).toEqual([]);
+  });
+
 });

@@ -929,6 +929,34 @@ export function formatSelectedMapAuditBrief(input: {
         "view. This is not evidence that the map contains no waves.");
     }
   }
+  const contentDependencyEdges = intent.edges.filter(edge =>
+    edge.id.startsWith("source-content-requires:") &&
+    edge.kind === "requires" &&
+    edge.status === "inferred" &&
+    edge.evidenceIds.some(id =>
+      evidenceById.get(id)?.scope === "selected-artifact"));
+  if (contentDependencyEdges.length > 0) {
+    out.push("", "### Source-content dependencies (INTENT GRAPH; NOT OBSERVED)");
+    out.push("These are exact static import/use references. They do not " +
+      "prove selected rounds, execution of a reader, state progression, " +
+      "gameplay purpose, or score settlement.");
+    const intentNodes = new Map(intent.nodes.map(node => [node.id,node]));
+    for (const edge of contentDependencyEdges.slice(0, 30)) {
+      const from = intentNodes.get(edge.from);
+      const to = intentNodes.get(edge.to);
+      if (!from || !to) continue;
+      const sites = edge.evidenceIds.map(id => evidenceById.get(id))
+        .filter(item => item?.scope === "selected-artifact")
+        .map(item => concise(item!.locator));
+      out.push("- **" + concise(from.label) + "** --(requires; SOURCE ONLY)--> " +
+        "**" + concise(to.label) + "**",
+        "  Source: " + [...new Set(sites)].slice(0, 4).join("; "));
+    }
+    if (contentDependencyEdges.length > 30) {
+      out.push("Additional authored source-content references omitted: " +
+        (contentDependencyEdges.length - 30));
+    }
+  }
   if (contentCollections.length > 0) {
     out.push("", "### Script-authored content choices (NOT OBSERVED)");
     out.push("These are categorized literal source choices, not verified " +

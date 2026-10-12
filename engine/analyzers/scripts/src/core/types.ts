@@ -1,4 +1,5 @@
 import type { ScriptSequentialPathEvidence } from "./statement-sequence.js";
+import type { ScriptContentUseSite } from "../parser/source-gameplay-content.js";
 import type { ScriptWaveStage, ScriptAuthoredGameplayEntry, ScriptAuthoredContentCollection } from "../parser/source-gameplay-content.js";
 import type { BlockCustomComponentRegistrationEvidence } from "../domains/automation/block-custom-component-evidence.js";
 import type { PersistentReconciliationEvidence } from "../domains/persistence/persistent-reconciliation.js";
@@ -549,6 +550,8 @@ export interface ParsedScriptFile {
   authoredGameplayCatalog?: readonly ScriptAuthoredGameplayEntry[];
   /** Source-labelled content choices, not verified player challenge content. */
   authoredContentCollections?: readonly ScriptAuthoredContentCollection[];
+  /** Exact named-ESM collection method reference, NOT an executed round. */
+  authoredContentUses?: readonly ScriptContentUseSite[];
   blockCustomComponentRegistrations?: BlockCustomComponentRegistrationEvidence[];
   persistentReconciliation?: PersistentReconciliationEvidence;
   imports: ScriptImport[];

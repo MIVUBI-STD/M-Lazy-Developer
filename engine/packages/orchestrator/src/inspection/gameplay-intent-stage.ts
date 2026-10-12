@@ -4,9 +4,10 @@ import {
   type GameplayIntentRelationSignal,
   type GameplayIntentSignal,
 } from "../../../../analyzers/gameplay-intent/src/index.js";
-import type {
-  ParsedScriptFile,
-  CrossFileCallEdge,
+import {
+  resolveScriptImports,
+  type ParsedScriptFile,
+  type CrossFileCallEdge,
 } from "../../../../analyzers/scripts/src/index.js";
 import type {
   ParsedFunction,
@@ -1039,6 +1040,124 @@ export function buildGameplayIntentModel(
         blockedSubjectIds: [],
         evidenceIds: exactIds,
         sourceEntryRegionId: candidate.identity,
+      });
+    }
+  }
+
+  // Source-content dependency belongs to the EXISTING Intent Graph. An
+  // exact unique same-pack/module import and a source method-use site provide
+  // a bounded "uses content" relationship. Neither proves that the method
+  // executes, the content is selected, a round progresses, or a player scores.
+  const ownedScripts = selectedScripts.map(item => item.parsed);
+  const ownerPaths = new Map<string, ParsedScriptFile[]>();
+  for (const script of ownedScripts) {
+    const path = script.source.relativePath.replaceAll("\\", "/");
+    ownerPaths.set(path, [...(ownerPaths.get(path) ?? []), script]);
+  }
+  const sourceLocator = (source: SourceRef): string =>
+    source.relativePath + (source.range === undefined ? "" :
+      ":" + source.range.lineStart + ":" +
+      (source.range.columnStart ?? 1));
+  const resourceNodeId = (script: ParsedScriptFile, name: string) =>
+    "resource:authored-content:" +
+    encodeURIComponent(script.source.artifactId + ":" +
+      script.source.relativePath + "#" + name);
+  const contentByOwner = new Map<string, {
+    readonly collection: NonNullable<ParsedScriptFile["authoredContentCollections"]>[number];
+    readonly script: ParsedScriptFile;
+    readonly nodeId: string;
+    readonly evidenceId: string;
+  }>();
+  const ambiguousContentOwners = new Set<string>();
+  for (const script of ownedScripts) {
+    for (const collection of script.authoredContentCollections ?? []) {
+      if (collection.source.artifactId !== script.source.artifactId ||
+          collection.source.relativePath !== script.source.relativePath) continue;
+      const nodeId = resourceNodeId(script, collection.name);
+      const evidenceId = "source-content-definition:" +
+        encodeURIComponent(nodeId);
+      // Duplicate declared names must never silently pick a single owner.
+      if (ambiguousContentOwners.has(nodeId)) continue;
+      const prior = contentByOwner.get(nodeId);
+      if (prior) {
+        ambiguousContentOwners.add(nodeId);
+        contentByOwner.delete(nodeId);
+        nodes.delete(nodeId);
+        evidence.delete(prior.evidenceId);
+        continue;
+      }
+      contentByOwner.set(nodeId, {
+        collection,script,nodeId,evidenceId,
+      });
+      evidence.set(evidenceId, {
+        id: evidenceId,scope:"selected-artifact",origin:"source-code",
+        locator: sourceLocator(collection.source),
+        summary: "Source-authored categorized content collection. " +
+          "Selection, intended mechanic and player delivery NOT OBSERVED.",
+      });
+      nodes.set(nodeId, {
+        id: nodeId,kind:"resource",label:collection.name,
+        status:"inferred",evidenceIds:[evidenceId],
+      });
+    }
+  }
+  const importedModules = resolveScriptImports(ownedScripts);
+  for (const script of ownedScripts) {
+    for (const use of script.authoredContentUses ?? []) {
+      if (use.source.artifactId !== script.source.artifactId ||
+          use.source.relativePath !== script.source.relativePath) continue;
+      const matches = importedModules.filter(item =>
+        item.status === "resolved" &&
+        item.fromSourcePath === script.source.relativePath &&
+        item.module === use.module &&
+        item.targetSourcePath !== undefined);
+      if (matches.length !== 1) continue;
+      const resolution = matches[0]!;
+      const providerPath = resolution.targetSourcePath!;
+      if (ownerPaths.get(providerPath)?.length !== 1) continue;
+      const provider = ownerPaths.get(providerPath)![0]!;
+      if (provider.source.artifactId !== script.source.artifactId) continue;
+      const definitionId = resourceNodeId(provider, use.importedName);
+      const definition = contentByOwner.get(definitionId);
+      if (!definition?.collection.exported ||
+          definition.script !== provider ||
+          !nodes.has(definitionId)) continue;
+      const siteId = "source-content-site:" +
+        encodeURIComponent(script.source.artifactId + ":" +
+          sourceLocator(use.source) + "#" + use.localName + "." +
+          use.method);
+      const consumerId = "mechanic:source-content-consumer:" +
+        encodeURIComponent(script.source.artifactId + ":" +
+          script.source.relativePath + "#" + use.executionRegion);
+      evidence.set(siteId, {
+        id:siteId,scope:"selected-artifact",origin:"source-code",
+        locator:sourceLocator(use.source),
+        summary:"Exact static named ESM import and ." + use.method +
+          " content access in " + use.executionRegion +
+          ". No call reachability, phase or score effect proven.",
+      });
+      const existing = nodes.get(consumerId);
+      nodes.set(consumerId, {
+        id:consumerId,kind:"mechanic",
+        label:use.executionRegion + " (source content reader)",
+        status:"inferred",
+        evidenceIds: [...new Set([
+          ...(existing?.evidenceIds ?? []),siteId,
+        ])].sort(),
+      });
+      const edgeId = "source-content-requires:" +
+        encodeURIComponent(consumerId + "->" + definitionId);
+      const prev = edges.get(edgeId);
+      edges.set(edgeId, {
+        id:edgeId,from:consumerId,to:definitionId,
+        kind:"requires",status:"inferred",
+        evidenceIds:[...new Set([
+          ...(prev?.evidenceIds ?? []),siteId,definition.evidenceId,
+        ])].sort(),
+        description:"Exact selected-script import " +
+          use.importedName + " and authored ." + use.method +
+          " call in " + use.executionRegion +
+          "; runtime invocation/selection and gameplay purpose unresolved.",
       });
     }
   }

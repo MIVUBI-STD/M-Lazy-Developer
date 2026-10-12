@@ -324,6 +324,8 @@ export interface ScriptAuthoredContentCollection {
   readonly classificationField: "difficulty" | "tier" | "category";
   readonly entries: readonly ScriptAuthoredContentChoice[];
   readonly incomplete: boolean;
+  /** Only a directly exported const can be referenced by an exact named import. */
+  readonly exported: boolean;
 }
 
 export function extractScriptContentCollections(
@@ -383,9 +385,18 @@ export function extractScriptContentCollections(
           const supported = objects.filter(item =>
             literal(property(item, pair.textField)) !== undefined &&
             literal(property(item, pair.classificationField)) !== undefined);
+          const statement = ts.isVariableDeclaration(parent) &&
+            ts.isVariableDeclarationList(parent.parent) &&
+            ts.isVariableStatement(parent.parent.parent)
+              ? parent.parent.parent : undefined;
+          const exported = statement?.modifiers?.some(modifier =>
+            modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+          const immutable = statement !== undefined &&
+            !!(statement.declarationList.flags & ts.NodeFlags.Const);
           output.push({
             name,
             source: source(node),
+            exported: exported && immutable,
             textField: pair.textField,
             classificationField: pair.classificationField,
             entries: supported.map(item => ({
@@ -410,4 +421,128 @@ export function extractScriptContentCollections(
       (b.source.range?.lineStart ?? 0) ||
     (a.source.range?.columnStart ?? 0) -
       (b.source.range?.columnStart ?? 0));
+}
+
+
+/**
+ * Literal, statically-bound reads of named ESM collection imports. These
+ * source sites can later be joined to an actual exported collection through
+ * the existing unique same-artifact/same-pack import resolver.
+ *
+ * A method call proves source reference, NOT that a round selected the pool
+ * or that Minecraft executed the call.
+ */
+export interface ScriptContentUseSite {
+  readonly source: SourceRef;
+  readonly module: string;
+  readonly importedName: string;
+  readonly localName: string;
+  readonly method: "filter" | "find" | "map" | "some" | "every" | "forEach";
+  readonly executionRegion: string;
+}
+
+export function extractScriptContentUseSites(
+  file: ts.SourceFile,
+  owner: SourceRef,
+): ScriptContentUseSite[] {
+  const source = (node: ts.Node): SourceRef => {
+    const start = file.getLineAndCharacterOfPosition(node.getStart(file));
+    const end = file.getLineAndCharacterOfPosition(node.getEnd());
+    return { ...owner, range: {
+      lineStart: start.line + 1, columnStart: start.character + 1,
+      lineEnd: end.line + 1, columnEnd: end.character + 1,
+    }};
+  };
+  const bindings = new Map<string, {module: string; importedName: string}[]>();
+  for (const declaration of file.statements) {
+    if (!ts.isImportDeclaration(declaration) ||
+        !ts.isStringLiteralLike(declaration.moduleSpecifier) ||
+        !declaration.moduleSpecifier.text.startsWith(".")) continue;
+    const symbols = declaration.importClause?.namedBindings;
+    if (!symbols || !ts.isNamedImports(symbols) ||
+        declaration.importClause?.isTypeOnly) continue;
+    for (const specifier of symbols.elements) {
+      if (specifier.isTypeOnly) continue;
+      const local = specifier.name.text;
+      const records = bindings.get(local) ?? [];
+      records.push({module: declaration.moduleSpecifier.text,
+        importedName: specifier.propertyName?.text ?? local});
+      bindings.set(local, records);
+    }
+  }
+  if (bindings.size === 0) return [];
+
+  const nameBound = (binding: ts.BindingName, name: string): boolean =>
+    ts.isIdentifier(binding) ? binding.text === name
+      : binding.elements.some(item =>
+        ts.isBindingElement(item) && nameBound(item.name, name));
+
+  const shadowed = (at: ts.Node, name: string): boolean => {
+    for (let parent = at.parent; parent && parent !== file;
+      parent = parent.parent) {
+      if (ts.isFunctionLike(parent) &&
+          parent.parameters.some(param => nameBound(param.name, name))) {
+        return true;
+      }
+      if (ts.isCatchClause(parent) &&
+          parent.variableDeclaration &&
+          nameBound(parent.variableDeclaration.name, name)) return true;
+      if (ts.isBlock(parent)) {
+        for (const statement of parent.statements) {
+          if (ts.isVariableStatement(statement) &&
+              statement.declarationList.declarations.some(
+                decl => nameBound(decl.name, name))) return true;
+        }
+      }
+    }
+    // Another top-level declaration of the same name makes ownership
+    // ambiguous even if invalid/accepted by a permissive parser.
+    return file.statements.some(statement =>
+      (ts.isFunctionDeclaration(statement) && statement.name?.text === name) ||
+      (ts.isVariableStatement(statement) &&
+        statement.declarationList.declarations.some(
+          decl => nameBound(decl.name, name))));
+  };
+
+  const region = (at: ts.Node): string => {
+    for (let parent = at.parent; parent; parent = parent.parent) {
+      if (ts.isMethodDeclaration(parent)) {
+        const methodName = parent.name.getText(file);
+        const classOwner = ts.isClassDeclaration(parent.parent)
+          ? parent.parent.name?.text : undefined;
+        return "method:" + (classOwner ? classOwner + "." : "") + methodName;
+      }
+      if (ts.isFunctionDeclaration(parent) && parent.name) {
+        return "function:" + parent.name.text;
+      }
+    }
+    return "module";
+  };
+  const allowed = new Set(["filter", "find", "map", "some", "every", "forEach"]);
+  const output: ScriptContentUseSite[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        allowed.has(node.expression.name.text)) {
+      const local = node.expression.expression.text;
+      const records = bindings.get(local);
+      if (records?.length === 1 && !shadowed(node, local)) {
+        output.push({
+          source: source(node.expression),
+          module: records[0]!.module,
+          importedName: records[0]!.importedName,
+          localName: local,
+          method: node.expression.name.text as ScriptContentUseSite["method"],
+          executionRegion: region(node),
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return output.sort((a,b) =>
+    a.source.relativePath.localeCompare(b.source.relativePath) ||
+    (a.source.range?.lineStart ?? 0) - (b.source.range?.lineStart ?? 0) ||
+    (a.source.range?.columnStart ?? 0) - (b.source.range?.columnStart ?? 0));
 }
