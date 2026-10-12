@@ -275,7 +275,12 @@ export function deriveVitalGameplayClosure(input: {
   const unroutedResidueIds: string[] = [];
 
   for (const finding of input.findings) {
-    for (const domain of findingDomains(finding)) {
+    const domains = findingDomains(finding);
+    if (domains.length === 0) {
+      unroutedResidueIds.push(finding.id);
+      continue;
+    }
+    for (const domain of domains) {
       const target =
         finding.status === "PROVEN"
           ? findingsByDomain
@@ -336,12 +341,9 @@ export function deriveVitalGameplayClosure(input: {
       let status: VitalGameplayDomainStatus;
       const reasons: string[] = [];
 
-      if (notApplicable) {
-        status = "NOT_APPLICABLE";
-        reasons.push(
-          "The selected artifact does not expose a multi-arena gameplay surface.",
-        );
-      } else if (detectionGapIds.length > 0) {
+      // Residue and contradictory findings outrank a negative detection flag.
+      // This is a projection of canonical closure, not independent absence proof.
+      if (detectionGapIds.length > 0) {
         status = "DETECTION_GAP";
         reasons.push(
           "Material vital-domain evidence remains unresolved by deterministic analysis.",
@@ -351,20 +353,26 @@ export function deriveVitalGameplayClosure(input: {
         reasons.push(
           "Only a bounded runtime-owned deciding fact remains for this vital domain.",
         );
+      } else if (input.controlStatus !== "READY_FOR_REVIEW" ||
+                 unroutedResidueIds.length > 0) {
+        status = "DETECTION_GAP";
+        reasons.push(
+          "Canonical audit closure or residue routing is incomplete; neither a finding nor non-detection proves this domain understood or not applicable.",
+        );
       } else if (findingIds.length > 0) {
         status = "UNDERSTOOD_WITH_FINDING";
         reasons.push(
           "The vital domain is understood and contains one or more canonical findings.",
         );
-      } else if (input.controlStatus === "READY_FOR_REVIEW") {
+      } else if (notApplicable) {
+        status = "NOT_APPLICABLE";
+        reasons.push(
+          "The closed canonical audit reports no multi-arena surface and no conflicting finding or residue; this projection adds no independent absence proof.",
+        );
+      } else {
         status = "UNDERSTOOD_PROVEN_SAFE";
         reasons.push(
           "Canonical audit closure is complete and no contradiction or unresolved residue remains in this vital domain.",
-        );
-      } else {
-        status = "DETECTION_GAP";
-        reasons.push(
-          "Canonical audit is not closed, so this vital domain cannot be labeled safe by absence.",
         );
       }
 

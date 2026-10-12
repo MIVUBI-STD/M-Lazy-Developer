@@ -85,4 +85,81 @@ describe("generic gameplay exploitability reasoning", () => {
       result.prerequisiteReachability,
     ).toBe("reachable");
   });
+
+  it("does not traverse a missing intermediate node", () => {
+    const path = findGameplayReachability({
+      ...graph,
+      nodes: graph.nodes.filter(node => node.id !== "resource:material-a"),
+    }, "item:tool-b");
+    expect(path.resolution).toBe("unknown");
+    expect(path.nodeIds).toEqual([]);
+  });
+
+  it("rejects missing origins and duplicate node identities", () => {
+    expect(findGameplayReachability({
+      ...graph,
+      nodes: graph.nodes.filter(node => node.id !== "player:ordinary"),
+    }, "item:tool-b", ["player:ordinary"]).resolution).toBe("unknown");
+    expect(findGameplayReachability({
+      ...graph, nodes: [...graph.nodes, graph.nodes[1]!],
+    }, "item:tool-b").resolution).toBe("unknown");
+  });
+
+  it("requires consistent coverage and an origin before asserting absence", () => {
+    for (const coverage of [
+      { complete: true, sources: ["fixture"], gaps: ["unparsed"] },
+      { complete: true, sources: [], gaps: [] },
+    ]) {
+      expect(findGameplayReachability({
+        ...graph, edges: [], coverage,
+      }, "item:tool-b").resolution).toBe("unknown");
+    }
+    expect(findGameplayReachability(graph, "item:tool-b", []).resolution).toBe("unknown");
+    expect(findGameplayReachability({
+      ...graph, edges: [],
+    }, "item:tool-b").resolution).toBe("unreachable");
+  });
+
+  it("retains a positive witness despite an unrelated incomplete frontier", () => {
+    expect(findGameplayReachability({
+      ...graph,
+      edges: [...graph.edges, {
+        from: "player:ordinary", to: "missing", kind: "custom",
+      }],
+    }, "item:tool-b").resolution).toBe("reachable");
+  });
+
+  it("retains exact path evidence and deterministic output under permutation", () => {
+    const alternatives: GameplayReachabilityGraph = {
+      ...graph,
+      nodes: [...graph.nodes, {
+        id: "resource:alternative", kind: "resource", label: "Alternative",
+      }],
+      edges: [...graph.edges, {
+        from: "player:ordinary", to: "resource:alternative", kind: "contains",
+        evidenceIds: ["source:alternative-entry"],
+      }, {
+        from: "resource:alternative", to: "item:tool-b", kind: "crafts",
+        evidenceIds: ["source:alternative-effect"],
+      }],
+    };
+    const path = findGameplayReachability(alternatives, "item:tool-b");
+    expect(path).toEqual(findGameplayReachability({
+      ...alternatives,
+      nodes: [...alternatives.nodes].reverse(),
+      edges: [...alternatives.edges].reverse(),
+    }, "item:tool-b"));
+    expect(path.evidenceIds).toEqual(["source:alternative-effect", "source:alternative-entry"]);
+  });
+
+  it("terminates cyclic acquisition graphs without changing a valid witness", () => {
+    expect(findGameplayReachability({
+      ...graph,
+      edges: [...graph.edges, {
+        from: "resource:material-a", to: "player:ordinary", kind: "custom",
+      }],
+    }, "item:tool-b").nodeIds).toEqual([
+      "player:ordinary", "resource:material-a", "item:tool-b",
+    ]);
+  });
 });

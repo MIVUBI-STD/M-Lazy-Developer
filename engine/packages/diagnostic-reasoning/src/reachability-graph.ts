@@ -63,100 +63,100 @@ export interface GameplayReachabilityPath {
   readonly evidenceIds: readonly string[];
 }
 
+/**
+ * A path in the supplied acquisition graph, not observed Minecraft execution.
+ * Missing/ambiguous node identities cannot bridge a path. Incomplete source
+ * coverage permits a positive witness, never a negative absence claim.
+ */
 export function findGameplayReachability(
   graph: GameplayReachabilityGraph,
   targetId: string,
   originIds?: readonly string[],
 ): GameplayReachabilityPath {
-  const nodes = new Map(
-    graph.nodes.map((node) => [node.id, node]),
-  );
-  if (!nodes.has(targetId)) {
-    return {
-      reachable: false,
-      resolution:
-        graph.coverage?.complete === true
-          ? "unreachable"
-          : "unknown",
-      targetId,
-      nodeIds: [],
-      edgeKinds: [],
-      evidenceIds: [],
-    };
+  const nodes = new Map<string, GameplayReachabilityNode>();
+  const ambiguousIds = new Set<string>();
+  for (const node of graph.nodes) {
+    if (nodes.has(node.id)) ambiguousIds.add(node.id);
+    nodes.set(node.id, node);
   }
+  for (const id of ambiguousIds) nodes.delete(id);
 
-  const origins = new Set(
-    originIds ??
-      graph.nodes
-        .filter((node) => node.playerAccessible === true)
-        .map((node) => node.id),
-  );
-
+  const requestedOrigins = [...new Set(originIds ?? graph.nodes
+    .filter(node => node.playerAccessible === true)
+    .map(node => node.id))].sort();
   const outgoing = new Map<string, GameplayReachabilityEdge[]>();
+  let danglingEdges = false;
   for (const edge of graph.edges) {
+    if (!nodes.has(edge.from) || !nodes.has(edge.to)) {
+      danglingEdges = true;
+      continue;
+    }
     const list = outgoing.get(edge.from) ?? [];
     list.push(edge);
     outgoing.set(edge.from, list);
   }
+  // Tuple serialization avoids delimiter collisions; no locale-sensitive order.
+  const edgeKey = (edge: GameplayReachabilityEdge): string =>
+    JSON.stringify([edge.to, edge.kind, [...new Set(edge.evidenceIds ?? [])].sort()]);
+  for (const list of outgoing.values()) {
+    list.sort((a, b) => {
+      const left = edgeKey(a), right = edgeKey(b);
+      return left < right ? -1 : left > right ? 1 : 0;
+    });
+  }
 
-  const queue = [...origins].map((id) => ({
-    id,
-    nodes: [id],
-    edges: [] as GameplayReachabilityEdge[],
-  }));
-  const visited = new Set<string>();
+  const complete = graph.coverage?.complete === true &&
+    graph.coverage.sources.some(source => source.trim().length > 0) &&
+    graph.coverage.gaps.length === 0 &&
+    ambiguousIds.size === 0 && !danglingEdges &&
+    requestedOrigins.length > 0 &&
+    requestedOrigins.every(id => nodes.has(id));
+  const unresolved = (): GameplayReachabilityPath => ({
+    reachable: false,
+    resolution: complete ? "unreachable" : "unknown",
+    targetId,
+    nodeIds: [],
+    edgeKinds: [],
+    evidenceIds: [...new Set(nodes.get(targetId)?.evidenceIds ?? [])].sort(),
+  });
+  if (!nodes.has(targetId)) return unresolved();
 
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (visited.has(current.id)) continue;
-    visited.add(current.id);
-
-    if (current.id === targetId) {
-      const evidenceIds = [
-        ...new Set([
-          ...current.nodes.flatMap(
-            (id) => nodes.get(id)?.evidenceIds ?? [],
-          ),
-          ...current.edges.flatMap(
-            (edge) => edge.evidenceIds ?? [],
-          ),
-        ]),
-      ].sort();
-
+  const queue = requestedOrigins.filter(id => nodes.has(id));
+  const visited = new Set(queue);
+  const predecessors = new Map<string, GameplayReachabilityEdge>();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const current = queue[cursor]!;
+    if (current === targetId) {
+      const nodeIds = [targetId];
+      const edges: GameplayReachabilityEdge[] = [];
+      let id = targetId;
+      for (let edge = predecessors.get(id); edge !== undefined;
+        edge = predecessors.get(id)) {
+        edges.push(edge);
+        id = edge.from;
+        nodeIds.push(id);
+      }
+      nodeIds.reverse();
+      edges.reverse();
       return {
         reachable: true,
         resolution: "reachable",
         targetId,
-        originId: current.nodes[0],
-        nodeIds: current.nodes,
-        edgeKinds: current.edges.map((edge) => edge.kind),
-        evidenceIds,
+        originId: nodeIds[0],
+        nodeIds,
+        edgeKinds: edges.map(edge => edge.kind),
+        evidenceIds: [...new Set([
+          ...nodeIds.flatMap(nodeId => nodes.get(nodeId)?.evidenceIds ?? []),
+          ...edges.flatMap(edge => edge.evidenceIds ?? []),
+        ])].sort(),
       };
     }
-
-    for (const edge of outgoing.get(current.id) ?? []) {
+    for (const edge of outgoing.get(current) ?? []) {
       if (visited.has(edge.to)) continue;
-      queue.push({
-        id: edge.to,
-        nodes: [...current.nodes, edge.to],
-        edges: [...current.edges, edge],
-      });
+      visited.add(edge.to);
+      predecessors.set(edge.to, edge);
+      queue.push(edge.to);
     }
   }
-
-  return {
-    reachable: false,
-    resolution:
-      graph.coverage?.complete === true
-        ? "unreachable"
-        : "unknown",
-    targetId,
-    nodeIds: [],
-    edgeKinds: [],
-    evidenceIds: [
-      ...new Set(
-        nodes.get(targetId)?.evidenceIds ?? [],
-      ),
-    ].sort(),
-  };
+  return unresolved();
 }
