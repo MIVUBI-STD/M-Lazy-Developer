@@ -134,6 +134,7 @@ async function main(): Promise<void> {
       ? formatSelectedMapAuditBrief({
           report: resolvedAudit.mapAuditReport,
           intent: resolvedAudit.inspection.gameplayIntent.model,
+          architecture: resolvedAudit.gameplayArchitecture,
           waveStages: resolvedAudit.inspection.authoredWaveStages,
           gameplayCatalog: resolvedAudit.inspection.authoredGameplayCatalog,
           contentCollections: resolvedAudit.inspection.authoredContentCollections,

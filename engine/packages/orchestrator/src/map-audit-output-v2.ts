@@ -790,6 +790,8 @@ export function projectMapAuditOutputV2(input: {
 export function formatSelectedMapAuditBrief(input: {
   readonly report: MapAuditOutputV2;
   readonly intent: GameplayIntentModel;
+  /** Existing architecture projection from the SAME selected-map audit run. */
+  readonly architecture?: GameplayArchitectureNavigation;
   /** Selected-archive source recipes, never a claim of spawning. */
   readonly waveStages?: readonly ScriptWaveStage[];
   readonly gameplayCatalog?: readonly ScriptAuthoredGameplayEntry[];
@@ -1603,6 +1605,127 @@ export function formatSelectedMapAuditBrief(input: {
     if (report.stateTransitions.length > 12) {
       out.push("Additional state relationships omitted: " +
         (report.stateTransitions.length - 12));
+    }
+  }
+  // The source analysis already reconstructs strict guard-read -> state-write
+  // candidates and source-ordered continuation. Present that known path
+  // before listing isolated mechanic names. These are NOT player transitions.
+  const guarded = [...(report.gameplayStructure?.guardedSourceTransitions ?? [])]
+    .sort((a, b) =>
+      a.guardComparisonSource.relativePath.localeCompare(
+        b.guardComparisonSource.relativePath) ||
+      (a.guardComparisonSource.range?.lineStart ?? 0) -
+        (b.guardComparisonSource.range?.lineStart ?? 0) ||
+      a.readOperationId.localeCompare(b.readOperationId) ||
+      a.writeOperationId.localeCompare(b.writeOperationId));
+  if (guarded.length > 0) {
+    out.push("", "### Condition → state write → source continuation (NOT EXECUTED)");
+    out.push("Exact guard/write identities can show a conditional source path. " +
+      "A source return is NOT a game terminal, a resource release site is " +
+      "NOT successful settlement, and a world-effect site is NOT player feedback.");
+    for (const transition of guarded.slice(0, 8)) {
+      const continuation = transition.continuation;
+      const calleeReleaseReturnPairs = continuation.directSynchronousCallees
+        .reduce((sum, callee) => sum + callee.releaseReturnPairs.length, 0);
+      const location = transition.guardComparisonSource;
+      out.push(
+        "- **" + concise(transition.fromValue) + " → " +
+          concise(transition.toValue) + "** [" + transition.status +
+          "] / source state " + concise(transition.surfaceId) + ".",
+        "  Guard source: " + concise(location.relativePath +
+          (location.range?.lineStart === undefined ? "" :
+            ":" + location.range.lineStart + ":" +
+            (location.range.columnStart ?? 1))) +
+          "; owning execution region " + concise(transition.executionRegionId) + ".",
+        "  Exact evidence: read " + concise(transition.readOperationId) +
+          "; write " + concise(transition.writeOperationId) + ".",
+        "  Same-path source candidates: world-effect " +
+          continuation.sourceOrderedWorldEffectIds.length +
+          ", release " + continuation.sourceOrderedResourceReleaseIds.length +
+          ", return " + continuation.sourceOrderedReturnOutcomeIds.length +
+          ", release-before-return pairs " +
+          continuation.sourceOrderedReleaseReturnPairs.length + ".",
+        "  Resolved direct call candidates: " +
+          continuation.directSynchronousCallees.length +
+          "; callee release-before-return pairs: " + calleeReleaseReturnPairs +
+          "; unresolved execution boundaries: " +
+          continuation.unsupportedBoundaryEdgeIds.length +
+          (continuation.truncated ? "; source exploration TRUNCATED." : "."),
+        ...(transition.interveningWriteOperationIds.length === 0 ? [] : [
+          "  Conflicting/intervening source writes: " +
+            transition.interveningWriteOperationIds.slice(0, 3)
+              .map(concise).join("; ") + ".",
+        ]),
+        "  Game terminal, successful settlement and delivered player feedback: UNKNOWN.",
+      );
+    }
+    if (guarded.length > 8) {
+      out.push("Additional guarded transitions omitted: " +
+        (guarded.length - 8) + ".");
+    }
+  }
+
+  // No second semantic extractor: the canonical Gameplay Architecture
+  // projection already reconciles exact source operation/return pairs with
+  // existing scenario links. Render their evidence and missing proof openly.
+  const sourceRelations = input.architecture?.semanticIrCoverage
+    .observedSourceRelationships ?? [];
+  const relationsByOutcome = new Map<string, typeof sourceRelations>();
+  for (const relation of sourceRelations) {
+    const list = relationsByOutcome.get(relation.outcomeId) ?? [];
+    relationsByOutcome.set(relation.outcomeId, [...list, relation]);
+  }
+  if (relationsByOutcome.size > 0) {
+    const returnSteps = (report.gameplayStructure?.sourceFlowCandidates ?? [])
+      .flatMap(flow => flow.sourceSteps.filter(step => step.kind === "return"));
+    const returnsById = new Map(returnSteps.map(step => [step.id, step]));
+    const relationshipKinds = [
+      "entry-to-outcome", "direct-call-to-outcome",
+      "state-write-to-outcome", "resource-action-to-outcome",
+      "world-effect-to-outcome",
+    ] as const;
+    out.push("", "### Source entry / state / resource / effect → code return (NOT GAME RESULT)");
+    out.push("Pairs have exact source IDs, but their adjacency or source " +
+      "order does not prove reachability, execution, settlement, or victory. " +
+      "An existing PROVEN scenario link is source-scoped, not Minecraft runtime proof.");
+    const outcomeGroups = [...relationsByOutcome].sort(([a], [b]) =>
+      a.localeCompare(b));
+    for (const [outcomeId, relations] of outcomeGroups.slice(0, 8)) {
+      const returnStep = returnsById.get(outcomeId);
+      const knownProvenLinkIds = [...new Set(relations.flatMap(
+        relation => relation.exactProvenCausalLinkIds))].sort();
+      const gaps = [...new Set(relations.flatMap(relation =>
+        relation.gap === null ? [] : [relation.gap]))].sort();
+      out.push(
+        "- **Authored code return:** " +
+          concise(returnStep?.targetLabel ?? outcomeId) + ".",
+        "  Source: " + (returnStep === undefined ? "exact return locator unresolved" :
+          concise(returnStep.source.relativePath +
+            (returnStep.source.range?.lineStart === undefined ? "" :
+              ":" + returnStep.source.range.lineStart +
+              ":" + (returnStep.source.range.columnStart ?? 1)))) + ".",
+        "  Source associations: " + relationshipKinds
+          .map(kind => kind + "=" + relations.filter(item =>
+            item.kind === kind).length).join("; ") + ".",
+        "  Existing exact source-scoped scenario links: " +
+          knownProvenLinkIds.length + "; outstanding relation gaps: " +
+          (gaps.length > 0 ? gaps.join(", ") : "none in measured source pairs") + ".",
+        "  Player goal / terminal result / settlement / feedback: NOT PROVEN.",
+      );
+      for (const relation of relations.slice(0, 3)) {
+        out.push("  - " + relation.kind +
+          " [" + relation.sourceBasis + "; " +
+          (relation.gap ?? "SOURCE_LINK_ACCOUNTED") +
+          "] from " + concise(relation.fromEvidenceId) + ".");
+      }
+      if (relations.length > 3) {
+        out.push("  Additional exact source associations omitted: " +
+          (relations.length - 3) + ".");
+      }
+    }
+    if (outcomeGroups.length > 8) {
+      out.push("Additional code return groups omitted: " +
+        (outcomeGroups.length - 8) + ".");
     }
   }
   out.push("", "### Other mechanics (source inspection; not gameplay execution)");

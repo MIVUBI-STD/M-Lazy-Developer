@@ -385,6 +385,25 @@ unowned by the composed Intent/Scenario graph. Those unknowns are review
 obligations, not automatically gameplay bugs. This is a stricter closure
 contract using existing owners and production paths, not a new graph/runner.
 
+### Operator-visible source decision and outcome chain
+
+The canonical selected-map audit brief must consume the SAME
+`gameplayArchitecture` already derived by `runSelectedMapAudit()`.
+Use its `semanticIrCoverage.observedSourceRelationships` and the existing
+`gameplayStructure.guardedSourceTransitions` to show evidence-backed
+guard → state-write → candidate effect/resource release/return paths.
+Keep exact IR operation IDs, bounded source locators, status and omitted
+counts visible. No extra parser, graph, proof owner, persisted report
+authority or second runtime observation is permitted.
+
+A typed guard can constrain a source write without proving it ran.
+A source-ordered release-before-return pair can describe a settlement
+candidate without proving resource release succeeded or game results were
+committed. A returned status value does not prove victory, defeat or even
+player reachability. An authored world-effect site is not the same as
+delivered client UI/feedback. Unknown remains explicit through the same
+output, even when the source analysis is informative.
+
 ## Phase C — Gameplay state model
 
 Build the complete major-state model, including:
