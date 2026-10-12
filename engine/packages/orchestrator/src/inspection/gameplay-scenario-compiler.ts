@@ -2205,22 +2205,41 @@ function reconstructClassifiedMechanics(
   // broad or include mutually exclusive branches, so shared membership is
   // context only and NEVER proof a feature owns the state transition.
   const flowIdsByStep = new Map<string, Set<string>>();
+  const stepsByFlow = new Map<string, Map<string, GameplaySourceFlowCandidate["sourceSteps"][number]>>();
+  const evidenceRegionByFlow = new Map<string, Map<string, string>>();
   for (const flow of flows) {
+    const steps = new Map<string, GameplaySourceFlowCandidate["sourceSteps"][number]>();
+    const regionByEvidence = new Map<string, string>();
+    for (const regionId of flow.regionIds) regionByEvidence.set(regionId, regionId);
     for (const step of flow.sourceSteps) {
+      steps.set(step.id, step);
+      regionByEvidence.set(step.id, step.executionRegionId);
       const owners = flowIdsByStep.get(step.id) ?? new Set<string>();
       owners.add(flow.id);
       flowIdsByStep.set(step.id, owners);
     }
+    stepsByFlow.set(flow.id, steps);
+    evidenceRegionByFlow.set(flow.id, regionByEvidence);
   }
   const guardedFlowContexts = guardedTransitions
     .filter(candidate => intent.artifactId === undefined ||
       candidate.guardComparisonSource.artifactId === intent.artifactId)
     .map(candidate => ({
       candidate,
+      // A broad graph trace can include unrelated functions and opposite
+      // authored branches. Require BOTH exact state operations to belong to
+      // this candidate's source execution region and selected artifact.
       sharedSourceFlowIds: [...(flowIdsByStep.get(candidate.readOperationId) ??
-        new Set<string>())]
-        .filter(id => flowIdsByStep.get(candidate.writeOperationId)?.has(id))
-        .sort(),
+        new Set<string>())].filter(id => {
+          const read = stepsByFlow.get(id)?.get(candidate.readOperationId);
+          const write = stepsByFlow.get(id)?.get(candidate.writeOperationId);
+          return read?.kind === "state" && read.operation === "read" &&
+            write?.kind === "state" && write.operation === "write" &&
+            read.executionRegionId === candidate.executionRegionId &&
+            write.executionRegionId === candidate.executionRegionId &&
+            read.source.artifactId === candidate.guardComparisonSource.artifactId &&
+            write.source.artifactId === candidate.guardComparisonSource.artifactId;
+        }).sort(),
     }));
   return intent.nodes.filter(node =>
     featureKinds.has(node.kind) && node.status !== "hypothesis" &&
@@ -2255,21 +2274,45 @@ function reconstructClassifiedMechanics(
         .filter(candidate => evidenceIds.has(candidate.writeOperationId))
         .map(candidate => candidate.readOperationId + ":" +
           candidate.writeOperationId).sort();
-      // The node may share an exact IR trace with a guarded transition
-      // without directly owning its read or write. Keep that source context
-      // distinct from the existing direct write-evidence binding.
-      const featureFlowIds = new Set(exactSourceFlowIds);
+      // A source-flow spans multiple execution regions and may include both
+      // sides of mutually exclusive branches. Feature association requires
+      // its OWN individually identified source evidence in the guard/write
+      // execution region, not mere membership in the broad flow. No source
+      // identity is inferred from names, code layout, genre, or map title.
+      const featureRegionEvidenceByFlow = new Map<string, Map<string, Set<string>>>();
+      for (const flow of witnessed) {
+        const byRegion = new Map<string, Set<string>>();
+        const record = (regionId: string, evidenceId: string): void => {
+          const ids = byRegion.get(regionId) ?? new Set<string>();
+          ids.add(evidenceId);
+          byRegion.set(regionId, ids);
+        };
+        const regionByEvidence = evidenceRegionByFlow.get(flow.id);
+        for (const evidenceId of evidenceIds) {
+          const regionId = regionByEvidence?.get(evidenceId);
+          if (regionId !== undefined) record(regionId, evidenceId);
+        }
+        featureRegionEvidenceByFlow.set(flow.id, byRegion);
+      }
       const guardedContexts = guardedFlowContexts.flatMap(({ candidate, sharedSourceFlowIds }) => {
         if (evidenceIds.has(candidate.writeOperationId) ||
             evidenceIds.has(candidate.readOperationId)) return [];
-        const shared = sharedSourceFlowIds.filter(id => featureFlowIds.has(id));
-        return shared.length === 0 ? [] : [{
+        const matched = sharedSourceFlowIds.filter(id =>
+          (featureRegionEvidenceByFlow.get(id)?.get(candidate.executionRegionId)?.size ?? 0) > 0);
+        if (matched.length === 0) return [];
+        const regionEvidence = [...new Set(matched.flatMap(id =>
+          [...(featureRegionEvidenceByFlow.get(id)?.get(candidate.executionRegionId) ??
+            new Set<string>())]))].sort();
+        return [{
           readOperationId: candidate.readOperationId,
           writeOperationId: candidate.writeOperationId,
-          sharedSourceFlowIds: shared,
+          executionRegionId: candidate.executionRegionId,
+          featureRegionEvidenceIds: regionEvidence,
+          sharedSourceFlowIds: matched,
           candidateStatus: candidate.status,
         }];
-      }).sort((a, b) => a.readOperationId.localeCompare(b.readOperationId) ||
+      }).sort((a, b) => a.executionRegionId.localeCompare(b.executionRegionId) ||
+        a.readOperationId.localeCompare(b.readOperationId) ||
         a.writeOperationId.localeCompare(b.writeOperationId));
       const sourceGuardedTransitionContexts = guardedContexts.slice(0, 16);
       const sourceGuardedTransitionContextOmitted =

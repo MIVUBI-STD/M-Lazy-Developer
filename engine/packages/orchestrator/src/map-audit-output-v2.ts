@@ -1652,7 +1652,7 @@ export function formatSelectedMapAuditBrief(input: {
           directReferences.length + (directReferences.length === 0 ? "" :
             " [" + directReferences.slice(0, 3).map(concise).join("; ") +
             (directReferences.length > 3 ? "; additional omitted" : "") + "]") +
-          "; same exact source-flow context (NOT ownership)=" +
+          "; same exact execution-region context (NOT ownership)=" +
           sourceContexts.length + (sourceContexts.length === 0 ? "" :
             " [" + sourceContexts.slice(0, 3).map(concise).join("; ") +
             (sourceContexts.length > 3 ? "; additional omitted" : "") + "]") + ".",
@@ -1800,10 +1800,13 @@ export function formatSelectedMapAuditBrief(input: {
         : []),
       ...((reconstructionByFeature.get(feature.id)?.sourceGuardedTransitionContexts ?? [])
         .slice(0, 2).map(context =>
-          "  Guarded state candidate (SHARED_SOURCE_FLOW_CONTEXT; NOT OWNERSHIP): " +
+          "  Guarded state candidate (SAME_EXECUTION_REGION; NOT CAUSAL): " +
           concise(context.readOperationId) + " → " + concise(context.writeOperationId) +
-          " [" + context.candidateStatus + "; exact source flows " +
-          context.sharedSourceFlowIds.length + "].")),
+          " [" + context.candidateStatus + "; region " +
+          concise(context.executionRegionId) + "; feature source witnesses " +
+          context.featureRegionEvidenceIds.slice(0, 2).map(concise).join("; ") +
+          (context.featureRegionEvidenceIds.length > 2 ? "; additional omitted" : "") +
+          "; shared flow candidates " + context.sharedSourceFlowIds.length + "].")),
       ...((reconstructionByFeature.get(feature.id)?.sourceGuardedTransitionContextOmitted ?? 0) > 0
         ? ["  Additional guarded source-flow contexts omitted: " +
           reconstructionByFeature.get(feature.id)!.sourceGuardedTransitionContextOmitted]

@@ -395,12 +395,20 @@ guard → state-write → candidate effect/resource release/return paths.
 Keep exact IR operation IDs, bounded source locators, status and omitted
 counts visible. The existing Scenario Graph mechanic reconstruction must
 distinguish (1) a directly bound guarded write ID carried by the feature's
-selected-source evidence from (2) a guarded read/write candidate merely
-co-present in one exact source-flow trace associated with a feature.
-The latter is source navigation CONTEXT, not demonstrated ownership,
-guard satisfiability, feature execution, or a causal path. Bound contextual
-matches per feature, report omitted counts, and keep unassociated candidates
-visible in the existing global guarded-path section. Use the canonical
+selected-source evidence from (2) a guarded read/write candidate associated
+with individually identified feature evidence in the **same exact execution
+region**, AND with exact read/write IR IDs appearing together in a source-flow
+candidate. A broad entry trace can contain sibling functions, alternative
+branches, or callbacks; being anywhere in that trace is never sufficient for
+per-mechanic context. Matching map titles, genre labels, function names,
+filenames, or arbitrary source adjacency is not evidence of a relation.
+These source-region associations remain navigation CONTEXT, not demonstrated
+ownership, guard satisfiability, feature execution, or a causal path. This
+intentionally leaves unresolved cross-function mechanics visible as UNKNOWN
+rather than inventing relationships on unfamiliar modular or minified maps.
+Bound contextual matches per feature, report exact source-region witness IDs
+and omitted counts, and keep unassociated candidates in the existing global
+guarded-path section. Use the canonical
 Behavior Model guarded transitions and Semantic IR flow identities; never
 infer links from matching symbol names, filenames, map genre or historic bugs.
 No extra parser, graph, proof owner, persisted report
