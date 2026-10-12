@@ -17,5 +17,6 @@ Examples never define current workflow, schema authority, gameplay truth, or rep
 
 - [Defense Challenge Audit Reference](./defense-challenge-v1.1.1-audit-reference.md) — historical/reference illustration of an audit result shape; not current-map proof.
 - [Map Audit Output V2 Example](./map-audit-output-v2.example.json) — example serialized Map Audit Output V2 payload.
+- [Bedrock Developer Agent Skills — Provisional Reference](./bedrock-developer-agent-skills-reference.md) — user-supplied, evolving developer-practice knowledge indexed by responsibility; not canonical platform/game-design authority.
 
 Use examples only after reading the canonical owner they illustrate.
