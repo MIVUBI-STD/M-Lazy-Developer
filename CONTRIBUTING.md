@@ -11,10 +11,10 @@ Normal work targets `Local`. Promotion to `main` is deliberate.
 
 ## Execution routes
 
-ChatGPT works on the exact `Local` GitHub source first. It does **not** require a local checkout, Node/npm, `DEV.cmd`, or CI for source-verifiable work.
+**This is a ChatGPT-native checker, not a built application.** ChatGPT checks selected Minecraft artifacts using available tools and maintains source/knowledge via GitHub `Local`. It does **not** require a local checkout, Node/npm, `DEV.cmd`, CI, a runnable engine, or a UI for source-verifiable work. Only actually executed code may be reported as executable evidence.
 
 - **SYSTEM DEVELOPMENT:** improve the repository in its canonical owner and deliver one bounded logical commit; follow `AGENTS.md` and `docs/system/development-discipline.md`.
-- **MAP BUG AUDIT:** inspect one selected map with the production audit pipeline; do not modify the engine within that mode.
+- **MAP BUG AUDIT:** inspect one selected map directly through ChatGPT and canonical source/evidence contracts; do not modify the source engine in that mode or claim `runSelectedMapAudit()` ran unless it actually did.
 
 `DEV.cmd` remains an **optional Windows-local developer convenience** only, delegated to `tooling/windows-toolchain/dev.ps1`. It supports setup, doctor, check, test, inspect and finalize-local for intentional local work. Do not create a second root task runner or treat local commands as remote GitHub completion gates.
 

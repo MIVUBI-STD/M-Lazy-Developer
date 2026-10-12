@@ -1,6 +1,8 @@
 # Lazy-Developer
 
-Lazy-Developer is a modular Minecraft Bedrock and Minecraft Education content-engineering system for inspection, gameplay understanding, bug diagnosis, authorized repair/modification, validation, deterministic packaging, and report generation.
+**Lazy-Developer is a ChatGPT-native Minecraft checker; no M-Lazy-Developer application has been built or verified.** ChatGPT is the present inspection/reasoning interface for Minecraft Bedrock and Education worlds. GitHub branch `Local` stores its evolving source modules, analysis contracts, knowledge, regression material, and documentation. Existing TypeScript engine/CLI/UI files describe potential reusable implementation, **not** an app that ChatGPT has installed, deployed, or operated.
+
+The working goal is to inspect `.mcworld` evidence (scripts, functions, manifests, NBT/LevelDB, structures and spatial data when accessible), reconstruct authored game design, distinguish intended behavior from credible defects, and preserve precisely scoped proof limits. ChatGPT can perform supported analysis without running a repository program. Source commits do not prove TypeScript execution or live Minecraft gameplay.
 
 ## Branch authority
 
@@ -30,12 +32,12 @@ Documentation starts at [docs/README.md](docs/README.md).
 
 ## Choose one operator flow
 
-These are two entry routes into the **same engine**, not separate copies of the codebase.
+These are two **ChatGPT task modes**, not two running applications or evidence that a TypeScript engine has executed. Both reuse the same canonical knowledge/source ownership in GitHub.
 
 | User request | Mode | Route | Result |
 |---|---|---|---|
 | Improve architecture, detectors, knowledge, UI or repository | **SYSTEM DEVELOPMENT** | `AGENTS.md` → `docs/system/skill-routing.md` → owning development skill → exact canonical source | One bounded, verified source change and logical commit |
-| Find or classify defects in one supplied map | **MAP BUG AUDIT** | `AGENTS.md` → `.agents/skills/m-bedrock-map-bug-audit/SKILL.md` → `runSelectedMapAudit()` | One Map Audit Report with complete supported findings and explicit proof gaps |
+| Find or classify defects in one supplied map | **MAP BUG AUDIT** | `AGENTS.md` → `.agents/skills/m-bedrock-map-bug-audit/SKILL.md` → direct ChatGPT evidence review | One clearly scoped ChatGPT audit with supported findings and proof gaps; never impersonate an unexecuted programmatic MapAuditOutputV2 |
 
 The audit path does not change engine source. A detected engine gap requires a separate, explicitly authorized development request. Repair and benchmark have dedicated work lanes; they are **not** hidden steps of either mode.
 
@@ -64,7 +66,7 @@ The root is a small entry and tooling-contract boundary, **not** another locatio
 | `.gitattributes` | Git path/attribute behavior | No engine semantics |
 | `.gitignore` | Untracked-file exclusion rules | No artifact source authority |
 
-The root folders have distinct responsibilities: `apps/` owns interfaces; `engine/` executable Minecraft semantics; `docs/` durable descriptions; `planning/` future intent; `workspace/` active project artifacts; `tooling/` developer operations; `experiments/` bounded research; `.agents/` agent procedures; and `.github/` GitHub service configuration.
+The root folders have distinct responsibilities: `apps/` stores possible interface source (not a built app); `engine/` stores analysis/semantic implementation source (not automatically executed); `docs/` durable descriptions; `planning/` future intent; `workspace/` active project artifacts; `tooling/` developer operations; `experiments/` bounded research; `.agents/` agent procedures; and `.github/` GitHub service configuration.
 
 ### Find work by flow, edit only its owner
 
@@ -82,8 +84,8 @@ The root folders have distinct responsibilities: `apps/` owns interfaces; `engin
 ## Repository map
 
 ```text
-apps/          user-facing executable/UI surfaces
-engine/        Bedrock analysis, reasoning, validation, repair, and machine knowledge
+apps/          proposed/implemented interface source only; no running app
+engine/        Bedrock analysis, reasoning, validation, repair, and machine knowledge source
 docs/          durable human-facing documentation
 planning/      development, operations, and project work intent
 workspace/     working artifacts, project continuity, current reports, and derived publication
@@ -116,25 +118,22 @@ Architecture and ownership:
 
 ## Selected-map gameplay audit
 
-Production map audit has one operator flow:
+**Current actual operator:** ChatGPT directly examines the exact selected `.mcworld` with available tools, reads relevant canonical source/knowledge from GitHub, and reports evidence and uncertainty. There is no application to open or to test locally. The audit reasoning order remains:
 
 ```text
-npm run audit -- <selected.mcworld> [--brief | --handoff] [--responses answers.json]
-→ TARGET
-→ DISCOVERY
-→ UNDERSTAND
-→ MODEL
-→ STRESS
-→ PROVE
-→ REPORT
+Selected Minecraft artifact
+→ ChatGPT: TARGET → DISCOVERY → UNDERSTAND → MODEL
+→ ChatGPT: STRESS → PROVE → evidence-scoped REPORT
 ```
+
+The repository also defines `runSelectedMapAudit()` and a TypeScript CLI as an **optional programmatic implementation contract**. Only if the exact code is actually executed can its `SelectedMapAuditRun`, `MapAuditOutputV2`, audit revision, or generated handoff be claimed as observed. A manual ChatGPT audit follows equivalent evidence/uncertainty principles but **must not fabricate those engine-produced receipts**.
 
 Canonical owners:
 - [Master Selected-Map Audit Workflow](docs/analysis/master-selected-map-audit-workflow.md)
 - [Mandatory Gameplay Audit Procedure](docs/analysis/mandatory-audit-procedure.md)
 - [Bug-Finding Coverage System](docs/analysis/bug-finding-coverage.md)
 
-The default `npm run audit -- <selected.mcworld>` emits the existing authoritative Map Audit V2 JSON. The optional `--handoff` view exports a bounded source-grounded AI investigation packet with artifact fingerprint, audit revision, task IDs, knowledge references and proof constraints. `--handoff-offset N` pages through existing tasks. Responses in the existing `GameplayDefectResolution` shape can be applied through `--responses <answers.json>`, on the SAME audit entrypoint and SAME canonical proof gate. This is an explicit exchange for a ChatGPT-capable caller, not autonomous model execution or a second report. Non-causal obligations cannot be closed from model text. The optional `--brief` view renders **Game Understanding → Findings → Next Investigations** from the exact same audit output and model task packets. When a knowledge catalog is supplied (the production CLI already loads it), source-grounded investigation packets can include a few matched Minecraft facts/relations with original source URLs and declared edition scope. These are **retrieved references**, not evidence that a detector consumed a fact or that Minecraft gameplay was observed. An unmatched mechanic remains a valid map mechanic, not a forced database category. It is a bounded human-facing projection, not a second audit run/report contract. Source-derived journey candidates are **not observed gameplay**, and a blocked/zero-finding audit never proves the absence of bugs. The engineering CLI `npm run cli --` is a separate development utility and does not implement an `audit` command.
+The TypeScript CLI source specifies that `npm run audit -- <selected.mcworld>`, **if genuinely executed**, would emit the Map Audit V2 JSON defined by the source contracts; its presence in GitHub is not evidence of a completed run. The optional `--handoff` view exports a bounded source-grounded AI investigation packet with artifact fingerprint, audit revision, task IDs, knowledge references and proof constraints. `--handoff-offset N` pages through existing tasks. Responses in the existing `GameplayDefectResolution` shape can be applied through `--responses <answers.json>`, on the SAME audit entrypoint and SAME canonical proof gate. This is an explicit exchange for a ChatGPT-capable caller, not autonomous model execution or a second report. Non-causal obligations cannot be closed from model text. The optional `--brief` view renders **Game Understanding → Findings → Next Investigations** from the exact same audit output and model task packets. When a knowledge catalog is supplied (the production CLI already loads it), source-grounded investigation packets can include a few matched Minecraft facts/relations with original source URLs and declared edition scope. These are **retrieved references**, not evidence that a detector consumed a fact or that Minecraft gameplay was observed. An unmatched mechanic remains a valid map mechanic, not a forced database category. It is a bounded human-facing projection, not a second audit run/report contract. Source-derived journey candidates are **not observed gameplay**, and a blocked/zero-finding audit never proves the absence of bugs. The engineering CLI `npm run cli --` is a separate development utility and does not implement an `audit` command.
 
 The exact selected map artifact is current gameplay authority. Historical evidence and user/client symptoms may guide search but never replace current-artifact proof.
 
@@ -168,6 +167,6 @@ See [workspace/README.md](workspace/README.md) and [planning/README.md](planning
 
 Canonical toolchain policy is [toolchain.json](toolchain.json).
 
-Optional local developer/build routing is owned by `tooling/windows-toolchain/`. Remote GitHub work does not depend on this toolchain.
+Optional developer/build **source configuration** is owned by `tooling/windows-toolchain/`. The Node 24 pin is not a ChatGPT checking prerequisite, and no executable application has been established by that metadata.
 
 Historical audit/run evidence belongs in `engine/reliability/history/`; reusable evaluation material belongs in `engine/reliability/corpus/`; superseded implementation detail remains in Git history.

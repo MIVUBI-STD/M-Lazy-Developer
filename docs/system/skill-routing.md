@@ -18,12 +18,14 @@ Do not use a domain skill to infer the work lane.
 
 ## User-facing modes
 
-Two clear operator modes select the appropriate existing execution route:
+Two clear ChatGPT operator modes select the appropriate **source and evidence route**, not application execution. M-Lazy-Developer has no built/operated app; the names `engine`, `pipeline`, `production`, `UI` and `CLI` elsewhere describe repository code contracts until verified otherwise:
 
 | Mode | Purpose | Internal route | Not allowed |
 |---|---|---|---|
 | `SYSTEM DEVELOPMENT` | Design/build/improve Lazy-Developer | `m-bedrock-product-development` with `product-development` permission profile, or `m-bedrock-detection-development` for reusable bug detection improvements | Treating a map-specific finding as proof that an engine change is correct |
 | `MAP BUG AUDIT` | Find/classify bugs in a selected map using current capabilities | `m-bedrock-map-bug-audit` | Editing engine, detectors, or platform knowledge while auditing |
+
+**ChatGPT-native checker boundary:** In MAP BUG AUDIT, ChatGPT directly examines the selected artifact and checks canonical GitHub knowledge/contract sources. It may construct an evidence-grounded audit response but must not claim a programmatic `runSelectedMapAudit()`, canonical `SelectedMapAuditRun` or generated `MapAuditOutputV2` without actual execution. In SYSTEM DEVELOPMENT, changes to source contracts/TypeScript modules are implementation work saved to GitHub, never proof a user-facing app is built, tested or ready for localtest. No Node version, local app, CI or emulator is a prerequisite for ChatGPT source analysis.
 
 The operator mode is not an additional machine skill/lane or artifact authority. Detection Benchmark and Target Repair remain separate specialized routes when requested. Domain specialists never change the selected mode. An audit detection gap is a handoff, not automatic development permission; a development improvement never automatically resumes or reclassifies a map audit.
 

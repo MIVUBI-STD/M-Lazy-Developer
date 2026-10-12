@@ -11,7 +11,7 @@ lifecycle: ACTIVE
 
 ## Remote GitHub operating mode
 
-The primary ChatGPT development mode is **REMOTE_GITHUB**.
+The primary ChatGPT development mode is **REMOTE_GITHUB**. **This is a ChatGPT-native checker, not an installed, built, or running application.** ChatGPT itself inspects available selected Minecraft artifact files; GitHub is code/knowledge and continuity storage, not an execution environment by default.
 
 For M-Lazy-Developer, **`Local` is the GitHub branch**, not a user-PC directory. **ChatGPT does not route its unfinished verification to a user-local PC**: this workflow uses **ChatGPT + GitHub only**, with **no external cloud services and no local-PC path**. Current ChatGPT tools perform work, and GitHub `Local` owns source/commits/continuity. Do not require a cloud runner, hosted service, external compute, deployment, or optional GitHub Actions run. If executable or Minecraft runtime evidence is unavailable, record only the exact `UNKNOWN / NOT EXECUTED` proof ceiling and finish independently source-verifiable work under `GITHUB_RULES.md#41-chatgpt-no-local-pc-invariant`.
 
@@ -26,7 +26,7 @@ GitHub ref / exact source
 → STOP
 ```
 
-A local checkout, Node installation, npm install, `npm run check`, Vitest, TypeScript execution, or `DEV.cmd` is **not required** to complete normal remote repository work.
+A local checkout, Node installation, npm install, `npm run check`, Vitest, TypeScript execution, or `DEV.cmd` is **not required** for direct ChatGPT Minecraft checking or to complete normal remote repository work. Do not frame missing Node24/toolchain as a blocker for archive, scripts, functions, NBT, LevelDB, structures, and source-reasoning checks accessible through actual ChatGPT tools.
 
 Remote completion must state its proof ceiling honestly. Source/static claims may close remotely. Claims about compiler execution, tests actually passing, archive execution, Minecraft import, or gameplay remain unclaimed unless matching execution evidence exists.
 
@@ -48,7 +48,7 @@ These commands are not ChatGPT workflow authority and never gate remote GitHub c
 
 ## Toolchain authority
 
-`toolchain.json` owns supported developer-tool policy. The developer/build environment pins Node `24.21.0` and npm `11.19.0`; `package.json#engines` remains the broader runtime compatibility contract for Node 24. `package-lock.json` is mandatory and all normal installs use `npm ci`.
+`toolchain.json` describes optional developer/build compatibility. It pins Node `24.21.0` and npm `11.19.0` for its **source-declared TypeScript CLI/build target**, not for ChatGPT's built-in checking capabilities; no such running app is presently established. `package.json#engines` and `package-lock.json` are source/package metadata, not ChatGPT execution or proof that a package was built. If source-declared build tasks are ever genuinely executed in a separately authorized context, their dependency policies apply there; they are not part of the current ChatGPT-only workflow.
 
 Do not require global TypeScript/Vitest/build tools when package-managed versions are sufficient.
 

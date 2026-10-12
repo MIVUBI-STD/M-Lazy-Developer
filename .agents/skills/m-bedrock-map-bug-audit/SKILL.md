@@ -8,6 +8,17 @@ description: >
 
 **Lane:** OPERATIONAL / MAP USE
 
+## Actual operating environment — ChatGPT-native checker
+
+**No M-Lazy-Developer application has been built or run.** ChatGPT is the actual map checker. Use the current ChatGPT session's accessible files/connectors and analysis tools to examine the selected `.mcworld` directly; use GitHub `Local` as the canonical source/knowledge/reference authority. Do not require Node 24, a local app, npm, a checkout, a runner, CI, an emulator, or PC testing to analyze the map.
+
+**Distinguish two different proof types without creating two competing engines:**
+
+- **ChatGPT source audit (available now):** direct, read-only archive/script/mcfunction/NBT/LevelDB/structure inspection as actually possible; reason against canonical Minecraft/source contracts, identify actor/trigger/state/outcome/recovery, negative evidence and UNKNOWNs. Give exact selected-artifact source citations/locations and an independently qualified assessment. Do **not** invent `SelectedMapAuditRun`, `auditRevision`, `issueLanes`, `MapAuditOutputV2` receipts, or pretend `runSelectedMapAudit()` ran.
+- **Optional repository TypeScript execution (only if genuinely callable):** `runSelectedMapAudit()` is the **sole programmatic code entrypoint** and its own gates/reports govern any real programmatic output. Source files and authored tests do not prove this executable route ran.
+
+The same semantic concepts and proof discipline apply to ChatGPT review; they do not require a parallel Python app or a second persisted audit engine. In a ChatGPT report, label conclusions as *observed static source*, *inference*, *source-grounded concern*, or *needs runtime proof*. Do not claim live multiplayer, successful concurrent arenas, pathfinding or release safety without appropriate observation.
+
 ## Source of truth
 
 Audit exactly one selected `.mcworld`.
@@ -56,7 +67,7 @@ NOT → skip discovered material gameplay
 
 ## Mandatory chat confirmation
 
-After translating the user's prompt and before calling `runSelectedMapAudit()`, present one concise **Pre-Audit Plan** in chat and obtain explicit confirmation.
+After translating the user's prompt and before starting the selected-map analysis in ChatGPT (or invoking the programmatic entrypoint if actually available), present one concise **Pre-Audit Plan** in chat and obtain explicit confirmation.
 
 For the normal pre-testing workflow, do not require the user to know symptoms or suspected bugs.
 
@@ -72,7 +83,7 @@ Show:
 
 Then state that the canonical audit will still inspect other material gameplay surfaces discovered in the selected artifact and that none of the user's suspicions will be treated as a bug without evidence.
 
-Only after an explicit confirm such as `ya`, `setuju`, `benar`, or equivalent may the caller create `AuditUserIntentConfirmation` for the current normalized intent and start the production audit.
+After an explicit confirm such as `ya`, `setuju`, `benar`, or equivalent, begin the ChatGPT source audit. Create the code-only `AuditUserIntentConfirmation` receipt solely when an actual executable `runSelectedMapAudit()` invocation needs it; never fabricate one for a ChatGPT conversation.
 
 If the user corrects or materially changes the interpretation, rebuild the intent and ask for confirmation again. A prior confirmation receipt is stale by design.
 
@@ -92,7 +103,7 @@ A blocker pauses this same sequence; it never creates a second workflow.
 
 This skill routes the work; it must not duplicate or weaken those checkpoint closure rules.
 
-The production audit has one canonical entry: `runSelectedMapAudit({ artifactPath })` in `map-audit-pipeline.ts`, and `artifactPath` must be the exact selected `.mcworld`. Low-level inspection/analyzer/reporting functions—including `inspectDirectory()` and `inspectArtifact()`—are engine plumbing and must not be used as alternate production entry points. Artifact-level native proof must finish before the Mandatory Audit Procedure is re-derived and allowed to close. Ordered readiness is owned only by `map-audit-admission.ts` across TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT. The first blocking stage prevents production continuation. If PROVE stops on Defect Resolution, continue through `resolveSelectedMapAudit()` with the same audit run. The audit run is also the sole owner of `currentStage`, `allowedNextAction`, bounded `modelTaskPackets`, deterministic `issueLanes`, `issueLanes.BUG`, `issueLanes.DESIGN_MISMATCH`, conservative `candidateGroups`, and selected-artifact identity; do not ask the model to infer the next stage, search unrelated systems, invent AI defects outside `issueLanes`, split a deterministic candidate group into duplicate AI bugs without new causal evidence, or map one deterministic candidate group to multiple AI candidates, or supply a different map/version identity at review/report time. A model may promote a contradiction to `CONFIRMED_DEFECT_READY` only with a bounded `CounterProofSearchReceipt` proving the configured search scope was exhausted without blocking proof. Every model task/result must retain the `auditRevision`; `resolveSelectedMapAudit()`, `prepareSelectedMapAuditReview()`, and `buildSelectedMapAuditReport()` reject stale revisions. `runSelectedMapAudit()` reconciles preflight demand against final RIG requirements with one bounded union-demand rerun; review readiness requires the second pass to be stable when reconciliation was needed. Work Session must remain subordinate: its stage is a coarse projection of `SelectedMapAuditRun`, never an independent authority; workflow/map-audit-work-session.ts is the only projection/persistence owner. Eager evidence collection never implies stage completion: `executionTrace` is the authority for which ordered decisions are actually authorized. Later-stage projections stay inert before authorization; `issueLanes` and `candidateGroups` must be empty until PROVE is reached. If a generic Work Session is persisted, it must carry WorkSessionAuditBinding projected from the current SelectedMapAuditRun through map-audit-work-session; its legacy stage names are only a mirror and never audit authority. Review continues through `prepareSelectedMapAuditReview()`; final production report continues through `buildSelectedMapAuditReport()`. The original audit run is carried forward so source inventory, closures, RIG, procedure receipt, and defect-resolution gates cannot be reconstructed or omitted downstream.
+**Code-contract boundary (only when actually executed):** the repository's programmatic production audit has one canonical entry: `runSelectedMapAudit({ artifactPath })` in `map-audit-pipeline.ts`, and `artifactPath` must be the exact selected `.mcworld`. These are source instructions for an optional TypeScript run, not evidence that an application exists. The normal ChatGPT-native checker still inspects the selected artifact directly, without pretending this call occurred. Low-level inspection/analyzer/reporting functions—including `inspectDirectory()` and `inspectArtifact()`—are engine plumbing and must not be used as alternate production entry points. Artifact-level native proof must finish before the Mandatory Audit Procedure is re-derived and allowed to close. Ordered readiness is owned only by `map-audit-admission.ts` across TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT. The first blocking stage prevents production continuation. If PROVE stops on Defect Resolution, continue through `resolveSelectedMapAudit()` with the same audit run. The audit run is also the sole owner of `currentStage`, `allowedNextAction`, bounded `modelTaskPackets`, deterministic `issueLanes`, `issueLanes.BUG`, `issueLanes.DESIGN_MISMATCH`, conservative `candidateGroups`, and selected-artifact identity; do not ask the model to infer the next stage, search unrelated systems, invent AI defects outside `issueLanes`, split a deterministic candidate group into duplicate AI bugs without new causal evidence, or map one deterministic candidate group to multiple AI candidates, or supply a different map/version identity at review/report time. A model may promote a contradiction to `CONFIRMED_DEFECT_READY` only with a bounded `CounterProofSearchReceipt` proving the configured search scope was exhausted without blocking proof. Every model task/result must retain the `auditRevision`; `resolveSelectedMapAudit()`, `prepareSelectedMapAuditReview()`, and `buildSelectedMapAuditReport()` reject stale revisions. `runSelectedMapAudit()` reconciles preflight demand against final RIG requirements with one bounded union-demand rerun; review readiness requires the second pass to be stable when reconciliation was needed. Work Session must remain subordinate: its stage is a coarse projection of `SelectedMapAuditRun`, never an independent authority; workflow/map-audit-work-session.ts is the only projection/persistence owner. Eager evidence collection never implies stage completion: `executionTrace` is the authority for which ordered decisions are actually authorized. Later-stage projections stay inert before authorization; `issueLanes` and `candidateGroups` must be empty until PROVE is reached. If a generic Work Session is persisted, it must carry WorkSessionAuditBinding projected from the current SelectedMapAuditRun through map-audit-work-session; its legacy stage names are only a mirror and never audit authority. Review continues through `prepareSelectedMapAuditReview()`; final production report continues through `buildSelectedMapAuditReport()`. The original audit run is carried forward so source inventory, closures, RIG, procedure receipt, and defect-resolution gates cannot be reconstructed or omitted downstream.
 
 The engine-owned machine-readable receipt is `inspection/mandatory-audit-procedure.ts`. Production report publication must receive this receipt. OPEN checkpoints block publication. PARTIAL checkpoints block publication unless their reason is specifically `RUNTIME_PROOF_REQUIRED`; absence of a detected feature is not sufficient for `NOT_APPLICABLE` unless Discovery Closure is complete and positive non-applicability evidence is present. Do not create a parallel manual status table.
 
@@ -125,7 +136,7 @@ Required references:
 
 ## Post-audit control-plane hardening
 
-The production path remains single-entry through `runSelectedMapAudit({ artifactPath })`.
+The **optional executable-code path**, if ever genuinely invoked, remains single-entry through `runSelectedMapAudit({ artifactPath })`. ChatGPT-native inspection is not that code execution, and cannot assert the code's checkpoint/status receipts.
 
 Additional binding rules:
 

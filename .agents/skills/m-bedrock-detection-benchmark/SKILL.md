@@ -10,7 +10,7 @@ description: >
 
 ## Purpose
 
-Measure detector correctness and proof coverage against frozen expectations without changing production capability.
+Measure detector correctness and proof coverage against frozen expectations without changing production capability. **ChatGPT-native checker reality:** no M-Lazy-Developer app has been built or run. A ChatGPT-performed map source review is not, by itself, a `runSelectedMapAudit()` observation, a validated programmatic result, or a whole-map precision/recall denominator. A repository scorer module is source code until executed.
 
 ## Entry criteria
 
@@ -43,7 +43,7 @@ Canonical manifests live under `engine/reliability/corpus/`.
 
 Benchmark execution must use the same canonical capability that owns the evaluated artifact shape.
 
-- real selected-map artifacts (`.mcworld` / approved packaged map) → `runSelectedMapAudit()` / CLI `audit`; never a dev projection or historical report;
+- real selected-map artifacts (`.mcworld` / approved packaged map) → only a genuinely executed `runSelectedMapAudit()` / CLI `audit` result may be scored as a **programmatic full-map run**; never use a direct ChatGPT interpretation, an unexecuted source design, a dev projection or a historical report as a substituted programmatic output;
 - minimized analyzer fixtures → the production analyzer/capability that owns that fixture contract;
 - benchmark scripts own validation, blind comparison, scoring, and aggregation only. They must not implement a second detector or a second map-audit pipeline.
 

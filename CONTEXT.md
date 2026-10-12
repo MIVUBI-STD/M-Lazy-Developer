@@ -1,12 +1,12 @@
 # Lazy-Developer Stable Context
 
-Last verified stable design facts: 2026-10-05
+Last verified stable design facts: 2026-10-12
 
 This file contains only stable repository/product facts. It does not own current work, current proof state, implementation-path detail, or project execution state.
 
 ## Product
 
-Lazy-Developer is a modular Minecraft Bedrock and Minecraft Education content-engineering workspace.
+**Lazy-Developer is a ChatGPT-native checker, not an existing executable application.** ChatGPT currently performs Minecraft Bedrock/Education source checking with genuinely available tools. GitHub `Local` is the authority for reusable code/knowledge/contracts, not proof those TypeScript modules have executed. No application build, installation, deployment or localtest has been established.
 
 Primary lifecycle:
 
@@ -20,7 +20,7 @@ Inspect
 → Report
 ```
 
-The deterministic core is shared by CLI, CI, future integrations, and direct library use.
+The repository specifies a proposed shared deterministic core for optional programmatic CLI/CI/future integration; these are source-design targets, not established runtime products.
 
 ## Branch authority
 
@@ -32,8 +32,8 @@ main  → stable / release authority
 ## Repository domains
 
 ```text
-apps/          user-facing executable/UI surfaces
-engine/        product implementation and executable semantics
+apps/          optional interface source, no built/running UI proven
+engine/        semantic/analysis source and intended executable contracts
 docs/          durable human-facing documentation
 planning/      development / operations / project work intent
 workspace/     working artifacts, project continuity, and current report handoff
@@ -63,7 +63,7 @@ Repository task planning is a separate control-plane concern. It may select affe
 
 ## Execution model
 
-ChatGPT repository work is remote-GitHub-first. A local PC/toolchain is optional and is not part of the normal completion contract.
+**ChatGPT is the checker. GitHub is the source/knowledge authority.** ChatGPT repository work is remote-GitHub-first; selected-world inspection can happen directly in ChatGPT. No user PC, local app, Node 24, checkout, npm, CI or VM is required as a prerequisite. Historical developer toolchain metadata does not establish application execution.
 
 ```text
 REMOTE_GITHUB
@@ -76,7 +76,7 @@ higher execution context
 → only for claims inherently requiring artifact/Minecraft/runtime execution
 ```
 
-Local npm/TypeScript/Vitest execution may strengthen proof when independently available, but absence of local execution does not make source-level repository work incomplete.
+A genuinely executed script can strengthen a specific source claim if that capability is actually available in ChatGPT. Otherwise label TypeScript/test/runtime claims NOT EXECUTED without blocking independently supportable Minecraft source analysis.
 
 ## Engineering invariants
 
@@ -117,15 +117,9 @@ Historical reports, older versions, reliability data, user symptoms, and externa
 
 Unresolved work remains explicit as Audit Obligations or bounded runtime proof requirements. Vital Gameplay Knowledge Closure is a read-only projection and never a second workflow or finding owner.
 
-## Toolchain
+## Toolchain metadata (not the ChatGPT checker)
 
-Canonical toolchain policy lives in `toolchain.json`.
-
-Root developer entrypoint:
-
-```text
-DEV.cmd
-```
+Optional developer/build configuration lives in `toolchain.json` and `DEV.cmd`. These source files are not an installed application, not a verification gate for ChatGPT, and not evidence of a user-facing product.
 
 ## Canonical routing
 

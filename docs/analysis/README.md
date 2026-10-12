@@ -11,9 +11,11 @@ lifecycle: ACTIVE
 
 Canonical semantic-analysis policy. Analyzers are read-only evidence providers; they do not own production audit order.
 
+**Current execution reality: ChatGPT-native checker, no built app.** For real requests, ChatGPT directly examines the selected `.mcworld` with available file/source tools, reads GitHub-owned contracts/knowledge, and reports supported findings and uncertainty. The TypeScript source flow below is an implementation specification; its `runSelectedMapAudit()`, checkpoints and JSON report exist as *source contracts* and must not be described as executed unless the exact code really ran.
+
 ## Selected-map audit — one door
 
-For production gameplay audit there is exactly one semantic procedure and one engine entrypoint:
+For the **source-declared programmatic audit**, there is one canonical semantic procedure and one TypeScript entrypoint. This is not a requirement for ChatGPT to run code before reviewing the map:
 
 ```text
 CLI: audit <selected.mcworld>
