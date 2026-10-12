@@ -310,6 +310,7 @@ export async function inspectDirectory(
       gameplayIntent,
       parsedFunctions,
       parsedScripts,
+      crossFileCallEdges,
       parsedEntities,
       entityAiStack,
       routeNavigationEnvironment,

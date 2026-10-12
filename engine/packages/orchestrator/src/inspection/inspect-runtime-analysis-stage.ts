@@ -24,6 +24,7 @@ import { arenaCapacityDiagnostics } from "../../../../analyzers/diagnostics/src/
 import { analyzeScriptSafeConfig } from "./script-safe-config-analysis.js";
 import {
   deriveCrossFileCallEdges,
+  type CrossFileCallEdge,
 } from "../../../../analyzers/scripts/src/index.js";
 import { reconcileArenaLayouts } from "../arena/arena-layout-reconciliation.js";
 import { analyzeArenaLifecycleConvergence } from "../arena/arena-lifecycle-analysis.js";
@@ -92,6 +93,8 @@ export interface InspectionRuntimeAnalysisInput {
   gameplayIntent?: GameplayIntentModel;
   parsedFunctions: InspectionSourceIndex["parsedFunctions"];
   parsedScripts: InspectionSourceIndex["parsedScripts"];
+  /** Reuse the selected-artifact ESM call resolution already sent to Semantic IR. */
+  crossFileCallEdges?: readonly CrossFileCallEdge[];
   parsedEntities: InspectionSourceIndex["parsedEntities"];
   entityAiStack: import("./entity-ai-stack-analysis.js").EntityAiStackAnalysis;
   routeNavigationEnvironment: import("./route-navigation-environment-analysis.js").RouteNavigationEnvironmentAnalysis;
@@ -293,7 +296,7 @@ export function analyzeInspectionRuntimeState(
     analyzeScriptSafeConfig(parsedScriptModels);
 
   const crossFileCalls =
-    deriveCrossFileCallEdges(
+    input.crossFileCallEdges ?? deriveCrossFileCallEdges(
       input.parsedScripts.flatMap((item) =>
         item.text === undefined
           ? []
@@ -566,6 +569,7 @@ export function analyzeInspectionRuntimeState(
     analyzeArenaStateIsolation(
       scriptsFor("multiplayer-interleaving"),
       input.target.stateAuthorityContracts ?? [],
+      demanded.has("multiplayer-interleaving") ? crossFileCalls : [],
     );
 
   for (const assessment of arenaGlobalState.assessments) {

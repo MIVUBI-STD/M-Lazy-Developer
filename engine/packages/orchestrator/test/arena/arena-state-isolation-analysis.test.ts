@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseScriptFile } from "../../../../analyzers/scripts/src/index.js";
+import { parseScriptFile, deriveCrossFileCallEdges } from "../../../../analyzers/scripts/src/index.js";
 import { analyzeArenaStateIsolation } from "../../src/arena/arena-state-isolation-analysis.js";
 
 describe("arena state isolation analysis", () => {
@@ -848,5 +848,121 @@ describe("P3 receiver shadowing and source-only authority", () => {
     expect(analyzeArenaStateIsolation([script]).observations.find(item =>
       item.surface === "dynamic-property"))
       .toMatchObject({ status: "partition-proof-required" });
+  });
+});
+
+describe("P3 source-owned cross-module arena reachability", () => {
+  const moduleInput = (name: string, source: string, artifactId = "sample") => {
+    const path = "behavior_packs/game/scripts/" + name;
+    return { path, text: source, source: { artifactId, relativePath: path } };
+  };
+  const inspect = (modules: ReturnType<typeof moduleInput>[]) => {
+    const scripts = modules.map(item =>
+      parseScriptFile(item.path, item.text, item.source));
+    const calls = deriveCrossFileCallEdges(modules);
+    return { scripts, calls, observations:
+      analyzeArenaStateIsolation(scripts, [], calls).observations };
+  };
+  const main = moduleInput("main.js", [
+    'import { cleanup as finishArena } from "./cleanup.js";',
+    "function join(arena, player) {",
+    "  arena.players.add(player);",
+    "  finishArena(arena, player);",
+    "}",
+  ].join("\n"));
+  const cleanup = moduleInput("cleanup.js", [
+    'import { world } from "@minecraft/server";',
+    "export function cleanup(arena, player) {",
+    "  world.setDynamicProperty('shared', 1);",
+    "}",
+  ].join("\n"));
+
+  it("includes imported helper shared state without asserting instance isolation", () => {
+    const { scripts, calls, observations } = inspect([cleanup, main]);
+    expect(calls.find(item => item.localName === "finishArena"))
+      .toMatchObject({ status: "resolved", targetRegion: "function:cleanup" });
+    expect(analyzeArenaStateIsolation(scripts).observations)
+      .not.toEqual(expect.arrayContaining([expect.objectContaining({
+        source: expect.objectContaining({ relativePath: cleanup.path }),
+        surface: "dynamic-property",
+      })]));
+    const state = observations.find(item =>
+      item.surface === "dynamic-property" &&
+      item.source?.relativePath === cleanup.path);
+    expect(state).toMatchObject({
+      key: "world:shared",
+      scope: "world-global",
+      status: "partition-proof-required",
+    });
+    expect(state?.reason).toContain("cross-module argument identity");
+    expect(analyzeArenaStateIsolation(scripts, [], calls).isolated).toBe(0);
+  });
+
+  it("preserves unknown arena partition when imported helper uses the caller's parameter name", () => {
+    const scoped = moduleInput("cleanup.js", [
+      'import { world } from "@minecraft/server";',
+      "export function cleanup(arena) {",
+      "  world.setDynamicProperty('arena:' + arena.id, 1);",
+      "}",
+    ].join("\n"));
+    const { observations } = inspect([main, scoped]);
+    const state = observations.find(item =>
+      item.surface === "dynamic-property" &&
+      item.source?.relativePath === scoped.path);
+    expect(state).toMatchObject({
+      scope: "world-global",
+      status: "partition-proof-required",
+    });
+  });
+
+  it("follows exact multi-hop imports and local helpers while retaining source-only proof", () => {
+    const indirect = moduleInput("cleanup.js", [
+      'import { release } from "./release.js";',
+      "export function cleanup(arena) { release(arena); }",
+    ].join("\n"));
+    const release = moduleInput("release.js", [
+      'import { world } from "@minecraft/server";',
+      "export function release(arena) { locallyClean(arena); }",
+      "function locallyClean(arena) { world.setDynamicProperty('shared', 1); }",
+    ].join("\n"));
+    const { observations } = inspect([main, indirect, release]);
+    expect(observations.find(item =>
+      item.surface === "dynamic-property" &&
+      item.source?.relativePath === release.path))
+      .toMatchObject({ scope: "world-global", status: "partition-proof-required" });
+  });
+
+  it("rejects forged call spans and foreign or duplicated module owners", () => {
+    const { scripts, calls } = inspect([main, cleanup]);
+    const original = calls.find(item => item.status === "resolved")!;
+    expect(original).toBeDefined();
+    const invalid = [
+      { ...original, source: { ...original.source,
+        range: { ...original.source.range,
+          columnStart: (original.source.range?.columnStart ?? 1) + 1 } } },
+      { ...original, source: { ...original.source, artifactId: "older-world" } },
+    ];
+    for (const candidate of invalid) {
+      expect(analyzeArenaStateIsolation(scripts, [], [candidate]).observations
+        .filter(item => item.source?.relativePath === cleanup.path &&
+          item.surface === "dynamic-property")).toHaveLength(0);
+    }
+    const duplicate = parseScriptFile("previous", cleanup.text,
+      { artifactId: "older-world", relativePath: cleanup.path });
+    expect(analyzeArenaStateIsolation([...scripts, duplicate], [], [original])
+      .observations.filter(item => item.source?.relativePath === cleanup.path &&
+        item.surface === "dynamic-property")).toHaveLength(0);
+  });
+
+  it("does not invent an arena edge for an imported helper called only elsewhere", () => {
+    const unconnectedMain = moduleInput("main.js", [
+      'import { cleanup } from "./cleanup.js";',
+      "function join(arena, player) { arena.players.add(player); }",
+      "function unrelated() { cleanup(); }",
+    ].join("\n"));
+    const { observations } = inspect([unconnectedMain, cleanup]);
+    expect(observations.filter(item =>
+      item.source?.relativePath === cleanup.path &&
+      item.surface === "dynamic-property")).toHaveLength(0);
   });
 });

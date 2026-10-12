@@ -1,3 +1,15 @@
+## P3 source integration — cross-module arena reachability without instance alias claims (2026-10-12)
+
+**First observed source gap:** production Semantic IR already receives exact resolved cross-file executable calls from the canonical scripts analyzer, while `analyzeArenaStateIsolation()` traversed only `localFunctionCalls`. A shared dynamic-property mutation inside a separately imported, arena-reachable helper disappeared from the multi-arena isolation assessment. The runtime inspection also independently derived cross-file calls a second time.
+
+**Bounded correction:** pass the canonical selected-artifact `crossFileCallEdges` from inspection to the existing runtime/arena isolation consumer (with an optional standalone fallback). Traverse direct authored arena authority roots through existing same-file call edges plus unique, same-artifact, same-pack, exact-parser-call-site imported edges. Keep callee source ownership, source-only `partition-proof-required`, and an explicit cross-module argument/instance identity gap. Do not copy arena authority or assume actual/formal arguments are the same live player/arena instance. The unchanged isolation observation fields flow to Gameplay World, Scenario Graph, Map Audit V2, brief and handoff; no second analyzer, graph, registry, detector, or report contract.
+
+**Acceptance authored, NOT EXECUTED:** existing arena test suite now contains named-import alias helper positive, multi-hop cross-module/local helper positive, caller/callee arena-key nonproof, unresolved/uncalled helper negative, forged shifted/foreign call-site and duplicate artifact path negatives. Source compatibility reviewed statically. TypeScript/Vitest, genuine `.mcworld`, independent cross-map score and live Minecraft were NOT EXECUTED; no pass or true storage isolation claim.
+
+**Next:** cross-module argument-to-parameter alias/dataflow requires independent exact AST binding and source identity proof; source reachability alone must not upgrade arena/session ownership. P3 and P5 remain incomplete.
+
+---
+
 ## P3 corrective integration — receiver shadowing and contract partition proof (2026-10-12)
 
 **Verified static failure paths:** untyped alias/local/callback shadowing in the canonical receiver inference could retain an imported Minecraft world type; `world` spelling bypassed lexical type lookup. Arena isolation could promote a `World`-typed call with no stable Minecraft singleton evidence and same-file `StateAuthorityContract` declarations could promote shared keys to `isolated`. Literal dynamic-property observation keys retained quotes and failed matching against unquoted contract IDs.

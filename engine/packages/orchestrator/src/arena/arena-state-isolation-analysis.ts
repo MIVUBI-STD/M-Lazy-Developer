@@ -1,6 +1,7 @@
 import type {
   ParsedScriptFile,
   ScriptMethodCall,
+  CrossFileCallEdge,
 } from "../../../../analyzers/scripts/src/index.js";
 import type {
   SourceRef,
@@ -92,6 +93,90 @@ function arenaRegions(
     ),
   ];
   return reachable(graphFor(script), roots);
+}
+
+/** Source-only arena reachability across the canonical resolved ESM call sites.
+ * A reachable callee is not proof that the caller's arena/player argument is
+ * the callee's actual instance, that a guard executes or that state is safe.
+ */
+function arenaRegionsAcrossScripts(
+  scripts: readonly ParsedScriptFile[],
+  calls: readonly CrossFileCallEdge[],
+): Map<ParsedScriptFile, Set<string>> {
+  type Region = { script: ParsedScriptFile; region: string };
+  const scopes = new Map<ParsedScriptFile, Set<string>>(
+    scripts.map(script => [script, new Set<string>()]),
+  );
+  const local = new Map(scripts.map(script => [script, graphFor(script)]));
+  // Duplicate module paths (even from different revisions) cannot own an
+  // unambiguous cross-file edge. Lexical script identifiers are not owners.
+  const byPath = new Map<string, ParsedScriptFile[]>();
+  const pathOf = (path: string) => path.replaceAll("\\", "/");
+  const packOf = (path: string): string | undefined => {
+    const segments = pathOf(path).split("/");
+    return (segments[0] === "behavior_packs" || segments[0] === "resource_packs")
+      && segments.length > 2 ? segments.slice(0, 2).join("/") : undefined;
+  };
+  for (const script of scripts) {
+    if (!script.source?.relativePath) continue;
+    const path = pathOf(script.source.relativePath);
+    byPath.set(path, [...(byPath.get(path) ?? []), script]);
+  }
+  const unique = (path: string): ParsedScriptFile | undefined => {
+    const candidates = byPath.get(pathOf(path)) ?? [];
+    return candidates.length === 1 ? candidates[0] : undefined;
+  };
+
+  const imported = new Map<ParsedScriptFile, Map<string, Region[]>>();
+  for (const call of calls) {
+    if (call.status !== "resolved" || !call.targetModule || !call.targetRegion) {
+      continue;
+    }
+    const caller = unique(call.callerModule);
+    const target = unique(call.targetModule);
+    if (!caller?.source || !target?.source ||
+        caller.source.artifactId !== target.source.artifactId ||
+        caller.source.artifactId !== call.source.artifactId ||
+        pathOf(caller.source.relativePath) !== pathOf(call.source.relativePath) ||
+        packOf(caller.source.relativePath) !== packOf(target.source.relativePath)) {
+      continue;
+    }
+    // Do not trust a standalone "resolved" flag without one exact, current
+    // parser-recognized imported call site and its complete source range.
+    const exactSites = (caller.importedCallGuardSites ?? []).filter(site =>
+      site.executionRegion === call.callerRegion &&
+      sameExactCallSite(site.source, call.source));
+    if (exactSites.length !== 1) continue;
+
+    const from = imported.get(caller) ?? new Map<string, Region[]>();
+    const links = from.get(call.callerRegion) ?? [];
+    links.push({ script: target, region: call.targetRegion });
+    from.set(call.callerRegion, links);
+    imported.set(caller, from);
+  }
+
+  const queue: Region[] = [];
+  const admit = (next: Region): void => {
+    const regions = scopes.get(next.script);
+    if (!regions || regions.has(next.region)) return;
+    regions.add(next.region);
+    queue.push(next);
+  };
+  for (const script of scripts) {
+    for (const root of script.arenaAuthorityPaths ?? []) {
+      admit({ script, region: root.executionRegion });
+    }
+  }
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const item = queue[cursor]!;
+    for (const region of local.get(item.script)?.get(item.region) ?? []) {
+      admit({ script: item.script, region });
+    }
+    for (const target of imported.get(item.script)?.get(item.region) ?? []) {
+      admit(target);
+    }
+  }
+  return scopes;
 }
 
 /**
@@ -441,11 +526,15 @@ function commandObservation(
 
 function analyzeScript(
   script: ParsedScriptFile,
+  regions: Set<string> = arenaRegions(script),
 ): {
   regions: Set<string>;
   observations: ArenaStateIsolationObservation[];
 } {
-  const regions = arenaRegions(script);
+  const directlyReached = arenaRegions(script);
+  const importedOnly = new Set(
+    [...regions].filter(region => !directlyReached.has(region)),
+  );
   // Authority expressions only prove ownership within their execution region.
   const authoritiesForRegion = (region: string): readonly string[] => [
     ...new Set(
@@ -610,8 +699,16 @@ function analyzeScript(
 
   return {
     regions,
-    observations: observations.map(item => script.source === undefined
-      ? item : { ...item, source: script.source }),
+    observations: observations.map(item => ({
+      ...item,
+      ...(script.source === undefined ? {} : { source: script.source }),
+      ...(importedOnly.has(item.region) ? {
+        reason: item.reason +
+          " An exact source-resolved imported call reaches this region from " +
+          "arena-associated code; cross-module argument identity, arena " +
+          "membership and session ownership remain unproven.",
+      } : {}),
+    })),
   };
 }
 
@@ -753,8 +850,12 @@ function applyAuthorityContracts(
 export function analyzeArenaStateIsolation(
   scripts: readonly ParsedScriptFile[],
   contracts: readonly StateAuthorityContract[] = [],
+  crossFileCalls: readonly CrossFileCallEdge[] = [],
 ): ArenaStateIsolationAnalysis {
-  const analyzed = scripts.map(analyzeScript);
+  const scoped = crossFileCalls.length > 0
+    ? arenaRegionsAcrossScripts(scripts, crossFileCalls) : undefined;
+  const analyzed = scripts.map(script =>
+    analyzeScript(script, scoped?.get(script) ?? arenaRegions(script)));
   const observations = applyAuthorityContracts(
     analyzed.flatMap(
       (item) => item.observations,
