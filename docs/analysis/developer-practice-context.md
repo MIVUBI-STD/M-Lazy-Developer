@@ -48,12 +48,14 @@ are navigable with the existing section-level retrieval.
    relative filenames, reject unsafe/absolute/traversal paths, cap pathological
    size/entry expansion, do not run `SKILL.md`, installers, checkers, or
    code samples. Record archive SHA-256 and exact file counts.
-2. **Compare snapshots.** The JSON `sourceSnapshot.archiveSha256` decides
-   whether the archive changed; compare `sourceFiles[].sha256` to locate
-   changed active skill material. A file added, removed or changed outside
-   the indexed subset is *not presumed irrelevant*: inspect changed/pending/
-   reference paths before claiming no semantic change. Existing data covers
-   **8 curated patterns from 8 active skills**, not the entire 149-file ZIP.
+2. **Compare snapshots.** The JSON `sourceSnapshot.archiveSha256` signals
+   whether the archive changed. Compare `sourceFiles[].sha256` for all
+   **16 active SKILL.md**, and `deferredSources[].sha256` for **15 pending
+   notes, 4 research documents and the feedback README**. Added, removed
+   or changed files are reviewed separately; change outside these 36 tracked
+   files still requires inspecting the new archive's full inventory before
+   calling an update complete. Untracked referenced examples/scripts can
+   change independently of `SKILL.md` and must NOT be assumed stable.
 3. **Normalize into existing IDs.** Update `patterns[].id` in place when
    the meaning is the same; preserve original source path, source-file SHA,
    exact heading, question, candidate relations, applicability and negative
@@ -64,10 +66,13 @@ are navigable with the existing section-level retrieval.
    Historic project surveys support hypothesis generation only, not
    developer-approved specifications. Conflicting facts remain separate
    until scope and edition/version are resolved.
-5. **Invalidate conservatively.** Source changed + no review = return that
-   pattern to PROVISIONAL / REVIEW REQUIRED. A source file disappearing does
-   not automatically erase history or produce a negative gameplay assertion.
-   Publish an updated ZIP source fingerprint and reviewed records together.
+5. **Invalidate conservatively.** Source changed + no review means its
+   dependent patterns must move back to `PROVISIONAL`, not continue with
+   `SOURCE_REVIEWED` based on an old digest. A source file disappearing
+   does not imply a negative gameplay assertion; retain superseded meaning
+   in Git history. New pending/research material stays NOT_ELIGIBLE until
+   individually reviewed. Publish updated ZIP/source fingerprints together
+   with the affected reviewed records; do not silently preserve old claims.
 6. **Do not copy the raw archive** into the GitHub source without origin,
    permission, license and security checks. Git history preserves prior
    normalized records and their update decisions; keep the original ZIP with
@@ -97,36 +102,51 @@ selected-map source evidence
   → optional investigation hint, or UNKNOWN
 ```
 
-The ordinary source audit works exactly as before when the reference is
-missing, a pattern is provisional, or a record does not apply. The JSON
-does not auto-author gameplay edges, closures, defect findings, or player
-rules. A context compiler may pass selected reference text only with
+A bounded operator decision should select **at most two** relevant patterns
+only when the selected-artifact evidence raises a specific question.
+`sourceSignals[]` are *search cues*, not exact source observations: symbol
+matches, filenames and similar words cannot by themselves establish an
+execution path, state owner, mechanic or design contract. Each selected
+record must preserve `id`, `sourceId`, `status`, archive SHA,
+`question`, `negativeControl`, `versionApplicability` and
+`prohibits`. The operator must explicitly compare it against the
+selected map's source evidence and possible counterexamples.
+
+The ordinary source audit works as before when this reference is missing,
+provisional, workflow-only, unrelated or inapplicable. The JSON never
+auto-authors gameplay edges, closures, defect findings or player rules.
+A context compiler may pass selected reference text only with
 `authority=REFERENCE` and original record/source ID. No silent retrieval
 injection or ungrounded positive classification.
 
-## How to interpret the initial records
+## Available semantic cues and intentionally excluded material
 
-The initial JSON has eight narrowly scoped records:
+The JSON inventories **all 16 active skill documents**. **13**
+are individually normalized as **13 source-reviewed, noncanonical hints**:
+forms, entity lifecycle, state storage, game time, teleport, coordinates,
+version targeting, debug logging, **entity damage policy**, **HUD lifecycle**,
+**sound feedback**, **localized text/glyph**, and **performance instrumentation**.
+Some are team-preference hints, not platform/genre-neutral best practices.
 
-- **UI form session**: stale response and cancel/close as possible
-  session/phase guards.
-- **Entity lifecycle**: combat death versus explicit remove/despawn.
-- **State storage**: dynamic properties, technical scoreboards and state
-  lifetime/ownership.
-- **Gameplay time**: tick-based versus wall-clock design hypothesis.
-- **Teleport transitions**: possible UI close/camera effects.
-- **Coordinates**: entity positions versus block/region coordinates.
-- **API version**: selected manifest and target must govern compatibility.
-- **Observability**: developer diagnostic logging versus player-facing UI.
+The other three skills (`bedrock-git-workflow`, `bedrock-testing-policy`,
+`bedrock-skill-feedback`) are explicitly
+`DEVELOPMENT_WORKFLOW_ONLY`. Their fingerprints are tracked for incremental
+updates but they **must not** participate in map-design reference selection.
 
-Each record has a `negativeControl` and a `prohibits` guard. Those
-constraints are as important as its `candidateRelations`: the goal is
-**fewer invented conclusions**, not more graph nodes.
+| Observed selected-map question | One candidate reference | Counter-reading always kept |
+|---|---|---|
+| Entity JSON damage policy versus team/arena-controlled damage | `developer.hint.entity.damage-owner` | Static JSON behavior may be intentional and complete |
+| HUD/action bar during session or phase transition | `developer.hint.hud.message-owner` | Command-driven or multiple scoped HUD owners may be valid |
+| Sound on round start, win or reset | `developer.hint.sound.feedback-vs-outcome` | A sound call neither proves success nor audible delivery |
+| Translation key or name tag appears to describe a task | `developer.hint.text.localization-vs-design` | Display text is not an independently approved outcome contract |
+| Repeated entity queries or tick scheduling | `developer.hint.profiler.source-hotspots` | Static hot spots do not prove measured lag |
 
-**Not yet represented:** the other eight active skill topics, their
-`references/` implementation files, fifteen pending notes, and legacy
-project surveys require individual review before producing any additional
-candidate record. The source ZIP is incomplete and expected to change.
+Every hint has an original source, `negativeControl`, `prohibits`, and
+explicit version uncertainty. The goal is **fewer fabricated conclusions**,
+not more graph nodes. `deferredSources` tracks pending/research material
+without admitting it as live semantic hints; old source archive surveys,
+reference code and untracked ZIP content still require targeted review.
+A future ZIP is expected to evolve.
 
 ## Maturity and promotion
 
@@ -145,10 +165,15 @@ never because this ZIP says the pattern is preferred.
 
 ## Acceptance / evidence ceiling
 
-This initial change makes records **structured, versioned, routed and
-manually retrievable inside the existing ChatGPT-native audit workflow**.
-It does not implement or execute automatic ingestion of future ZIPs,
-automatic interpretation-rule injection, or a runnable TypeScript pipeline.
-At the next updated ZIP, comparing the SHA-256 and stable pattern IDs will
-demonstrate incremental source processing. A full selected-world pipeline
-acceptance is a separate proof requirement.
+This curated snapshot makes **all active skills discoverable and
+fingerprinted**, **13 interpretation records selectable** through the
+existing ChatGPT-native source evidence workflow, and **20 pending/research/
+feedback source documents** traceable for future comparison. The other ZIP
+contents (code examples, assets, checkers, archive/history) remain in the
+external original source and are not claimed fully ingested.
+
+This is **not automatic ZIP ingest** and does not execute a repository
+TypeScript retrieval consumer or any selected-map audit. At the next
+updated ZIP, compare digests and affected stable record IDs. Automatic
+interpretation-rule injection is intentionally not implemented; a full
+selected-world pipeline acceptance remains an independent requirement.

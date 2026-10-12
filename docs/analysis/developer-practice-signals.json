@@ -12,7 +12,11 @@
     "activeSkillDocuments": 16,
     "pendingDocuments": 15,
     "sourceAttribution": "User states this material was supplied by a map developer; original author and license not independently verified",
-    "binaryIncludedInRepo": false
+    "binaryIncludedInRepo": false,
+    "normalizedPatternCount": 13,
+    "interpretationEligibleSkillCount": 13,
+    "workflowOnlySkillCount": 3,
+    "deferredSourceFilesTracked": 20
   },
   "recordStatusSemantics": {
     "PROVISIONAL": "Developer-origin assertion normalized as an investigation hint, not independently substantiated",
@@ -22,63 +26,216 @@
   },
   "sourceFiles": [
     {
-      "id": "src.bedrock-forms",
-      "path": "skills/bedrock-forms/SKILL.md",
-      "sha256": "3e04bd878be88ff42f24918856639597f004808a2877bbf374de3c08b97b7ef3",
+      "id": "src.bedrock-coordinates",
+      "path": "skills/bedrock-coordinates/SKILL.md",
+      "sha256": "1bded4cec147bf743d5f68f9d4938e062c0044e909d32084d1e73a988b519c4f",
       "kind": "ACTIVE_SKILL",
-      "scope": "DEVELOPER_REFERENCE"
-    },
-    {
-      "id": "src.bedrock-entity-lifecycle",
-      "path": "skills/bedrock-entity-lifecycle/SKILL.md",
-      "sha256": "e5e3e21addceb91cebd7ab8bdb244a5e1dda5dec26ba5ea40a8267024ed1312f",
-      "kind": "ACTIVE_SKILL",
-      "scope": "DEVELOPER_REFERENCE"
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
     },
     {
       "id": "src.bedrock-data-persistence",
       "path": "skills/bedrock-data-persistence/SKILL.md",
       "sha256": "3cd770878a24fc1d4a6866a540d8f638ec1d5fff272fb6f345625afb1ec380ef",
       "kind": "ACTIVE_SKILL",
-      "scope": "DEVELOPER_REFERENCE"
-    },
-    {
-      "id": "src.bedrock-game-time",
-      "path": "skills/bedrock-game-time/SKILL.md",
-      "sha256": "304172eafd0a3eb072420ad25d0f8b14c804fc2183316ef8982c3843d12f4745",
-      "kind": "ACTIVE_SKILL",
-      "scope": "DEVELOPER_REFERENCE"
-    },
-    {
-      "id": "src.bedrock-teleport",
-      "path": "skills/bedrock-teleport/SKILL.md",
-      "sha256": "8b9f2f62098f21856342a68afffc0be82873643579da506de8528f18cd24b096",
-      "kind": "ACTIVE_SKILL",
-      "scope": "DEVELOPER_REFERENCE"
-    },
-    {
-      "id": "src.bedrock-coordinates",
-      "path": "skills/bedrock-coordinates/SKILL.md",
-      "sha256": "1bded4cec147bf743d5f68f9d4938e062c0044e909d32084d1e73a988b519c4f",
-      "kind": "ACTIVE_SKILL",
-      "scope": "DEVELOPER_REFERENCE"
-    },
-    {
-      "id": "src.bedrock-version-targeting",
-      "path": "skills/bedrock-version-targeting/SKILL.md",
-      "sha256": "3acaee706f958c67b44ba6764e3bf771cbc992284b346548d00716077aa42a65",
-      "kind": "ACTIVE_SKILL",
-      "scope": "DEVELOPER_REFERENCE"
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
     },
     {
       "id": "src.bedrock-debug-logging",
       "path": "skills/bedrock-debug-logging/SKILL.md",
       "sha256": "4224409020ad7809884e32249b9fa59e3cc6c8f24b0f0ab76185e7308243e26a",
       "kind": "ACTIVE_SKILL",
-      "scope": "DEVELOPER_REFERENCE"
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-debug-profiling",
+      "path": "skills/bedrock-debug-profiling/SKILL.md",
+      "sha256": "84dd1726863a78f3f8f8b0e039521918649fb47a680d93e4f9c1c1a4f7fe1a42",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-entity-creation",
+      "path": "skills/bedrock-entity-creation/SKILL.md",
+      "sha256": "d2fd964475f0219e4e3becfaf6431135793509b77cc8ec5198fb5a775f4c7348",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-entity-lifecycle",
+      "path": "skills/bedrock-entity-lifecycle/SKILL.md",
+      "sha256": "e5e3e21addceb91cebd7ab8bdb244a5e1dda5dec26ba5ea40a8267024ed1312f",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-forms",
+      "path": "skills/bedrock-forms/SKILL.md",
+      "sha256": "3e04bd878be88ff42f24918856639597f004808a2877bbf374de3c08b97b7ef3",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-game-time",
+      "path": "skills/bedrock-game-time/SKILL.md",
+      "sha256": "304172eafd0a3eb072420ad25d0f8b14c804fc2183316ef8982c3843d12f4745",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-git-workflow",
+      "path": "skills/bedrock-git-workflow/SKILL.md",
+      "sha256": "f93e65c1c233f73f6d51ed57273035c998d5f8cc564019c2bbc327fd054cb388",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "DEVELOPMENT_WORKFLOW_ONLY"
+    },
+    {
+      "id": "src.bedrock-onscreen-display",
+      "path": "skills/bedrock-onscreen-display/SKILL.md",
+      "sha256": "6b5f78e46a2e35ee082c3ac4837c479f205fdf621e633f0e8e371d218e80c5d3",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-skill-feedback",
+      "path": "skills/bedrock-skill-feedback/SKILL.md",
+      "sha256": "8a4b648b264c49dbb3fa04da86252c5ca37858d697007432143ca195dd496f63",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "DEVELOPMENT_WORKFLOW_ONLY"
+    },
+    {
+      "id": "src.bedrock-sound",
+      "path": "skills/bedrock-sound/SKILL.md",
+      "sha256": "88dfaeaa27b1be29460ca6bd8c502bb942cc20a2844f1c4dfbec4a3a6db91a9e",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-teleport",
+      "path": "skills/bedrock-teleport/SKILL.md",
+      "sha256": "8b9f2f62098f21856342a68afffc0be82873643579da506de8528f18cd24b096",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-testing-policy",
+      "path": "skills/bedrock-testing-policy/SKILL.md",
+      "sha256": "d8fed8cf9e043ca0ab2321ce8f36e495baa73636a6767b66a4784f6810d61b25",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "DEVELOPMENT_WORKFLOW_ONLY"
+    },
+    {
+      "id": "src.bedrock-text-glyphs",
+      "path": "skills/bedrock-text-glyphs/SKILL.md",
+      "sha256": "f6c902e664e7ff14e9c3228b0fc3bf45bda6cb464b3a69119177c09040b76da3",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
+    },
+    {
+      "id": "src.bedrock-version-targeting",
+      "path": "skills/bedrock-version-targeting/SKILL.md",
+      "sha256": "3acaee706f958c67b44ba6764e3bf771cbc992284b346548d00716077aa42a65",
+      "kind": "ACTIVE_SKILL",
+      "scope": "DEVELOPER_REFERENCE",
+      "auditUsage": "INTERPRETATION_CANDIDATE"
     }
   ],
   "patterns": [
+    {
+      "id": "developer.hint.coordinate.position-vs-block",
+      "sourceId": "src.bedrock-coordinates",
+      "heading": "Spawn point versus block coordinate",
+      "kind": "IMPLEMENTATION_PATTERN",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "spatial",
+        "spawn",
+        "geometry"
+      ],
+      "sourceSignals": [
+        "teleport",
+        "spawn",
+        "setblock",
+        "floor",
+        "0.5"
+      ],
+      "question": "Does a coordinate represent an entity/player position or a block/region coordinate?",
+      "candidateRelations": [
+        "authored coordinate → spatial position type",
+        "spawn/teleport → target region"
+      ],
+      "negativeControl": "Fractional authored coordinates can already be exact intended positions; block operations do not require centering",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Never adjust map coordinates or claim a spatial bug based on an unconditional +0.5 rule"
+    },
+    {
+      "id": "developer.hint.entity.damage-owner",
+      "sourceId": "src.bedrock-entity-creation",
+      "heading": "Damage: JSON or script?",
+      "kind": "DESIGN_INTERPRETATION_HINT",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "entity",
+        "combat",
+        "arena",
+        "policy"
+      ],
+      "sourceSignals": [
+        "minecraft:damage_sensor",
+        "minecraft:component_groups",
+        "world.beforeEvents.entityHurt",
+        "allowedDamageCauses"
+      ],
+      "question": "Is damage controlled by the entity's own JSON state, or by game/arena/team phase conditions in script?",
+      "candidateRelations": [
+        "entity component or component-group → local damage policy",
+        "round/arena/team state guard → conditional damage treatment"
+      ],
+      "negativeControl": "An entity with a static damage sensor may correctly implement its full behavior without a Script API handler",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not assume invulnerability, friendly-fire policy or required script handlers from component names alone, or equate authored sensor with live damage prevention"
+    },
+    {
+      "id": "developer.hint.entity.removal-vs-death",
+      "sourceId": "src.bedrock-entity-lifecycle",
+      "heading": "Removing entities: choose by intent",
+      "kind": "DESIGN_INTERPRETATION_HINT",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "entity",
+        "combat",
+        "cleanup"
+      ],
+      "sourceSignals": [
+        "Entity.kill",
+        "Entity.remove",
+        "minecraft:instant_despawn",
+        "entityDie",
+        "entityRemove"
+      ],
+      "question": "Is entity disappearance part of a combat outcome or a reset/cleanup lifecycle?",
+      "candidateRelations": [
+        "entity death → possible combat progression",
+        "entity remove/despawn → possible cleanup"
+      ],
+      "negativeControl": "A kill used for intentional combat outcome and a removal used for cleanup can both be valid",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Never equate remove/despawn with a win, or require one removal method for all maps"
+    },
     {
       "id": "developer.hint.forms.stale-response",
       "sourceId": "src.bedrock-forms",
@@ -107,31 +264,59 @@
       "prohibits": "Do not classify an unguarded form as a bug without selected-map design and reachable effect evidence"
     },
     {
-      "id": "developer.hint.entity.removal-vs-death",
-      "sourceId": "src.bedrock-entity-lifecycle",
-      "heading": "Removing entities: choose by intent",
+      "id": "developer.hint.hud.message-owner",
+      "sourceId": "src.bedrock-onscreen-display",
+      "heading": "Action bar ownership",
       "kind": "DESIGN_INTERPRETATION_HINT",
       "status": "SOURCE_REVIEWED",
       "domains": [
-        "entity",
-        "combat",
-        "cleanup"
+        "ui",
+        "client-feedback",
+        "lifecycle",
+        "round"
       ],
       "sourceSignals": [
-        "Entity.kill",
-        "Entity.remove",
-        "minecraft:instant_despawn",
-        "entityDie",
-        "entityRemove"
+        "onScreenDisplay.setActionBar",
+        "onScreenDisplay.setTitle",
+        "setHudVisibility",
+        "title",
+        "titleraw"
       ],
-      "question": "Is entity disappearance part of a combat outcome or a reset/cleanup lifecycle?",
+      "question": "What gameplay state does the HUD describe, and what happens to time-limited feedback on round transitions, death or lobby return?",
       "candidateRelations": [
-        "entity death → possible combat progression",
-        "entity remove/despawn → possible cleanup"
+        "phase / round state → candidate player-facing HUD text",
+        "temporary feedback → possible expiration or replacement",
+        "reset → candidate display cleanup"
       ],
-      "negativeControl": "A kill used for intentional combat outcome and a removal used for cleanup can both be valid",
+      "negativeControl": "A command-driven HUD or multiple independently scoped display owners may be intentional and correct in a particular map",
       "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
-      "prohibits": "Never equate remove/despawn with a win, or require one removal method for all maps"
+      "prohibits": "Do not require a single HUD adapter or diagnose a stale HUD from source calls without verifying player-visible output and approved behavior"
+    },
+    {
+      "id": "developer.hint.logging.player-vs-dev",
+      "sourceId": "src.bedrock-debug-logging",
+      "heading": "Console and logging boundaries",
+      "kind": "TEAM_IMPLEMENTATION_POLICY",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "observability",
+        "ui",
+        "debug"
+      ],
+      "sourceSignals": [
+        "console.warn",
+        "console.error",
+        "sendMessage",
+        "Content Log"
+      ],
+      "question": "Is the message intended for players or for developer diagnosis, and is it on a material gameplay path?",
+      "candidateRelations": [
+        "error path → diagnostic signal",
+        "player-facing text → feedback"
+      ],
+      "negativeControl": "Intentional player-facing diagnostic information or admin tools can be part of approved map design",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not issue a defect merely for nonconformity with this team's preferred logger"
     },
     {
       "id": "developer.hint.persistence.state-ownership",
@@ -162,30 +347,63 @@
       "prohibits": "Do not mark scoreboard storage or a different persistence strategy as defective merely for differing from this author's preference"
     },
     {
-      "id": "developer.hint.time.ticks",
-      "sourceId": "src.bedrock-game-time",
-      "heading": "Gameplay time and exception for recording",
-      "kind": "TEAM_IMPLEMENTATION_POLICY",
+      "id": "developer.hint.profiler.source-hotspots",
+      "sourceId": "src.bedrock-debug-profiling",
+      "heading": "Profiling",
+      "kind": "IMPLEMENTATION_PATTERN",
       "status": "SOURCE_REVIEWED",
       "domains": [
-        "timing",
-        "round",
-        "scheduler"
+        "performance",
+        "scheduler",
+        "entities",
+        "capacity"
       ],
       "sourceSignals": [
-        "system.currentTick",
-        "system.runTimeout",
-        "Date.now",
-        "performance.now"
+        "getAllPlayers",
+        "getEntities",
+        "getDynamicProperty",
+        "isChunkLoaded",
+        "system.runInterval",
+        "script profiler"
       ],
-      "question": "What is the intended time authority for cooldowns, round progression and session expiry?",
+      "question": "Which potentially high-frequency source operations have a measured effect on active gameplay, and what phase/concurrency context is relevant?",
       "candidateRelations": [
-        "timer → phase transition",
-        "time authority → deadline"
+        "scheduled task → recurring candidate cost",
+        "entity query / chunk check → candidate active-phase runtime work",
+        "resource lifecycle → potential repeated cleanup"
       ],
-      "negativeControl": "Wall-clock timestamps may be intentional telemetry or an approved design requirement",
+      "negativeControl": "High call frequency alone does not prove lag or a performance bug; performance depends on actual target device, concurrency and measured timings",
       "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
-      "prohibits": "Do not infer a time bug solely from Date.now or silently require 20 TPS as a runtime observation"
+      "prohibits": "Do not report runtime lag from a static hot-spot signature, copy the author's performance percentages, or assume a 30-player target applies to other maps"
+    },
+    {
+      "id": "developer.hint.sound.feedback-vs-outcome",
+      "sourceId": "src.bedrock-sound",
+      "heading": "Playing sounds from script",
+      "kind": "DESIGN_INTERPRETATION_HINT",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "audio",
+        "client-feedback",
+        "events",
+        "round"
+      ],
+      "sourceSignals": [
+        "playSound",
+        "sound_definitions.json",
+        "playsound",
+        "stopSound",
+        "stopAllSounds"
+      ],
+      "question": "Is the sound event a feedback cue, an ambient loop, or part of an authored gameplay sequence, and which player/group is its intended audience?",
+      "candidateRelations": [
+        "event or action → attempted audible cue",
+        "state/phase change → candidate music/ambience transition",
+        "sound selection → audience scope"
+      ],
+      "negativeControl": "An intentional music or sound cue may not correspond to a terminal win/lose action; no sound is required by default",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not treat an authored sound reference as delivered audio, a win condition, or evidence that an event succeeded"
     },
     {
       "id": "developer.hint.teleport.ui-transition",
@@ -214,31 +432,61 @@
       "prohibits": "Do not require soft teleport universally or classify bare teleport as a bug without evidence"
     },
     {
-      "id": "developer.hint.coordinate.position-vs-block",
-      "sourceId": "src.bedrock-coordinates",
-      "heading": "Spawn point versus block coordinate",
+      "id": "developer.hint.text.localization-vs-design",
+      "sourceId": "src.bedrock-text-glyphs",
+      "heading": "Sending text: Script API first",
       "kind": "IMPLEMENTATION_PATTERN",
       "status": "SOURCE_REVIEWED",
       "domains": [
-        "spatial",
-        "spawn",
-        "geometry"
+        "ui",
+        "translation",
+        "client-feedback",
+        "objective"
       ],
       "sourceSignals": [
-        "teleport",
-        "spawn",
-        "setblock",
-        "floor",
-        "0.5"
+        "RawMessage",
+        "translate",
+        "en_US.lang",
+        "nameTag",
+        "tellraw",
+        "sendMessage",
+        "glyph_"
       ],
-      "question": "Does a coordinate represent an entity/player position or a block/region coordinate?",
+      "question": "Which player-facing objective or state is communicated through localized text, item/entity name tags or custom glyphs, and is that information actually reachable?",
       "candidateRelations": [
-        "authored coordinate → spatial position type",
-        "spawn/teleport → target region"
+        "translation key → possible player-facing authored instruction",
+        "nameTag or custom glyph → candidate presentation context",
+        "UI text → interpretation cue, not standalone rule"
       ],
-      "negativeControl": "Fractional authored coordinates can already be exact intended positions; block operations do not require centering",
+      "negativeControl": "Unicode or command-based messages may be deliberately supported by the target resource pack/client; missing visible text cannot be inferred from one author's ASCII-only rule",
       "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
-      "prohibits": "Never adjust map coordinates or claim a spatial bug based on an unconditional +0.5 rule"
+      "prohibits": "Do not turn developer text-style preferences into game rules or infer a completed objective merely from a success message translation key"
+    },
+    {
+      "id": "developer.hint.time.ticks",
+      "sourceId": "src.bedrock-game-time",
+      "heading": "Gameplay time and exception for recording",
+      "kind": "TEAM_IMPLEMENTATION_POLICY",
+      "status": "SOURCE_REVIEWED",
+      "domains": [
+        "timing",
+        "round",
+        "scheduler"
+      ],
+      "sourceSignals": [
+        "system.currentTick",
+        "system.runTimeout",
+        "Date.now",
+        "performance.now"
+      ],
+      "question": "What is the intended time authority for cooldowns, round progression and session expiry?",
+      "candidateRelations": [
+        "timer → phase transition",
+        "time authority → deadline"
+      ],
+      "negativeControl": "Wall-clock timestamps may be intentional telemetry or an approved design requirement",
+      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
+      "prohibits": "Do not infer a time bug solely from Date.now or silently require 20 TPS as a runtime observation"
     },
     {
       "id": "developer.hint.version.compatibility",
@@ -265,32 +513,128 @@
       "negativeControl": "A pin mismatch requires verification of actual dependency and runtime target, not assumptions from filenames",
       "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
       "prohibits": "Do not use a version pinned in this developer ZIP as the selected map's runtime profile"
+    }
+  ],
+  "deferredSources": [
+    {
+      "path": "feedback/README.md",
+      "sha256": "2487222f56595bcf41254a33174cc8aaa3c7ff784c46c6b20c7d52be6d2425a8",
+      "kind": "SOURCE_FEEDBACK_PROCESS",
+      "auditUsage": "NOT_ELIGIBLE"
     },
     {
-      "id": "developer.hint.logging.player-vs-dev",
-      "sourceId": "src.bedrock-debug-logging",
-      "heading": "Console and logging boundaries",
-      "kind": "TEAM_IMPLEMENTATION_POLICY",
-      "status": "SOURCE_REVIEWED",
-      "domains": [
-        "observability",
-        "ui",
-        "debug"
-      ],
-      "sourceSignals": [
-        "console.warn",
-        "console.error",
-        "sendMessage",
-        "Content Log"
-      ],
-      "question": "Is the message intended for players or for developer diagnosis, and is it on a material gameplay path?",
-      "candidateRelations": [
-        "error path → diagnostic signal",
-        "player-facing text → feedback"
-      ],
-      "negativeControl": "Intentional player-facing diagnostic information or admin tools can be part of approved map design",
-      "versionApplicability": "NOT_INDEPENDENTLY_VERIFIED",
-      "prohibits": "Do not issue a defect merely for nonconformity with this team's preferred logger"
+      "path": "pending/custom-components-v2.md",
+      "sha256": "20692801b7a52c0bf5b5a0a25dc73d168d201449e454cb6d284fc5bc90174e21",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/damage-sensor-tests.md",
+      "sha256": "484ff9403343460956ba9b1f5e306951a525cd21a507d43e6b25973bd01802bb",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/data-export.md",
+      "sha256": "f9b464e6eb23f59e8c18abe5b16dd246189f6e461a35f38e74f77e3859b7200e",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/database-module-evaluation.md",
+      "sha256": "750c0d21d99b9b5cca34395361819c7dd49abe57dc4a490148ab9bf722412f65",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/education-command-tests.md",
+      "sha256": "d90ec0caaf35b950840f07e0e7be99996192b78db1c2d872ae073777704ccef2",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/entity-query-volume.md",
+      "sha256": "8172fa2c613b06f6e8cc3b154607d8b71a66fb5f11b38d950a255a934c7ea3cf",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/fill-vs-fillblocks.md",
+      "sha256": "acecd522bc76220b21db1254865c7609fa80e29326b55bd7aa895548fedae45a",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/json-vs-script.md",
+      "sha256": "15e3829c3ecac0d1965dbdb75e3e85f6b9173542a73c4669ccdc6834024f77c2",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/module-layout.md",
+      "sha256": "857a63b53be53342cbf0392d148417a228b950fca517f183639b266c87ba6deb",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/scoreboard-cross-pack.md",
+      "sha256": "032d11ecb2e079edd2b6323f67866fda9ca0430ba88d56d0d77ccb78d5b8a17e",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/sound-instance-2-10.md",
+      "sha256": "7747312e6c93b0c65f64ac87ee472151051fed6d16c99e78ae4fac64e701483e",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/sound-stream-dev-lock.md",
+      "sha256": "9ef19ec0339bb974766e30f411f124869dc2c49b2eb5ebc7b4c0cead65ca8c6a",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/subpacks-memory-tier.md",
+      "sha256": "6c52df555945dfbcec8b98cdbb644e75c3596186cad6607939a5cc56d6cbe68a",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/tooling-to-evaluate.md",
+      "sha256": "9f3f86bcc1e285f49041c5f0cb179881827059d794a943608bfd04521d634e5b",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "pending/world-export.md",
+      "sha256": "713453d85e49c2ecb6e4942391781217635b8d0068195c366d97f101dcc9c0f0",
+      "kind": "UNREVIEWED_PENDING",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "research/damage-sensor.md",
+      "sha256": "ea7871a0cff8e4e2a93346da2c9b86094cb6b7b1cf80024ef098745c938d2735",
+      "kind": "UNVERIFIED_RESEARCH",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "research/external-comparison.md",
+      "sha256": "bb662e30310334265cbfd9c684a3ddff1bec9d11c7b3e8618b50513ae6392c93",
+      "kind": "UNVERIFIED_RESEARCH",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "research/external-skills.md",
+      "sha256": "785ac451e756ea34de11f8c4a423e7142721cca03782447d9baf002963ea3c3b",
+      "kind": "UNVERIFIED_RESEARCH",
+      "auditUsage": "NOT_ELIGIBLE"
+    },
+    {
+      "path": "research/skills-audit-2026-10-10.md",
+      "sha256": "9a7abe723a86b5b7c4ea2140b6364bd2002945712e49ee2cddf630319d1ee73c",
+      "kind": "UNVERIFIED_RESEARCH",
+      "auditUsage": "NOT_ELIGIBLE"
     }
   ]
 }
