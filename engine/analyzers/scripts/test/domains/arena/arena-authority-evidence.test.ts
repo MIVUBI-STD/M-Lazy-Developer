@@ -382,6 +382,28 @@ describe("arena authority evidence", () => {
     )).toBe(false);
   });
 
+  it("distinguishes a constructor formal from an identically named this.field", () => {
+    for (const formalName of ["definition", "options"]) {
+      const script = [
+        "class Party {",
+        "  constructor(" + formalName + ") { this.definition = " + formalName + "; this.members = []; }",
+        "  join(player) {",
+        "    return this.members.length >= this.definition.maxPlayers",
+        "      ? false : (this.members.push(player), true);",
+        "  }",
+        "}",
+        "const party = new Party({ maxPlayers: 5 });",
+        "party.join('test');",
+      ].join("\n");
+      const parsed = parseScriptFile("constructor-names", script, source);
+      const bound = parsed.arenaAuthorityPaths?.find((item) =>
+        item.capacityAuthorityProven
+      )?.capacityCheck;
+      expect(bound?.resolvedCapacityValue).toBe(5);
+      expect(bound?.resolvedCapacitySource?.range?.lineStart).toBe(8);
+    }
+  });
+
   it("resolves a literal constructor-to-instance cap through the existing field binding", () => {
     const script = [
       "class Party {",

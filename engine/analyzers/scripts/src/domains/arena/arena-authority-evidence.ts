@@ -610,7 +610,14 @@ function staticConstructorCapacity(
   const formalName = param.name.text;
   let formalReferences = 0;
   const countFormal = (node: ts.Node): void => {
-    if (ts.isIdentifier(node) && node.text === formalName) formalReferences++;
+    // TypeScript's AST represents the name of this.definition as an
+    // Identifier too. A field named like the constructor parameter is
+    // not an additional lexical reference to the parameter.
+    if (ts.isIdentifier(node) && node.text === formalName &&
+        !(ts.isPropertyAccessExpression(node.parent) &&
+          node.parent.name === node) &&
+        !(ts.isPropertyAssignment(node.parent) &&
+          node.parent.name === node)) formalReferences++;
     ts.forEachChild(node, countFormal);
   };
   countFormal(ctor);
@@ -837,7 +844,11 @@ function mappedConstructorCapacity(
         node.expression.kind === ts.SyntaxKind.ThisKeyword)
       fieldStable = false;
     if (ts.isIdentifier(node) && node.text === formalName &&
-        node.pos >= ctor.pos && node.end <= ctor.end) formalReferences++;
+        node.pos >= ctor.pos && node.end <= ctor.end &&
+        !(ts.isPropertyAccessExpression(node.parent) &&
+          node.parent.name === node) &&
+        !(ts.isPropertyAssignment(node.parent) &&
+          node.parent.name === node)) formalReferences++;
     if (ts.isPropertyAccessExpression(node) &&
         node.expression.kind === ts.SyntaxKind.ThisKeyword &&
         node.name.text === fieldName) {
