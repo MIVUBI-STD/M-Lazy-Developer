@@ -109,9 +109,24 @@ export function semanticIrExecutionTraces(ir: SemanticIr): {
   const incoming = new Set(ir.execution.edges
     .filter(edge => edge.resolution === "resolved" && edge.to !== undefined)
     .map(edge => edge.to!));
+  // A source module reached through a resolved import() is not an
+  // independent source entry candidate. Its module body is traversed from
+  // the importing region if that region is in a source-rooted trace.
+  // Otherwise retain it in regionsOutsideTraces: the absent route is
+  // unproven, not evidence that the module cannot be activated at runtime.
+  //
+  // Only an exact, resolved dynamic-import site qualifies: an unrelated
+  // deferred callback or guessed matching module name must not suppress
+  // a candidate root.
+  const importedModules = new Set(ir.execution.edges
+    .filter(edge => edge.kind === "deferred" &&
+      edge.targetLabel.startsWith("import(") &&
+      edge.resolution === "resolved" && edge.to !== undefined &&
+      regions.get(edge.to)?.kind === "script-module")
+    .map(edge => edge.to!));
   const entryRegions = [...regions.values()].filter(region =>
     region.kind === "event-source" ||
-    region.kind === "script-module" ||
+    (region.kind === "script-module" && !importedModules.has(region.id)) ||
     region.kind === "dialogue-command" ||
     region.kind === "behavior-animation" ||
     (region.kind === "mcfunction" && !incoming.has(region.id))

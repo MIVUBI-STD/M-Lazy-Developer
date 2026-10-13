@@ -39,10 +39,14 @@ describe("selected-map dynamic import source handoffs", () => {
       rel.id === "time:" + imports[0]!.id)).toMatchObject({
       kind: "deferred", resolution: "resolved",
     });
-    expect(semanticIrExecutionTraces(ir).traces.some(trace =>
+    const traced = semanticIrExecutionTraces(ir);
+    expect(traced.traces.some(trace =>
       trace.entryRegionId === scriptRegionId(main.parsed.source, "module") &&
       trace.regionIds.includes(scriptRegionId(chunk.parsed.source, "module"))
     )).toBe(true);
+    expect(traced.traces.some(trace =>
+      trace.entryRegionId === scriptRegionId(chunk.parsed.source, "module"))
+    ).toBe(false);
   });
 
   it("retains bounded source statement order for serial awaited module loads", () => {
@@ -91,6 +95,41 @@ describe("selected-map dynamic import source handoffs", () => {
       expect.objectContaining({ expression: "!ready", branch: "false" }),
     ]));
     expect(edge?.sourceSequence?.statementIndex).toBe(0);
+  });
+
+
+  it("does not invent an independent bootstrap path for a dynamically imported module", () => {
+    const main = parsed("behavior_packs/BP/scripts/main.js", [
+      "async function start() {",
+      "  await import('./chunks/bootstrap.js');",
+      "}",
+      "// The entrypoint never calls start.",
+    ].join("\n"));
+    const chunk = parsed("behavior_packs/BP/scripts/chunks/bootstrap.js",
+      "export const stage = 1;");
+    const ir = build(main, chunk);
+    const traced = semanticIrExecutionTraces(ir);
+    const importedId = scriptRegionId(chunk.parsed.source, "module");
+    const mainId = scriptRegionId(main.parsed.source, "module");
+    expect(traced.traces.some(trace => trace.entryRegionId === mainId)).toBe(true);
+    expect(traced.traces.some(trace => trace.entryRegionId === importedId)).toBe(false);
+    expect(traced.regionsOutsideTraces).toContain(importedId);
+    expect(ir.execution.edges.filter(edge => edge.targetLabel.startsWith("import(")))
+      .toEqual([expect.objectContaining({ resolution: "resolved", to: importedId })]);
+  });
+
+  it("does not suppress another module root from unresolved or unrelated deferred edges", () => {
+    const main = parsed("behavior_packs/BP/scripts/main.js",
+      "async function start(key) { await import(key); }");
+    const other = parsed("behavior_packs/BP/scripts/chunks/other.js",
+      "export const independent = true;");
+    const ir = build(main, other);
+    const otherId = scriptRegionId(other.parsed.source, "module");
+    const traced = semanticIrExecutionTraces(ir);
+    expect(traced.traces.some(trace => trace.entryRegionId === otherId)).toBe(true);
+    expect(ir.execution.edges.some(edge =>
+      edge.targetLabel.startsWith("import(") && edge.resolution === "unresolved"
+    )).toBe(true);
   });
 
   it("preserves nonliteral and absent module targets as unresolved evidence", () => {
