@@ -871,11 +871,15 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // Numeric capacity contracts already extracted from the selected map
   // are material boundaries even when the safe-config extractor found no
   // named binding. Missing bindings are a formalization gap, not absence.
+  // The Arena Capacity Extraction owner returns a numeric player cap only
+  // after an authority-backed selected-script capacity check. Do not require
+  // a duplicate safe-config variable for the same object-property limit.
+  // Derived total slots and requested topology counts belong to B4.
+  const playerCapacitySourceGrounded =
+    world.arenas.perArenaPlayerCapacity !== undefined;
   const numericBoundaryDemand =
-    world.arenas.perArenaPlayerCapacity !== undefined ||
-    world.arenas.declaredMaxConcurrentPlayers !== undefined ||
-    world.arenas.declaredConcurrentArenaLimit !== undefined ||
-    world.arenas.requestedConcurrentArenas !== undefined;
+    playerCapacitySourceGrounded ||
+    world.arenas.declaredConcurrentArenaLimit !== undefined;
   const ungroundedBoundaryRecords = boundaries.records.filter((record) =>
     record.sourcePath.trim().length === 0 ||
     record.cases.length === 0
@@ -890,18 +894,20 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     {
       label: "per-arena player capacity",
       value: world.arenas.perArenaPlayerCapacity,
-      namePattern: /(?:player|party|member)/i,
+      namePattern: /(?:max.*(?:player|party|member)|(?:player|party|member).*(?:max|limit|capacit))/i,
+      sourceAuthoritySatisfied: playerCapacitySourceGrounded,
     },
     {
       label: "declared concurrent arena limit",
       value: world.arenas.declaredConcurrentArenaLimit,
       namePattern: /(?:concurren|parallel|(?:max|limit|cap).*arena|arena.*(?:max|limit|cap))/i,
+      sourceAuthoritySatisfied: false,
     },
   ];
   const missingDeclaredCapacityBounds = declaredCapacityBoundaries
     .filter((bound) => {
       const value = bound.value;
-      if (value === undefined) return false;
+      if (value === undefined || bound.sourceAuthoritySatisfied) return false;
       return !boundaries.records.some((record) =>
         bound.namePattern.test(record.name) &&
         record.value === value &&
@@ -912,7 +918,20 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     .map((bound) =>
       bound.label + "=" + String(bound.value)
     );
+  const conflictingNamedCapacityValues = declaredCapacityBoundaries
+    .filter((bound) => bound.value !== undefined)
+    .flatMap((bound) => boundaries.records
+      .filter((record) =>
+        bound.namePattern.test(record.name) &&
+        record.value !== bound.value
+      )
+      .map((record) => record.id + " differs from " +
+        bound.label + "=" + String(bound.value))
+    );
   const boundaryFormalizationGaps = [
+    ...(conflictingNamedCapacityValues.length > 0
+      ? ["conflicting capacity declarations: " +
+          conflictingNamedCapacityValues.join(", ")] : []),
     ...(boundaries.unresolvedNames.length > 0
       ? ["unresolved boundary names: " +
           boundaries.unresolvedNames.join(", ")] : []),
@@ -923,11 +942,13 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       ? ["declared capacity bounds lack corresponding named source records: " +
           missingDeclaredCapacityBounds.join(", ")] : []),
   ];
+  const hasSourceBoundaries =
+    boundaries.records.length > 0 || playerCapacitySourceGrounded;
   checkpoint.push(receipt(
     "B5",
     "FORMALIZE",
     "Boundary Registry",
-    boundaries.records.length === 0 &&
+    !hasSourceBoundaries &&
       boundaries.unresolvedNames.length === 0
       ? numericBoundaryDemand || !discoverySupportsAbsence
         ? "OPEN"
@@ -935,17 +956,17 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       : boundaryFormalizationGaps.length > 0
         ? "PARTIAL"
         : "CLOSED",
-    boundaries.records.length === 0 &&
+    !hasSourceBoundaries &&
       boundaries.unresolvedNames.length === 0
       ? numericBoundaryDemand
-        ? "Selected-map capacity/party boundaries exist, but no corresponding source-bound registry record was extracted."
+        ? "A declared numeric gameplay limit lacks both a grounded arena-capacity authority value and a matching named boundary record."
         : discoverySupportsAbsence
           ? "Complete discovery supports absence of named or declared numeric gameplay boundaries."
           : "Boundary applicability remains unresolved while discovery is incomplete."
       : boundaryFormalizationGaps.length > 0
         ? "Boundary FORMALIZE is incomplete: " +
           boundaryFormalizationGaps.join("; ") + "."
-        : "Named source-bound numeric thresholds, including applicable declared player and concurrent-arena limits, are accounted with edge cases; gameplay behavior is not yet evaluated.",
+        : "Named source-bound limits and source-grounded player capacity authority are accounted; gameplay behavior is not yet evaluated.",
     boundaries.records.map((item) => item.id),
     ["BoundaryRegistry"],
   ));
