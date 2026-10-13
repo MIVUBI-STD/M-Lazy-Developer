@@ -321,6 +321,40 @@ describe("arena authority evidence", () => {
     expect(check?.resolvedCapacityWitnesses?.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("does not borrow a mapped capacity after its instance config identity is replaced", () => {
+    const base = [
+      "const configs = [0, 1].map(i => ({maxPlayers: 5}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  join(p) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(p), true);",
+      "  }",
+      "};",
+      "const party = new Party(configs[0]);",
+      "party.join('player');",
+    ];
+    const stable = parseScriptFile("mapped-stable-direct", base.join("\n"), source);
+    expect(stable.arenaAuthorityPaths?.find((path) =>
+      path.capacityAuthorityProven
+    )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+
+    for (const mutation of [
+      "party.definition = { maxPlayers: 9 };",
+      "party['definition'] = { maxPlayers: 9 };",
+      "party[key] = { maxPlayers: 9 };",
+      "Object.assign(party.definition, { maxPlayers: 9 });",
+      "const alias = party.definition;",
+    ]) {
+      const parsed = parseScriptFile(
+        "mapped-rebound-direct", [...base, mutation].join("\n"), source,
+      );
+      expect(parsed.arenaAuthorityPaths?.some((path) =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
   it("preserves UNKNOWN for mutable, conflicting, aliased or escaping mapped capacity", () => {
     const base = [
       "var definitions = [0, 128].map((offset) => {",

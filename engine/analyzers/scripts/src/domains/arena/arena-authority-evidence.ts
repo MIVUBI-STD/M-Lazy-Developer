@@ -930,6 +930,7 @@ function mappedConstructorCapacity(
   if (seenBindings.get(className) !== 1) return undefined;
   let valid = true;
   const allocations: SourceRef[] = [];
+  const directInstanceNames = new Set<string>();
   let generatorName: string | undefined;
   const stableElement = (argument: ts.Expression, callbackName?: string):
     string | undefined => {
@@ -974,7 +975,11 @@ function mappedConstructorCapacity(
           parent.initializer === node &&
           ts.isVariableDeclarationList(parent.parent) &&
           (parent.parent.flags & ts.NodeFlags.Const) !== 0;
-        if (owned) sourceName = stableElement(argument);
+        if (owned) {
+          sourceName = stableElement(argument);
+          if (sourceName && ts.isIdentifier(parent.name))
+            directInstanceNames.add(parent.name.text);
+        }
       }
       if (!sourceName || !generators.has(sourceName) ||
           (generatorName !== undefined && generatorName !== sourceName))
@@ -993,15 +998,47 @@ function mappedConstructorCapacity(
   // No authored mutable write to the numeric field may override
   // the generator value (including writes through other receivers).
   const visitWrites = (node: ts.Node): void => {
-    if (ts.isPropertyAccessExpression(node) &&
-        node.name.text === expression.name.text) {
+    const capacityProperty = ts.isPropertyAccessExpression(node) &&
+      node.name.text === expression.name.text;
+    const capacityField = ts.isPropertyAccessExpression(node) &&
+      node.name.text === fieldName;
+    // A computed write to an unrelated collection is not evidence that
+    // this constructor configuration changed. Limit dynamic keys to this
+    // or a directly owned Party instance; exact string field keys match
+    // independently of the receiver.
+    const computedField = ts.isElementAccessExpression(node) &&
+      ((node.argumentExpression !== undefined &&
+        ts.isStringLiteralLike(node.argumentExpression) &&
+        node.argumentExpression.text === fieldName) ||
+       ((node.argumentExpression === undefined ||
+         !ts.isStringLiteralLike(node.argumentExpression)) &&
+        (node.expression.kind === ts.SyntaxKind.ThisKeyword ||
+         (ts.isIdentifier(node.expression) &&
+          directInstanceNames.has(node.expression.text)))));
+    if (capacityProperty || capacityField || computedField) {
       const parent = node.parent;
-      if ((ts.isBinaryExpression(parent) && parent.left === node &&
-           parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
-           parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) ||
-          (ts.isPrefixUnaryExpression(parent) ||
-           ts.isPostfixUnaryExpression(parent)) ||
-          (ts.isDeleteExpression(parent) && parent.expression === node))
+      const assigned = ts.isBinaryExpression(parent) && parent.left === node &&
+        parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+        parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+      const overwritten = assigned ||
+        ((ts.isPrefixUnaryExpression(parent) ||
+          ts.isPostfixUnaryExpression(parent)) && parent.operand === node) ||
+        (ts.isDeleteExpression(parent) && parent.expression === node);
+      const exactConstructorWrite = assigned && capacityField &&
+        ts.isPropertyAccessExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ThisKeyword &&
+        parent.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(parent.right) && parent.right.text === formalName &&
+        parent.parent.parent === ctor.body;
+      if (overwritten && !exactConstructorWrite) valid = false;
+      // Passing the configuration field to an unknown caller, returning
+      // or rebinding it elsewhere loses its value/identity authority.
+      if (capacityField && !exactConstructorWrite &&
+          (ts.isVariableDeclaration(parent) ||
+           ts.isReturnStatement(parent) ||
+           ts.isCallExpression(parent) ||
+           ts.isArrayLiteralExpression(parent) ||
+           ts.isPropertyAssignment(parent)))
         valid = false;
     }
     ts.forEachChild(node, visitWrites);
