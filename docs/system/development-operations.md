@@ -58,6 +58,14 @@ The lowest verified *toolchain baseline* in the current ChatGPT container is Nod
 
 Execution levels must remain distinct: (1) exact GitHub source and selected `.mcworld` archive inspection, available with native ChatGPT tools; (2) isolated AST/JavaScript probes using installed TypeScript, executable where source bytes are accessible; (3) exact repository `tsc`, Vitest or `runSelectedMapAudit()` only when the *complete exact-ref* source and matching locked dependencies are actually available; (4) Minecraft gameplay only with real game execution evidence. No lower version requirement can solve missing repository mounting or missing `node_modules`. Never replace an unexecuted tier with a source-only PASS.
 
+### Native world DB loading boundary
+
+The canonical Bedrock LevelDB adapter keeps `openBedrockLevelDbSnapshot()` as its only native-reader entrypoint. The `@8crafter/leveldb-zlib` import happens **inside that asynchronous operation**, not at module evaluation time. Importing scripts, parser contracts, the orchestrator source or LevelDB structural helpers must not itself require a compiled native addon. This change does not install any dependency or create an alternate inspection engine.
+
+A requested native DB scan still requires the addon, and an unavailable/incompatible binding returns the existing `WorldDbNativeSummary.status = "failed"` with `actorContentComplete = false`. `inspectArtifact()` propagates failed scan into `nativeWorldScanIncomplete`/discovery closure; callers must not report world/chunk/actor coverage as scanned or claim FORMALIZE/EVALUATE closure from source-only evidence. Absence of the `db/` directory is separately `not-present`, not a successful scan.
+
+**Remaining environment gap:** GitHub connector file reads are authenticated evidence, but they are not a mounted exact-commit repository tree. A source/lockfile-compatible Node version cannot provide missing source files, `node_modules`, `vitest`, `tsx` or `@zip.js/zip.js`; no full repository test may be reported as executed until those exact inputs are genuinely present. The lock currently still carries `@types/node` 24 and TypeScript 5.9.3: align Node typings only with a verified lockfile update, not an untested lockfile rewrite.
+
 ## Verification lanes
 
 Use the strongest evidence available for the exact claim without turning a higher execution context into a mandatory dependency.

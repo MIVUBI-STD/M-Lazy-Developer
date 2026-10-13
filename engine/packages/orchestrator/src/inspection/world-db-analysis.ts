@@ -210,7 +210,9 @@ export async function analyzeWorldDbNative(
       actorRecords: 0,
       actorDigestRecords: 0,
       actorContentRecordsHashed: 0,
-      actorContentComplete: true,
+      // An unreadable native DB is missing evidence, not an empty,
+      // completely inventoried actor population.
+      actorContentComplete: false,
       chunkRecords: 0,
       blockEntityRecords: 0,
       pendingTickRecords: 0,
