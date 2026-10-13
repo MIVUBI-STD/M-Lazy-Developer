@@ -6,6 +6,7 @@ import type { GameplayDiscoveryClosure } from "./gameplay-discovery-closure.js";
 import type { GameplayBoundaryRegistry } from "./gameplay-boundary-registry.js";
 import type { MultiplayerStateValidationPlan } from "./multiplayer-state-validation.js";
 import type { HiddenGameplayDefectAnalysis } from "./hidden-gameplay-defect-analysis.js";
+import { capabilityDeliveryMatchesScope } from "./gameplay-defect-resolution.js";
 import {
   deriveMandatoryOwnershipRegistry,
   deriveMandatoryProgressionContracts,
@@ -104,24 +105,13 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       .filter((failure) =>
         graph.causalLinks.some((link) =>
           link.status === "CONTRADICTED" &&
-          (
-            link.subjectIds.includes(
-              failure.subjectId,
-            ) ||
-            link.componentIds.includes(
-              failure.subjectId,
-            ) ||
-            (
-              failure.subjectId ===
-                "runtime:arena-capacity" &&
-              graph.scenarios.some(
-                (scenario) =>
-                  scenario.id ===
-                    link.scenarioId &&
-                  scenario.label ===
-                    "arena-capacity-plus-one",
-              )
-            )
+          capabilityDeliveryMatchesScope(
+            failure.subjectId,
+            graph.scenarios.find((scenario) =>
+              scenario.id === link.scenarioId
+            )?.label,
+            link.subjectIds,
+            link.componentIds,
           )
         )
       )

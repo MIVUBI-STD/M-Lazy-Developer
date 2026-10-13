@@ -9,8 +9,9 @@ import type {
 import type {
   GameplayScenarioGraph,
 } from "./inspection/gameplay-scenario-model.js";
-import type {
-  GameplayDefectResolutionGate,
+import {
+  capabilityDeliveryMatchesScope,
+  type GameplayDefectResolutionGate,
 } from "./inspection/gameplay-defect-resolution.js";
 import type {
   GameplayWorldModel,
@@ -762,6 +763,7 @@ function closureObligations(
 /** Non-finding FORMALIZE residue shared by the obligation list and honesty gate. */
 export function capabilityDeliveryObligations(
   assessments: readonly GameplayCapabilityDeliveryAssessment[],
+  graph: GameplayScenarioGraph,
 ): readonly AuditObligation[] {
   if (assessments.length === 0) {
     return [normalize({
@@ -778,7 +780,8 @@ export function capabilityDeliveryObligations(
       evidenceIds: [],
     })];
   }
-  return assessments
+
+  const unproven = assessments
     .filter(item => item.status === "UNPROVEN")
     .map(item => normalize({
       id: "capability-delivery:" + item.subjectId,
@@ -793,6 +796,39 @@ export function capabilityDeliveryObligations(
       componentIds: [],
       evidenceIds: item.evidenceIds,
     }));
+
+  // A model-classified failure cannot be promoted without a grounded
+  // CONTRADICTED causal link. Preserve a PROVE obligation for the missing
+  // relation rather than assuming a particular root cause or player impact.
+  const unroutedFailures = assessments
+    .filter(item => item.status === "DEGRADED" || item.status === "MISSING")
+    .filter(item => !graph.causalLinks.some(link =>
+      link.status === "CONTRADICTED" &&
+      capabilityDeliveryMatchesScope(
+        item.subjectId,
+        graph.scenarios.find(scenario =>
+          scenario.id === link.scenarioId
+        )?.label,
+        link.subjectIds,
+        link.componentIds,
+      )
+    ))
+    .map(item => normalize({
+      id: "capability-delivery:unrouted:" + item.subjectId,
+      source: "gameplay-translation",
+      stage: "PROVE",
+      title: "Trace capability discrepancy for " + item.label,
+      reason: item.reason +
+        " No matching CONTRADICTED causal link is grounded in the selected map.",
+      missingProof: "A selected-artifact causal link connecting this capability discrepancy to a reachable player-visible dependency and scoped expected/actual contradiction.",
+      validationTest: "Trace this capability through its exact owner, activation, effect and player consequence; seek blocking evidence before deciding whether a causal contradiction exists. Do not classify it as a BUG without PROVE.",
+      validationGroupKey: "prove:capability-delivery:" + item.subjectId,
+      subjectIds: [item.subjectId],
+      componentIds: [],
+      evidenceIds: item.evidenceIds,
+    }));
+
+  return [...unproven, ...unroutedFailures];
 }
 
 export function deriveAuditObligations(input: {
@@ -820,7 +856,7 @@ export function deriveAuditObligations(input: {
   const items: AuditObligation[] = [
     ...graphObligations(input.graph),
     ...closureObligations(input.gameplayClosure),
-    ...capabilityDeliveryObligations(input.capabilityDelivery),
+    ...capabilityDeliveryObligations(input.capabilityDelivery, input.graph),
     ...resolutionObligations(
       input.graph,
       input.defectResolution,

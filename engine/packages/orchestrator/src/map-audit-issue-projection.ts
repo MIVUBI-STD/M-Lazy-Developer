@@ -1,8 +1,9 @@
 import type {
   GameplayScenarioGraph,
 } from "./inspection/gameplay-scenario-model.js";
-import type {
-  GameplayDefectResolutionGate,
+import {
+  capabilityDeliveryMatchesScope,
+  type GameplayDefectResolutionGate,
 } from "./inspection/gameplay-defect-resolution.js";
 import {
   classifyGameplayIssue,
@@ -74,22 +75,14 @@ export function relatedCapabilityDelivery(
   capabilityDelivery:
     readonly GameplayCapabilityDeliveryAssessment[],
 ): readonly GameplayCapabilityDeliveryAssessment[] {
-  return capabilityDelivery.filter(
-    (item) =>
-      (
-        item.status === "DEGRADED" ||
-        item.status === "MISSING"
-      ) &&
-      (
-        subjectIds.includes(item.subjectId) ||
-        componentIds.includes(item.subjectId) ||
-        (
-          item.subjectId ===
-            "runtime:arena-capacity" &&
-          scenarioLabel ===
-            "arena-capacity-plus-one"
-        )
-      ),
+  return capabilityDelivery.filter(item =>
+    (item.status === "DEGRADED" || item.status === "MISSING") &&
+    capabilityDeliveryMatchesScope(
+      item.subjectId,
+      scenarioLabel,
+      subjectIds,
+      componentIds,
+    )
   );
 }
 

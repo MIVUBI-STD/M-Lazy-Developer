@@ -3,6 +3,19 @@ import type {
   GameplayScenarioGraph,
 } from "./gameplay-scenario-model.js";
 
+/** Exact selected-artifact subject/scope relation; not a proof of reachability or delivery. */
+export function capabilityDeliveryMatchesScope(
+  subjectId: string,
+  scenarioLabel: string | undefined,
+  subjectIds: readonly string[],
+  componentIds: readonly string[],
+): boolean {
+  return subjectIds.includes(subjectId) ||
+    componentIds.includes(subjectId) ||
+    (subjectId === "runtime:arena-capacity" &&
+      scenarioLabel === "arena-capacity-plus-one");
+}
+
 export type GameplayDefectResolutionDisposition =
   | "CONFIRMED_DEFECT_READY"
   | "BLOCKING_COUNTERPROOF"

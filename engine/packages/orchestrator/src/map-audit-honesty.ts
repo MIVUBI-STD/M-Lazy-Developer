@@ -209,7 +209,7 @@ export function assessAuditHonesty(input: {
       ...unresolvedClosureResidueIds(
         input.gameplayClosure,
       ),
-      ...capabilityDeliveryObligations(input.capabilityDelivery).map(
+      ...capabilityDeliveryObligations(input.capabilityDelivery, input.graph).map(
         item => item.id,
       ),
       ...input.negativeSpace.map(
