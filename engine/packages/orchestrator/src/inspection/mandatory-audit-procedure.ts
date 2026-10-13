@@ -1226,8 +1226,10 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // Leave missing evidence unresolved rather than accepting an empty
   // scenario or a domain-only/generic placeholder as inspected gameplay.
   // Analysis capability receipts are domain context, not selected-source
-  // causal evidence. An evidenced edge must belong to this exact scenario
-  // and one of its linked components must have selected-artifact evidence.
+  // causal evidence. An evidenced edge must belong to this exact scenario,
+  // one of its linked components must have selected-artifact evidence, and
+  // the source compiler must not classify the edge as a DETECTION_GAP.
+  // RUNTIME_BLOCKED remains valid EVALUATE source coverage, not PROVE success.
   const selectedSourceEvidenceIds = new Set(
     intent.evidence
       .filter((record) => record.scope === "selected-artifact")
@@ -1239,6 +1241,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       graph.causalLinks.filter((link) =>
         link.id === id &&
         link.scenarioId === scenario.id &&
+        link.status !== "DETECTION_GAP" &&
         link.fromComponentId !== link.toComponentId &&
         scenario.componentIds.includes(link.fromComponentId) &&
         scenario.componentIds.includes(link.toComponentId) &&
@@ -1290,7 +1293,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         missingCrossSystemLabels.join(", ") + ".",
     ]),
     ...(unboundCrossSystemScenarios.length === 0 ? [] : [
-      "Cross-system scenarios lack selected-source component or causal-link evidence: " +
+      "Cross-system scenarios lack supported selected-source causal links (or retain a detection gap): " +
         unboundCrossSystemScenarios.join(", ") + ".",
     ]),
     ...(unaccountedCrossSystemKnowledge.length === 0 ? [] : [
@@ -1333,7 +1336,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
           requiredCrossSystemScenarioLabels.size > 0,
           missingCrossSystemLabels.length === 0 &&
             unboundCrossSystemScenarios.length === 0,
-          "Every required cross-system scenario must bind selected-source components and a scoped evidenced causal link, not only a preset name.",
+          "Every required cross-system scenario must bind selected-source components and a scoped evidenced causal link that is not classified DETECTION_GAP; a preset name or unsupported inferred edge is insufficient.",
           sourceBoundCrossSystemEvidenceIds,
         ),
         obligation(
