@@ -215,9 +215,16 @@ export function extractArenaConcurrencyCapacity(
       );
     }
   }
+  // Numeric capacity is a global projection. Every discovered roster
+  // admission path must have an enforced, resolvable source bound; one
+  // successful path cannot certify unrelated/unknown arena owners.
+  const rosterPaths = (input.scripts ?? []).flatMap((script) =>
+    (script.arenaAuthorityPaths ?? []).filter((path) =>
+      path.membershipCommit !== undefined
+    )
+  );
   const playerCapacityAuthorityEvidence =
-    (input.scripts ?? []).flatMap((script) =>
-      (script.arenaAuthorityPaths ?? [])
+    rosterPaths
         .filter((path) =>
           path.capacityAuthorityProven &&
           path.capacityCheck?.capacityExpression !== undefined
@@ -244,13 +251,14 @@ export function extractArenaConcurrencyCapacity(
                     ...(check.resolvedCapacityWitnesses ?? [])] : []),
             ],
           }];
-        })
-    );
+        });
+  const unresolvedRosterPaths =
+    rosterPaths.length - playerCapacityAuthorityEvidence.length;
   const numericPlayerCapacities = [
     ...new Set(playerCapacityAuthorityEvidence.map((item) => item.value)),
   ].sort((a, b) => a - b);
   const perArenaPlayerCapacity =
-    numericPlayerCapacities.length === 1
+    numericPlayerCapacities.length === 1 && unresolvedRosterPaths === 0
       ? numericPlayerCapacities[0]
       : undefined;
   const perArenaPlayerCapacitySources =
@@ -386,13 +394,19 @@ export function extractArenaConcurrencyCapacity(
     );
   }
 
+  if (unresolvedRosterPaths > 0) {
+    reasons.push(
+      String(unresolvedRosterPaths) +
+      " roster admission source path(s) have no enforced numeric capacity proof; global per-arena capacity and derived player slots remain unresolved.",
+    );
+  }
   if (numericPlayerCapacities.length > 1) {
     reasons.push(
       "Multiple proven per-arena player capacity literals disagree; player capacity is reported as conflicting evidence rather than collapsed to one value.",
     );
   } else if (perArenaPlayerCapacity !== undefined) {
     reasons.push(
-      `Detected a consistent proven per-arena player capacity of ${perArenaPlayerCapacity} from arena membership authority checks.`,
+      `Detected a consistent source-proven per-arena player capacity of ${perArenaPlayerCapacity} across all discovered roster admission paths; Minecraft runtime delivery remains unverified.`,
     );
   }
 

@@ -106,6 +106,14 @@ describe("arena concurrency capacity extraction", () => {
         capacityAuthorityProven: true,
         startAuthorityProven: false,
         startGuardProven: false,
+        membershipCommit: {
+          kind: "membership-commit",
+          arenaExpression: "arena",
+          membershipExpression: "arena.players",
+          subjectExpression: "player",
+          executionRegion: "function:join",
+          source: { artifactId: "fixture", relativePath: "scripts/main.ts" },
+        },
         capacityCheck: {
           kind: "capacity-check",
           arenaExpression: "arena",
@@ -212,6 +220,80 @@ describe("arena concurrency capacity extraction", () => {
     const evidence=result.evidence.perArenaPlayerCapacitySources ?? [];
     expect(evidence).toHaveLength(6);
     expect(evidence.map(item=>item.range?.lineStart)).toEqual([3,6,2,6,7,7]);
+  });
+
+  it("does not promote one proven cap over another unguarded roster owner", () => {
+    const proven = parseScriptFile("limited", [
+      "class Limited {",
+      "  join(player) {",
+      "    if (this.members.length >= 5) return;",
+      "    this.members.push(player);",
+      "  }",
+      "}",
+    ].join("\\n"), {
+      artifactId: "fixture", relativePath: "scripts/limited.js",
+    });
+    const unguarded = parseScriptFile("open", [
+      "class Open {",
+      "  join(player) { this.members.push(player); }",
+      "}",
+    ].join("\\n"), {
+      artifactId: "fixture", relativePath: "scripts/open.js",
+    });
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [proven, unguarded], declaredArenaCount: 2,
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    expect(result.evidence.reasons).toEqual(expect.arrayContaining([
+      expect.stringContaining("no enforced numeric capacity proof"),
+    ]));
+  });
+
+  it("does not treat an unresolved property guard as a global cap of a different arena", () => {
+    const proven = parseScriptFile("limited", [
+      "function join(arena, player) {",
+      "  if (arena.members.length >= 5) return;",
+      "  arena.members.push(player);",
+      "}",
+    ].join("\\n"), {
+      artifactId: "fixture", relativePath: "scripts/limited.js",
+    });
+    const unknown = parseScriptFile("unresolved", [
+      "class Party {",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "}",
+    ].join("\\n"), {
+      artifactId: "fixture", relativePath: "scripts/other.js",
+    });
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [proven, unknown], declaredArenaCount: 2,
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    expect(result.evidence.conflictingPlayerCapacityValues).toEqual([]);
+  });
+
+  it("accepts matching proven roster caps across independent source owners", () => {
+    const scripts = ["alpha", "beta"].map((name) =>
+      parseScriptFile(name, [
+        "function join(arena, player) {",
+        "  if (arena.members.length >= 5) return;",
+        "  arena.members.push(player);",
+        "}",
+      ].join("\\n"), {
+        artifactId: "fixture", relativePath: "scripts/" + name + ".js",
+      })
+    );
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts, declaredArenaCount: 2,
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBe(5);
+    expect(result.evidence.declaredMaxConcurrentPlayers).toBe(10);
+    expect(result.evidence.perArenaPlayerCapacitySources).toHaveLength(2);
   });
 
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {
