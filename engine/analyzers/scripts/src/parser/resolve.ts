@@ -44,6 +44,9 @@ export interface ScriptImportResolution {
   importSyntax?: "dynamic-literal" | "dynamic-expression";
   executionRegion?: string;
   source?: SourceRef;
+  lexicalGuards?: ParsedScriptFile["imports"][number]["lexicalGuards"];
+  precedenceGuards?: ParsedScriptFile["imports"][number]["precedenceGuards"];
+  sourceSequence?: ParsedScriptFile["imports"][number]["sourceSequence"];
 }
 
 export function resolveScriptImports(
@@ -70,6 +73,9 @@ export function resolveScriptImports(
           importSyntax: imported.importSyntax,
           executionRegion: imported.executionRegion,
           source: imported.source,
+          lexicalGuards: imported.lexicalGuards,
+          precedenceGuards: imported.precedenceGuards,
+          sourceSequence: imported.sourceSequence,
         }),
       };
       if (imported.kind === "unresolved") {

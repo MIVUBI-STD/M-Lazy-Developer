@@ -45,6 +45,54 @@ describe("selected-map dynamic import source handoffs", () => {
     )).toBe(true);
   });
 
+  it("retains bounded source statement order for serial awaited module loads", () => {
+    const main = parsed("behavior_packs/BP/scripts/main.js", [
+      "async function start() {",
+      "  await import('./bootstrap.js');",
+      "  await import('./gameplay.js');",
+      "  await import('./lobby.js');",
+      "}",
+    ].join("\n"));
+    const ir = build(main,
+      parsed("behavior_packs/BP/scripts/bootstrap.js", "export const a = true;"),
+      parsed("behavior_packs/BP/scripts/gameplay.js", "export const b = true;"),
+      parsed("behavior_packs/BP/scripts/lobby.js", "export const c = true;"));
+    const imports = ir.execution.edges.filter(edge =>
+      edge.targetLabel.startsWith("import("));
+    expect(imports).toHaveLength(3);
+    const positions = imports.map(edge => edge.sourceSequence?.statementIndex).sort();
+    expect(positions).toEqual([0, 1, 2]);
+    expect(imports.every(edge =>
+      edge.sourceSequence?.block.relativePath === main.parsed.source.relativePath
+    )).toBe(true);
+    // These are authored positions, not a claim that any promise resolved.
+    expect(imports.every(edge => edge.kind === "deferred")).toBe(true);
+  });
+
+  it("keeps lexical and preceding-exit guards on a conditional dynamic import", () => {
+    const main = parsed("behavior_packs/BP/scripts/main.js", [
+      "async function start(ready, active) {",
+      "  if (!ready) return;",
+      "  if (active) {",
+      "    await import('./gameplay.js');",
+      "  }",
+      "}",
+    ].join("\n"));
+    const target = parsed("behavior_packs/BP/scripts/gameplay.js",
+      "export const stage = 1;");
+    const ir = build(main, target);
+    const edge = ir.execution.edges.find(e => e.targetLabel.startsWith("import("));
+    expect(edge).toBeDefined();
+    expect(edge?.resolution).toBe("resolved");
+    expect(edge?.lexicalGuards).toEqual(expect.arrayContaining([
+      expect.objectContaining({ expression: "active", branch: "true" }),
+    ]));
+    expect(edge?.precedenceGuards).toEqual(expect.arrayContaining([
+      expect.objectContaining({ expression: "!ready", branch: "false" }),
+    ]));
+    expect(edge?.sourceSequence?.statementIndex).toBe(0);
+  });
+
   it("preserves nonliteral and absent module targets as unresolved evidence", () => {
     const main = parsed("behavior_packs/BP/scripts/main.js",
       "async function start(name) { await import(name); await import('./not-in-map.js'); }");

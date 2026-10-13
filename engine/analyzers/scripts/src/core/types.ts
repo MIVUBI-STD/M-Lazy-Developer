@@ -91,6 +91,12 @@ export interface ScriptImport {
   importSyntax?: "dynamic-literal" | "dynamic-expression";
   /** Exact source execution region of an authored import() call. */
   executionRegion?: string;
+  /** Lexical conditions on import(), not verified runtime conditions. */
+  lexicalGuards?: readonly ScriptLexicalGuard[];
+  /** Necessary decisions implied by earlier direct returns/throws. */
+  precedenceGuards?: readonly ScriptLexicalGuard[];
+  /** Same-block source order, not proof the async load succeeded. */
+  sourceSequence?: SourceSequentialSite;
 }
 
 export interface ScriptEventSubscription {

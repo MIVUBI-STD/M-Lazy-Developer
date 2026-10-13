@@ -883,6 +883,15 @@ export function buildInspectionSemanticIr(
       resolution: to === undefined ? "unresolved" : "resolved",
       controlFlow: "deferred",
       source: site,
+      ...(resolution.sourceSequence === undefined ? {} : {
+        sourceSequence: resolution.sourceSequence,
+      }),
+      ...(irGuards(resolution.lexicalGuards) === undefined ? {} : {
+        lexicalGuards: irGuards(resolution.lexicalGuards),
+      }),
+      ...(irGuards(resolution.precedenceGuards) === undefined ? {} : {
+        precedenceGuards: irGuards(resolution.precedenceGuards),
+      }),
     });
   }
 

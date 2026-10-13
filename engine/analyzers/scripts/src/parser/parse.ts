@@ -2709,6 +2709,11 @@ export function parseScriptFile(
         importSyntax: literalModule !== undefined
           ? "dynamic-literal" : "dynamic-expression",
         executionRegion: localExecutionRegionId(node, file),
+        lexicalGuards: lexicalBranchGuards(node, file, source),
+        precedenceGuards: precedingEarlyExitGuards(node, file, source),
+        ...(sourceSequentialSite(node, file, source) === undefined ? {} : {
+          sourceSequence: sourceSequentialSite(node, file, source),
+        }),
       });
     }
     if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier)) {
