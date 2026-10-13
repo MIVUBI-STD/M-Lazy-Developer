@@ -240,7 +240,8 @@ export function extractArenaConcurrencyCapacity(
             sources: [
               check.source,
               ...(literal === undefined && bound !== undefined
-                ? [check.resolvedCapacitySource!] : []),
+                ? [check.resolvedCapacitySource!,
+                    ...(check.resolvedCapacityWitnesses ?? [])] : []),
             ],
           }];
         })

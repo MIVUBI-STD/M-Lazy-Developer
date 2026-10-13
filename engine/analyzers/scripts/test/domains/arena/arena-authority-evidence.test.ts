@@ -293,6 +293,53 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("resolves a literal constructor-to-instance cap through the existing field binding", () => {
+    const script = [
+      "class Party {",
+      "  constructor(definition) { this.definition = definition; this.members = []; }",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "}",
+      "const party = new Party({ maxPlayers: 5 });",
+      "party.join('test');",
+    ].join("\n");
+    const parsed = parseScriptFile("constructor-capacity",script,source);
+    const cap = parsed.arenaAuthorityPaths?.find((item) => item.capacityAuthorityProven)?.capacityCheck;
+    expect(cap).toMatchObject({
+      capacityExpression: "this.definition.maxPlayers",
+      resolvedCapacityValue: 5,
+      resolvedCapacitySource: expect.objectContaining({range:expect.objectContaining({lineStart:8})}),
+    });
+    expect(cap?.resolvedCapacityWitnesses).toHaveLength(2);
+  });
+
+  it("keeps constructor dynamic values, escapes, conflicting values and mutations UNKNOWN", () => {
+    const header = [
+      "class Party {",
+      "  constructor(definition) { this.definition = definition; this.members = []; }",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "}",
+    ].join("\n");
+    const variants = [
+      "const party = new Party(config); party.join('test');",
+      "const a = new Party({maxPlayers:5}); const b = new Party({maxPlayers:3}); a.join('test');",
+      "const a = new Party({maxPlayers:5}); leak(a);",
+      "const a = new Party({maxPlayers:5}); a.definition.maxPlayers = 9;",
+      "const a = new Party({maxPlayers:5}); const b = a; a.join('test');",
+      "const a = new Party({maxPlayers:5}); a.definition = {maxPlayers:9};",
+    ];
+    for(const variant of variants){
+      const parsed = parseScriptFile("constructor-unknown",header+"\n"+variant,source);
+      const check = parsed.arenaAuthorityPaths?.find((item)=>item.capacityAuthorityProven)?.capacityCheck;
+      expect(check?.resolvedCapacityValue).toBeUndefined();
+    }
+  });
+
   it("does not prove capacity ownership when a local limit belongs to a different arena object", () => {
     const parsed = parseScriptFile(
       "arena",

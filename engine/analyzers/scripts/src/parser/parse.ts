@@ -1990,10 +1990,12 @@ export function parseScriptFile(
     true,
     scriptKind(source.relativePath),
   );
+  const classWiring = extractScriptClassWiring(file, source);
   const arenaAuthorityEvidence =
     deriveScriptArenaAuthorityEvidence(
       text,
       source,
+      classWiring.constructorFieldBindings,
     );
   const arenaAuthorityPaths =
     correlateScriptArenaAuthorityPaths(
@@ -2008,7 +2010,6 @@ export function parseScriptFile(
     text,
     source,
   );
-  const classWiring = extractScriptClassWiring(file, source);
   const mapWiring = extractScriptClassMapSites(file, source);
   const spatialMutations = deriveScriptSpatialMutations(
     text,

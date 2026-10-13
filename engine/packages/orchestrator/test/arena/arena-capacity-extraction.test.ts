@@ -179,6 +179,23 @@ describe("arena concurrency capacity extraction", () => {
     ]);
   });
 
+  it("carries constructor-source proof through to the B3/B5 capacity evidence", () => {
+    const script = parseScriptFile("construct",[
+      "class Party {",
+      "  constructor(definition) { this.definition = definition; this.members = []; }",
+      "  join(player) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(player), true); }",
+      "}",
+      "const party = new Party({maxPlayers:5});",
+      "party.join('one');",
+    ].join("\n"),{artifactId:"fixture",relativePath:"scripts/main.js"});
+    const result=extractArenaConcurrencyCapacity({tickingAreas:[],scripts:[script]});
+    expect(result.evidence.perArenaPlayerCapacity).toBe(5);
+    expect(result.evidence.perArenaPlayerCapacitySources?.length).toBe(4);
+    expect(result.evidence.perArenaPlayerCapacitySources?.every((item)=>
+      item.relativePath==="scripts/main.js")).toBe(true);
+  });
+
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {
     const script = {
       arenaAuthorityPaths: [{

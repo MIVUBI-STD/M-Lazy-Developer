@@ -6,6 +6,7 @@ import type {
 import type {
   ScriptArenaAuthorityEvidence,
   ScriptArenaAuthorityPath,
+  ScriptConstructorFieldBinding,
 } from "../../core/types.js";
 
 export interface ScriptTerminalIdempotencyEvidence {
@@ -556,10 +557,195 @@ function staticModuleCapacity(
   return stable ? { value, source: lineSource(file, property, source) } : undefined;
 }
 
+
+/**
+ * Bounded constructor-to-instance evidence: only a non-exported top-level
+ * class, with canonical constructor-field forwarding and entirely visible,
+ * const-bound literal instances can supply a numeric source value.
+ * Unknown factory arguments, escaping instances, shadowed classes and
+ * conflicting configurations remain unresolved, not zero or PASS.
+ */
+function staticConstructorCapacity(
+  expression: ts.Expression,
+  file: ts.SourceFile,
+  source: SourceRef,
+  fieldBindings: readonly ScriptConstructorFieldBinding[],
+): { value: number; source: SourceRef; witnesses: readonly SourceRef[] } | undefined {
+  if (!ts.isPropertyAccessExpression(expression) ||
+      !CAPACITY_PROPERTY.test(expression.name.text) ||
+      !ts.isPropertyAccessExpression(expression.expression) ||
+      expression.expression.expression.kind !== ts.SyntaxKind.ThisKeyword) return undefined;
+  const fieldName = expression.expression.name.text;
+  let scope: ts.Node | undefined = expression.parent;
+  while (scope && !ts.isMethodDeclaration(scope)) {
+    if (ts.isFunctionLike(scope) || ts.isClassLike(scope)) return undefined;
+    scope = scope.parent;
+  }
+  if (!scope || !ts.isMethodDeclaration(scope) ||
+      !ts.isClassDeclaration(scope.parent) ||
+      scope.parent.parent !== file ||
+      !scope.parent.name ||
+      scope.parent.modifiers?.some((modifier) =>
+        modifier.kind === ts.SyntaxKind.ExportKeyword ||
+        modifier.kind === ts.SyntaxKind.DefaultKeyword
+      )) return undefined;
+  const cls = scope.parent;
+  const name = cls.name!.text;
+  const fields = fieldBindings.filter((binding) =>
+    binding.className === name &&
+    binding.fieldName === fieldName &&
+    binding.source.artifactId === source.artifactId &&
+    binding.source.relativePath === source.relativePath
+  );
+  if (fields.length !== 1) return undefined;
+  const binding = fields[0]!;
+  const ctors = cls.members.filter(ts.isConstructorDeclaration);
+  if (ctors.length !== 1) return undefined;
+  const ctor = ctors[0]!;
+  const param = ctor.parameters[binding.parameterIndex];
+  if (!param || !ts.isIdentifier(param.name) ||
+      param.initializer || param.dotDotDotToken) return undefined;
+
+  // This field can only be set by the exact constructor binding.
+  let fieldUseSafe = true;
+  const scanClass = (node: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ThisKeyword &&
+        node.name.text === fieldName) {
+      if (node.getStart(file) >= (binding.source.range?.lineStart ?? Infinity)) {
+        // Source range identity below is intentionally checked using source
+        // line/column, not only a coincidental lexical name.
+      }
+      const site = lineSource(file, node.parent, source).range;
+      const assignment = ts.isBinaryExpression(node.parent) &&
+        node.parent.left === node &&
+        node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+      const constructorWrite = assignment &&
+        node.parent.parent &&
+        node.parent.parent.parent === ctor.body &&
+        site?.lineStart === binding.source.range?.lineStart &&
+        site?.columnStart === binding.source.range?.columnStart;
+      if (!constructorWrite) {
+        // Reading this.field.foo is safe only when it is an ordinary
+        // property read. Passing out the entire field or writing it is not.
+        const parent = node.parent;
+        if (!ts.isPropertyAccessExpression(parent) ||
+            parent.expression !== node) fieldUseSafe = false;
+        else {
+          let current: ts.Node = parent;
+          while (current.parent && !ts.isFunctionLike(current.parent)) {
+            const ancestor = current.parent;
+            if ((ts.isBinaryExpression(ancestor) &&
+                 ancestor.left === current &&
+                 ancestor.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+                 ancestor.operatorToken.kind <= ts.SyntaxKind.LastAssignment) ||
+                (ts.isDeleteExpression(ancestor) && ancestor.expression === current) ||
+                ((ts.isPrefixUnaryExpression(ancestor) ||
+                  ts.isPostfixUnaryExpression(ancestor)) &&
+                 ancestor.operand === current) ||
+                (ts.isCallExpression(ancestor) &&
+                 ancestor.expression === current)) fieldUseSafe = false;
+            current = ancestor;
+          }
+        }
+      }
+    }
+    ts.forEachChild(node,scanClass);
+  };
+  if (cls.members.length === 0) return undefined;
+  for (const member of cls.members) scanClass(member);
+  if (!fieldUseSafe) return undefined;
+
+  const instances: Array<{ value:number; source:SourceRef; call:SourceRef }> = [];
+  const instanceNames = new Set<string>();
+  let valid = true;
+  const scanFile = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === name &&
+        node !== cls.name &&
+        !(ts.isNewExpression(node.parent) && node.parent.expression === node)) {
+      valid = false;
+    }
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) &&
+        node.expression.text === name) {
+      const declaration = node.parent;
+      if (!ts.isVariableDeclaration(declaration) ||
+          declaration.initializer !== node ||
+          !ts.isIdentifier(declaration.name) ||
+          !ts.isVariableDeclarationList(declaration.parent) ||
+          (declaration.parent.flags & ts.NodeFlags.Const) === 0 ||
+          !ts.isVariableStatement(declaration.parent.parent) ||
+          declaration.parent.parent.modifiers?.some((modifier) =>
+            modifier.kind === ts.SyntaxKind.ExportKeyword
+          )) {
+        valid=false;
+      } else {
+        instanceNames.add(declaration.name.text);
+      }
+      const arg = node.arguments?.[binding.parameterIndex];
+      if (!arg || !ts.isObjectLiteralExpression(arg)) {
+        valid=false;
+      } else {
+        const properties = arg.properties.filter((item) =>
+          ts.isPropertyAssignment(item) &&
+          (ts.isIdentifier(item.name) || ts.isStringLiteralLike(item.name)) &&
+          item.name.text === expression.name.text
+        );
+        const property = properties[0];
+        if (properties.length !== 1 ||
+            !property || !ts.isPropertyAssignment(property) ||
+            !ts.isNumericLiteral(property.initializer) ||
+            !arg.properties.every(ts.isPropertyAssignment)) {
+          valid=false;
+        } else {
+          const value=Number(property.initializer.text);
+          if (!Number.isSafeInteger(value) || value < 1) valid=false;
+          else instances.push({
+            value,
+            source:lineSource(file,property,source),
+            call:lineSource(file,node,source),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node,scanFile);
+  };
+  scanFile(file);
+  if (!valid || instances.length===0 ||
+      new Set(instances.map((entry)=>entry.value)).size!==1) return undefined;
+  const onlyMethods = new Set(cls.members
+    .filter(ts.isMethodDeclaration)
+    .map((method)=>declarationMemberName(method.name))
+    .filter((item): item is string => item !== undefined));
+  const scanInstances=(node:ts.Node):void=>{
+    if (ts.isIdentifier(node) && instanceNames.has(node.text)) {
+      const parent=node.parent;
+      if (ts.isVariableDeclaration(parent) && parent.name===node) {
+        // Original const instance declaration.
+      } else if (ts.isPropertyAccessExpression(parent) &&
+                 parent.expression===node &&
+                 onlyMethods.has(parent.name.text) &&
+                 ts.isCallExpression(parent.parent) &&
+                 parent.parent.expression===parent) {
+        // Invocation of an inspected class method; object does not escape.
+      } else valid=false;
+    }
+    ts.forEachChild(node,scanInstances);
+  };
+  scanInstances(file);
+  if (!valid) return undefined;
+  const first = instances[0]!;
+  return {
+    value:first.value,
+    source:first.source,
+    witnesses:[binding.source,...instances.map((item)=>item.call)],
+  };
+}
+
 function capacityComparisonEvidence(
   condition: ts.Expression,
   file: ts.SourceFile,
   source: SourceRef,
+  fieldBindings: readonly ScriptConstructorFieldBinding[],
 ): ScriptArenaAuthorityEvidence | undefined {
   if (!ts.isBinaryExpression(condition)) {
     return undefined;
@@ -600,7 +786,8 @@ function capacityComparisonEvidence(
     file,
   );
   if (!capacity) return undefined;
-  const staticCapacity = staticModuleCapacity(other, file, source);
+  const staticCapacity = staticModuleCapacity(other, file, source) ??
+    staticConstructorCapacity(other, file, source, fieldBindings);
 
   if (
     capacity.arenaExpression !== undefined &&
@@ -625,6 +812,8 @@ function capacityComparisonEvidence(
     ...(staticCapacity ? {
       resolvedCapacityValue: staticCapacity.value,
       resolvedCapacitySource: staticCapacity.source,
+      ...("witnesses" in staticCapacity
+        ? { resolvedCapacityWitnesses: staticCapacity.witnesses } : {}),
     } : {}),
     executionRegion:
       localExecutionRegionId(condition, file),
@@ -640,6 +829,7 @@ function capacityCheckEvidence(
   node: ts.Node,
   file: ts.SourceFile,
   source: SourceRef,
+  fieldBindings: readonly ScriptConstructorFieldBinding[],
 ): ScriptArenaAuthorityEvidence | undefined {
   if (!ts.isIfStatement(node) || !ts.isBlock(node.parent)) return undefined;
   const condition = node.expression;
@@ -664,7 +854,7 @@ function capacityCheckEvidence(
   const next = block.statements[block.statements.indexOf(node) + 1];
   if (next === undefined) return undefined;
   const commit = membershipCommitEvidence(next, file, source);
-  const check = capacityComparisonEvidence(condition, file, source);
+  const check = capacityComparisonEvidence(condition, file, source, fieldBindings);
   if (
     commit === undefined ||
     check === undefined ||
@@ -689,6 +879,7 @@ function returnTernaryCapacityEvidence(
   node: ts.Node,
   file: ts.SourceFile,
   source: SourceRef,
+  fieldBindings: readonly ScriptConstructorFieldBinding[],
 ): readonly ScriptArenaAuthorityEvidence[] {
   if (!ts.isConditionalExpression(node)) return [];
   let expression: ts.Node = node;
@@ -736,7 +927,7 @@ function returnTernaryCapacityEvidence(
       ].includes(expr.operatorToken.kind) ||
       membershipCount(expr.left, file) === undefined
     ) return [];
-    const check = capacityComparisonEvidence(expr, file, source);
+    const check = capacityComparisonEvidence(expr, file, source, fieldBindings);
     return check === undefined ? [] : [check];
   };
   const checks = conditionChecks(node.condition);
@@ -1478,6 +1669,7 @@ export function deriveScriptTerminalIdempotencyEvidence(
 export function deriveScriptArenaAuthorityEvidence(
   text: string,
   source: SourceRef,
+  fieldBindings: readonly ScriptConstructorFieldBinding[] = [],
 ): ScriptArenaAuthorityEvidence[] {
   const file = ts.createSourceFile(
     source.relativePath,
@@ -1532,9 +1724,10 @@ export function deriveScriptArenaAuthorityEvidence(
       node,
       file,
       source,
+      fieldBindings,
     );
     if (capacity) output.push(capacity);
-    output.push(...returnTernaryCapacityEvidence(node, file, source));
+    output.push(...returnTernaryCapacityEvidence(node, file, source, fieldBindings));
 
     const ownerGuard = startOwnerGuardEvidence(
       node,

@@ -545,6 +545,8 @@ export interface ScriptArenaAuthorityEvidence {
   /** Immutable selected-source numeric configuration, not runtime success. */
   resolvedCapacityValue?: number;
   resolvedCapacitySource?: SourceRef;
+  /** Constructor assignment and matching allocations used in numeric proof. */
+  resolvedCapacityWitnesses?: readonly SourceRef[];
   ownerExpression?: string;
   generationExpression?: string;
   stateExpression?: string;
