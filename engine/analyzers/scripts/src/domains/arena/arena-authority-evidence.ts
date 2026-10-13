@@ -476,6 +476,11 @@ function staticModuleCapacity(
   const bindingName = expression.expression.text;
   const declarations = file.statements.flatMap((statement) =>
     ts.isVariableStatement(statement) &&
+    // An exported const object can be mutated by an external importer.
+    !statement.modifiers?.some((item) =>
+      item.kind === ts.SyntaxKind.ExportKeyword ||
+      item.kind === ts.SyntaxKind.DefaultKeyword
+    ) &&
     (statement.declarationList.flags & ts.NodeFlags.Const) !== 0
       ? statement.declarationList.declarations.filter((declaration) =>
           ts.isIdentifier(declaration.name) &&
