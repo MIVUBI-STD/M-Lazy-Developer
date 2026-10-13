@@ -642,6 +642,16 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // scenario budget (including the default two-player preset), not a
   // declaration that the selected map supports multiplayer. The synthetic
   // mixed:* validation plan likewise cannot prove an authored player contract.
+  // Reuse the same source-authority receipt already consumed by B5.
+  // The capacity analyzer only emits the limit after an authored
+  // membership-capacity guard is demonstrated in the selected script.
+  const playerCapacitySources =
+    world.arenas.perArenaPlayerCapacitySources ?? [];
+  const multiplayerCapacitySourceGrounded =
+    (world.arenas.perArenaPlayerCapacity ?? 0) > 1 &&
+    playerCapacitySources.some((source) =>
+      source.relativePath.trim().length > 0
+    );
   const authoredMultiplayerSignal =
     /(?:^|[^a-z])(?:multiplayer|co-?op|cooperative|teams?|parties|party|roster|membership|participants|player-count|players)(?:$|[^a-z])/i;
   const multiplayerSourceEvidenceIds = [
@@ -659,6 +669,9 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       .flatMap((node) => node.evidenceIds)
       .filter((id) => selectedEvidenceIds.has(id))),
   ].sort();
+  const multiplayerSourceContractGrounded =
+    multiplayerSourceEvidenceIds.length > 0 ||
+    multiplayerCapacitySourceGrounded;
   const playerCapacityDemandsMultiplayer =
     (world.arenas.perArenaPlayerCapacity ?? 0) > 1 ||
     (world.arenas.declaredMaxConcurrentPlayers ?? 0) > 1 ||
@@ -679,8 +692,8 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       "multiplayer-interleaving",
     );
   const multiplayerFormalizationGaps = [
-    ...(multiplayerSourceEvidenceIds.length === 0
-      ? ["no selected-artifact actor/party/roster or shared-player source evidence grounds the multiplayer contract"] : []),
+    ...(!multiplayerSourceContractGrounded
+      ? ["no selected-artifact participant/party ownership or capacity-authority source evidence grounds the multiplayer contract"] : []),
     ...(!multiplayerAnalysisExecuted
       ? ["multiplayer interleaving/isolation analysis has not executed"] : []),
   ];
@@ -702,7 +715,15 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       : multiplayerFormalizationGaps.length > 0
         ? "Multiplayer FORMALIZE is incomplete: " +
           multiplayerFormalizationGaps.join("; ") + "."
-        : "Selected-source multiplayer ownership and interleaving analysis are accounted; a hypothetical stress scenario does not prove Minecraft runtime delivery.",
+        : "Selected-source multiplayer ownership and interleaving analysis are accounted" +
+          (multiplayerCapacitySourceGrounded
+            ? " (capacity authority: " +
+              playerCapacitySources
+                .filter((source) => source.relativePath.trim().length > 0)
+                .map((source) => source.relativePath)
+                .slice(0, 3).join(", ") + ")"
+            : "") +
+          "; a hypothetical stress scenario does not prove Minecraft runtime delivery.",
     multiplayerSourceEvidenceIds,
     ["MultiplayerContract"],
     {
@@ -710,8 +731,8 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         obligation(
           "multiplayer-source-contract-grounded",
           multiplayerRequired,
-          multiplayerSourceEvidenceIds.length > 0,
-          "An applicable multiplayer contract needs selected-artifact team/party/player-ownership source evidence; a generated player count or synthetic test plan is not that evidence.",
+          multiplayerSourceContractGrounded,
+          "An applicable multiplayer contract needs selected-artifact participant/party ownership evidence or an authority-proven multi-player capacity source; generated scenario counts and hypothetical test plans are not gameplay design evidence.",
           multiplayerSourceEvidenceIds,
         ),
         obligation(
@@ -875,8 +896,6 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // after an authority-backed selected-script capacity check. Do not require
   // a duplicate safe-config variable for the same object-property limit.
   // Derived total slots and requested topology counts belong to B4.
-  const playerCapacitySources =
-    world.arenas.perArenaPlayerCapacitySources ?? [];
   const playerCapacitySourceGrounded =
     world.arenas.perArenaPlayerCapacity !== undefined &&
     playerCapacitySources.some((source) =>
