@@ -100,6 +100,7 @@ describe("arena concurrency capacity extraction", () => {
 
   it("reports player capacity as evidence without treating it as an arena limiter", () => {
     const script = {
+      source: { artifactId: "fixture", relativePath: "scripts/main.ts" },
       arenaAuthorityPaths: [{
         arenaExpression: "arena",
         executionRegion: "function:join",
@@ -112,7 +113,11 @@ describe("arena concurrency capacity extraction", () => {
           membershipExpression: "arena.players",
           subjectExpression: "player",
           executionRegion: "function:join",
-          source: { artifactId: "fixture", relativePath: "scripts/main.ts" },
+          source: {
+            artifactId: "fixture",
+            relativePath: "scripts/main.ts",
+            range: { lineStart: 4, columnStart: 1, lineEnd: 4, columnEnd: 25 },
+          },
         },
         capacityCheck: {
           kind: "capacity-check",
@@ -120,9 +125,15 @@ describe("arena concurrency capacity extraction", () => {
           membershipExpression: "arena.players",
           capacityExpression: "5",
           executionRegion: "function:join",
+          guardedCommitSource: {
+            artifactId: "fixture",
+            relativePath: "scripts/main.ts",
+            range: { lineStart: 4, columnStart: 1, lineEnd: 4, columnEnd: 25 },
+          },
           source: {
             artifactId: "fixture",
             relativePath: "scripts/main.ts",
+            range: { lineStart: 3, columnStart: 1, lineEnd: 3, columnEnd: 33 },
           },
         },
       }],
@@ -163,6 +174,56 @@ describe("arena concurrency capacity extraction", () => {
     });
     expect(result.resources).toEqual([]);
     expect(result.report?.safeConcurrentArenas).toBeNull();
+  });
+
+  it("refuses forged cross-file and unbound capacity proofs at the extraction boundary", () => {
+    const parsed = parseScriptFile("verified", [
+      "function join(arena, player) {",
+      "  if (arena.members.length >= 5) return;",
+      "  arena.members.push(player);",
+      "}",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/canonical.js",
+    });
+    expect(extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [parsed],
+    }).evidence.perArenaPlayerCapacity).toBe(5);
+
+    const original = parsed.arenaAuthorityPaths?.find((item) => item.capacityAuthorityProven);
+    expect(original?.capacityCheck?.guardedCommitSource).toBeDefined();
+    if (!original || !original.capacityCheck) throw new Error("missing source fixture");
+    const sourceCheck = original.capacityCheck;
+    const validSpan = sourceCheck.guardedCommitSource!;
+    const falseClaims: ParsedScriptFile[] = [
+      { ...parsed, source: { ...parsed.source, relativePath: "scripts/foreign.js" } },
+      { ...parsed, arenaAuthorityPaths: [{ ...original,
+        capacityCheck: { ...sourceCheck, guardedCommitSource: {
+          ...validSpan, range: { ...validSpan.range, lineStart: 90 },
+        } },
+      }] },
+      { ...parsed, arenaAuthorityPaths: [{ ...original,
+        capacityCheck: { ...sourceCheck, guardedCommitSource: undefined },
+      }] },
+      { ...parsed, arenaAuthorityPaths: [{ ...original,
+        capacityCheck: { ...sourceCheck, source: {
+          ...sourceCheck.source, relativePath: "scripts/foreign.js",
+        } },
+      }] },
+      { ...parsed, arenaAuthorityPaths: [{ ...original,
+        capacityAuthorityProven: true,
+        membershipCommit: { ...original.membershipCommit!,
+          membershipExpression: "arena.otherMembers",
+        },
+      }] },
+    ];
+    for (const candidate of falseClaims) {
+      const result = extractArenaConcurrencyCapacity({
+        tickingAreas: [], scripts: [candidate],
+      });
+      expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+      expect(result.evidence.perArenaPlayerCapacitySources).toBeUndefined();
+      expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    }
   });
 
   it("retains both guard and immutable declaration provenance for source-owned capacity", () => {

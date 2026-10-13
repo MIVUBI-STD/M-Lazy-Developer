@@ -15,6 +15,54 @@ import type {
 import type { ParsedScriptFile } from "../../../../analyzers/scripts/src/index.js";
 import type { SourceRef } from "../../../project-model/src/index.js";
 
+/**
+ * A producer's boolean claim is not sufficient proof on its own.
+ * Only a same-artifact, same-region guard bound to the exact roster write
+ * can contribute a global numeric party capacity. A source file without
+ * exact spans is still useful evidence but cannot close this boundary.
+ */
+function sameSourceArtifact(a: SourceRef | undefined, b: SourceRef | undefined): boolean {
+  return a !== undefined && b !== undefined &&
+    a.artifactId.trim().length > 0 &&
+    a.relativePath.trim().length > 0 &&
+    a.artifactId === b.artifactId &&
+    a.relativePath === b.relativePath;
+}
+
+function sameSourceSpan(a: SourceRef | undefined, b: SourceRef | undefined): boolean {
+  const x = a?.range, y = b?.range;
+  return sameSourceArtifact(a,b) &&
+    x?.lineStart !== undefined && x.columnStart !== undefined &&
+    x.lineEnd !== undefined && x.columnEnd !== undefined &&
+    y?.lineStart !== undefined && y.columnStart !== undefined &&
+    y.lineEnd !== undefined && y.columnEnd !== undefined &&
+    x.lineStart === y.lineStart && x.columnStart === y.columnStart &&
+    x.lineEnd === y.lineEnd && x.columnEnd === y.columnEnd;
+}
+
+function hasExactRosterCapacityAuthority(
+  scriptSource: SourceRef,
+  path: NonNullable<ParsedScriptFile["arenaAuthorityPaths"]>[number],
+): boolean {
+  const check = path.capacityCheck;
+  const commit = path.membershipCommit;
+  return path.capacityAuthorityProven &&
+    check !== undefined && commit !== undefined &&
+    check.kind === "capacity-check" &&
+    commit.kind === "membership-commit" &&
+    path.arenaExpression === check.arenaExpression &&
+    check.arenaExpression === commit.arenaExpression &&
+    check.membershipExpression !== undefined &&
+    check.membershipExpression === commit.membershipExpression &&
+    path.executionRegion === check.executionRegion &&
+    check.executionRegion === commit.executionRegion &&
+    sameSourceArtifact(scriptSource,check.source) &&
+    sameSourceArtifact(check.source,commit.source) &&
+    check.source.range?.lineStart !== undefined &&
+    check.source.range?.columnStart !== undefined &&
+    sameSourceSpan(check.guardedCommitSource,commit.source);
+}
+
 export interface ArenaCommandTickingAreaRecord {
   semantics: TickingAreaSemantics;
   functionId: string;
@@ -219,17 +267,17 @@ export function extractArenaConcurrencyCapacity(
   // admission path must have an enforced, resolvable source bound; one
   // successful path cannot certify unrelated/unknown arena owners.
   const rosterPaths = (input.scripts ?? []).flatMap((script) =>
-    (script.arenaAuthorityPaths ?? []).filter((path) =>
-      path.membershipCommit !== undefined
-    )
+    (script.arenaAuthorityPaths ?? [])
+      .filter((path) => path.membershipCommit !== undefined)
+      .map((path) => ({ source: script.source, path }))
   );
   const playerCapacityAuthorityEvidence =
     rosterPaths
-        .filter((path) =>
-          path.capacityAuthorityProven &&
+        .filter(({ path, source }) =>
+          hasExactRosterCapacityAuthority(source,path) &&
           path.capacityCheck?.capacityExpression !== undefined
         )
-        .flatMap((path) => {
+        .flatMap(({ path }) => {
           const check = path.capacityCheck!;
           const literalValue = Number(check.capacityExpression);
           const literal =
