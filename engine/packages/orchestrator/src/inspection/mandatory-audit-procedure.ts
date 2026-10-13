@@ -496,10 +496,32 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     ["ActorEntityContract"],
   ));
 
+  // FORMALIZE applicability includes semantic demand from the selected
+  // gameplay scenarios, not only a detected chunk lease or spatial effect.
+  // Absence of a residency mechanism can be the exact contract gap to record.
+  const chunkKnowledgeRequired =
+    demanded.has("chunk-simulation") ||
+    world.chunks.leases.length > 0 ||
+    graph.knowledgeRequirements.some(
+      (item) => item.domain === "chunk-simulation"
+    );
   const spatialApplicable =
     world.spatial.resolvedScriptEffects > 0 ||
     world.spatial.structurePlacements > 0 ||
-    world.chunks.leases.length > 0;
+    chunkKnowledgeRequired;
+  const spatialFormalizationGaps = [
+    ...(world.chunks.cleanupOrderUnproven > 0
+      ? ["chunk cleanup order is unproven"] : []),
+    ...(world.chunks.readinessUnverifiedLeases > 0
+      ? ["chunk readiness remains unverified"] : []),
+    ...(spatialApplicable && !world.platformKnowledge.profileResolved
+      ? ["applicable platform profile is unresolved"] : []),
+    ...(chunkKnowledgeRequired &&
+        !world.analysisExecution.executedCapabilityIds.includes(
+          "chunk-lifecycle-integrity",
+        )
+      ? ["required chunk/simulation knowledge was not executed"] : []),
+  ];
   checkpoint.push(receipt(
     "B2",
     "FORMALIZE",
@@ -508,15 +530,17 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       ? discoverySupportsAbsence
         ? "NOT_APPLICABLE"
         : "OPEN"
-      : world.chunks.cleanupOrderUnproven > 0 ||
-          world.chunks.readinessUnverifiedLeases > 0
+      : spatialFormalizationGaps.length > 0
         ? "PARTIAL"
         : "CLOSED",
     !spatialApplicable
       ? discoverySupportsAbsence
         ? "No material spatial/simulation dependency remains after complete discovery."
         : "Spatial/simulation applicability cannot close while discovery is incomplete."
-      : "Spatial and chunk/simulation ownership evidence is accounted.",
+      : spatialFormalizationGaps.length > 0
+        ? "Spatial/simulation FORMALIZE remains incomplete: " +
+          spatialFormalizationGaps.join("; ") + "."
+        : "Applicable spatial and chunk/simulation source/model knowledge is accounted; this does not prove Minecraft runtime delivery.",
     [
       "analysis:spatial-authority",
       "analysis:chunk-simulation",
@@ -536,10 +560,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         ),
         obligation(
           "chunk-knowledge-executed",
-          world.chunks.leases.length > 0 ||
-            graph.knowledgeRequirements.some(
-              (item) => item.domain === "chunk-simulation"
-            ),
+          chunkKnowledgeRequired,
           world.analysisExecution.executedCapabilityIds.includes(
             "chunk-lifecycle-integrity",
           ),
