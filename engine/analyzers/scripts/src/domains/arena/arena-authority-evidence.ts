@@ -519,7 +519,7 @@ function capacityComparisonEvidence(
     capacityExpression:
       capacity.expression,
     executionRegion:
-      localExecutionRegionId(node, file),
+      localExecutionRegionId(condition, file),
     source: lineSource(
       file,
       condition,
@@ -533,8 +533,37 @@ function capacityCheckEvidence(
   file: ts.SourceFile,
   source: SourceRef,
 ): ScriptArenaAuthorityEvidence | undefined {
-  if (!ts.isIfStatement(node)) return undefined;
-  return capacityComparisonEvidence(node.expression, file, source);
+  if (!ts.isIfStatement(node) || !ts.isBlock(node.parent)) return undefined;
+  const condition = node.expression;
+  // A capacity check only establishes admission protection when a full
+  // party definitely exits and the next statement commits the SAME roster.
+  // If a guard merely logs or compares an inverted limit, recording it as
+  // capacityAuthorityProven would incorrectly close FORMALIZE.
+  if (
+    !ts.isBinaryExpression(condition) ||
+    condition.operatorToken.kind !== ts.SyntaxKind.GreaterThanEqualsToken ||
+    membershipCount(condition.left, file) === undefined
+  ) return undefined;
+  const thenBranch = node.thenStatement;
+  const terminal = ts.isBlock(thenBranch)
+    ? thenBranch.statements[thenBranch.statements.length - 1]
+    : thenBranch;
+  if (
+    terminal === undefined ||
+    (!ts.isReturnStatement(terminal) && !ts.isThrowStatement(terminal))
+  ) return undefined;
+  const block = node.parent;
+  const next = block.statements[block.statements.indexOf(node) + 1];
+  if (next === undefined) return undefined;
+  const commit = membershipCommitEvidence(next, file, source);
+  const check = capacityComparisonEvidence(condition, file, source);
+  if (
+    commit === undefined ||
+    check === undefined ||
+    commit.arenaExpression !== check.arenaExpression ||
+    commit.membershipExpression !== check.membershipExpression
+  ) return undefined;
+  return check;
 }
 
 /**

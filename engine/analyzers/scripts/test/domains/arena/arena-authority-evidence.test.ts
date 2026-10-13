@@ -149,6 +149,68 @@ describe("arena authority evidence", () => {
     });
   });
 
+  it("admits a full-party IfStatement only when the true branch terminates the same-block join", () => {
+    const accepted = parseScriptFile(
+      "admission-if",
+      [
+        "function join(arena, player) {",
+        "  if (arena.members.length >= 5) {",
+        '    player.sendMessage("Party full");',
+        "    return;",
+        "  }",
+        "  arena.members.push(player);",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(accepted.arenaAuthorityPaths?.find(
+      (path) => path.arenaExpression === "arena",
+    )?.capacityAuthorityProven).toBe(true);
+
+    const loggingOnly = parseScriptFile(
+      "logging-only",
+      [
+        "function join(arena, player) {",
+        '  if (arena.members.length >= 5) player.sendMessage("Full");',
+        "  arena.members.push(player);",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(loggingOnly.arenaAuthorityPaths?.some(
+      (path) => path.capacityAuthorityProven,
+    )).toBe(false);
+
+    const reversed = parseScriptFile(
+      "reversed-comparison",
+      [
+        "function join(arena, player) {",
+        "  if (arena.members.length < 5) return;",
+        "  arena.members.push(player);",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(reversed.arenaAuthorityPaths?.some(
+      (path) => path.capacityAuthorityProven,
+    )).toBe(false);
+
+    const nonAdjacent = parseScriptFile(
+      "non-adjacent",
+      [
+        "function join(arena, player) {",
+        "  if (arena.members.length >= 5) return;",
+        "  mutate(arena.members);",
+        "  arena.members.push(player);",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(nonAdjacent.arenaAuthorityPaths?.some(
+      (path) => path.capacityAuthorityProven,
+    )).toBe(false);
+  });
+
   it("does not prove capacity ownership when a local limit belongs to a different arena object", () => {
     const parsed = parseScriptFile(
       "arena",
@@ -188,17 +250,23 @@ describe("arena authority evidence", () => {
       ].join("\n"),
       source,
     );
-    expect(parsed.arenaAuthorityPaths?.find(
-      (path) => path.arenaExpression === "this" &&
-        path.capacityCheck?.capacityExpression ===
+    const path = parsed.arenaAuthorityPaths?.find(
+      (item) => item.arenaExpression === "this" &&
+        item.capacityCheck?.capacityExpression ===
           "this.definition.maxPlayers",
-    )).toMatchObject({
+    );
+    expect(path).toMatchObject({
       capacityAuthorityProven: true,
       capacityCheck: expect.objectContaining({
         membershipExpression: "this.members",
+        executionRegion: "method:join",
+        source: expect.objectContaining({
+          range: expect.objectContaining({ lineStart: 4 }),
+        }),
       }),
       membershipCommit: expect.objectContaining({
         membershipExpression: "this.members",
+        executionRegion: "method:join",
       }),
     });
   });
