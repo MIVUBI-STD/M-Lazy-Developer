@@ -722,73 +722,112 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
 
   const multiArena =
     world.arenas.detected && (world.arenas.count ?? 0) > 1;
+  // Capacity/replica declarations are gameplay design demand even if
+  // the topology classifier has not yet recognized multiple arenas.
+  const multiArenaDemanded =
+    (world.arenas.requestedConcurrentArenas ?? 0) > 1 ||
+    world.arenas.replicaProof.length > 0 ||
+    hidden.auditScenarioPreset.scenarios.some((preset) =>
+      preset.kind === "multi-arena-parallel" ||
+      preset.kind === "arena-replica-integrity" ||
+      preset.kind === "arena-capacity-plus-one"
+    );
+  const multiArenaRequired = multiArena || multiArenaDemanded;
+  const expectedReplicaProofs =
+    multiArena && world.arenas.count !== undefined
+      ? Math.max(0, world.arenas.count - 1)
+      : 0;
+  const distinctReplicaIds = new Set(
+    world.arenas.replicaProof.map((item) => item.arenaId),
+  );
+  const replicaCoverageIncomplete = multiArena && (
+    world.arenas.replicaProof.length !== expectedReplicaProofs ||
+    distinctReplicaIds.size !== expectedReplicaProofs
+  );
   const replicaProofIncomplete =
     world.arenas.replicaIntegrity.incomplete > 0 ||
     world.arenas.replicaIntegrity.noProof > 0 ||
-    world.arenas.replicaIntegrity.bounded > 0;
+    world.arenas.replicaIntegrity.bounded > 0 ||
+    replicaCoverageIncomplete;
+  const multiArenaFormalizationGaps = [
+    ...(!multiArena
+      ? ["multi-arena design is demanded but source/topology count is not established"] : []),
+    ...(multiArena && world.arenas.safeConcurrentArenas == null
+      ? ["playable concurrency is unresolved"] : []),
+    ...(multiArena && world.arenas.layoutStatus === "conflict"
+      ? ["script and topology arena layouts conflict"] : []),
+    ...(multiArena && world.arenas.isolation.unknown > 0
+      ? ["arena state ownership remains unknown"] : []),
+    ...(multiArena && world.arenas.isolation.partitionProofRequired > 0
+      ? ["arena state partitions require ownership proof"] : []),
+    ...(replicaProofIncomplete
+      ? ["replica proof is missing, incomplete, bounded, or does not cover each non-baseline arena exactly once"] : []),
+  ];
   checkpoint.push(receipt(
     "B4",
     "FORMALIZE",
     "Multi-Arena Contract",
-    !multiArena
-      ? (
-          discoverySupportsAbsence &&
-          (
-            !world.arenas.detected ||
-            world.arenas.count === 1
-          )
-        )
+    !multiArenaRequired
+      ? discoverySupportsAbsence &&
+          (!world.arenas.detected || world.arenas.count === 1)
         ? "NOT_APPLICABLE"
         : "OPEN"
-      : world.arenas.safeConcurrentArenas == null ||
-          world.arenas.isolation.unknown > 0 ||
-          replicaProofIncomplete
-        ? "PARTIAL"
-        : "CLOSED",
-    !multiArena
+      : !multiArena
+        ? "OPEN"
+        : multiArenaFormalizationGaps.length > 0
+          ? "PARTIAL"
+          : "CLOSED",
+    !multiArenaRequired
       ? discoverySupportsAbsence
-        ? "Complete discovery supports a single/no-arena model."
-        : "Multi-arena applicability cannot close while discovery is incomplete or arena count is unresolved."
-      : replicaProofIncomplete
-        ? "Multi-arena world/topology replica proof is incomplete or unavailable. FORMALIZE cannot inherit baseline behavior into unproven replicas."
+        ? "Complete discovery supports a single/no-arena model without multi-arena demand."
+        : "Multi-arena applicability cannot close while discovery or arena count is unresolved."
+      : multiArenaFormalizationGaps.length > 0
+        ? "Multi-arena FORMALIZE is incomplete: " +
+          multiArenaFormalizationGaps.join("; ") + "."
         : world.arenas.count !== undefined &&
             world.arenas.safeConcurrentArenas !== undefined &&
             world.arenas.safeConcurrentArenas !== null &&
             world.arenas.safeConcurrentArenas < world.arenas.count
-          ? "Multi-arena model is understood, but player-visible arena capacity exceeds playable concurrent capacity. This mismatch is routed to PROVE as a gameplay/design contradiction; queue/fallback/platform limits do not erase it."
-          : "Arena baseline, replica integrity, capacity, lifecycle, and isolation obligations are accounted.",
-    ["analysis:arena-lifecycle", "analysis:multiplayer-interleaving"],
+          ? "Arena capacity is modeled, but declared visible capacity exceeds source-derived playable concurrency. This is a contract fact, not a proven runtime gameplay defect."
+          : "Arena topology, replica coverage, ownership and concurrency source contracts are accounted; no Minecraft runtime proof is asserted.",
+    [
+      "analysis:arena-lifecycle",
+      "analysis:multiplayer-interleaving",
+    ],
     ["MultiArenaContract"],
     {
       obligations: [
         obligation(
           "arena-count-resolved",
-          multiArena,
-          world.arenas.count !== undefined,
-          "Multi-arena requires a resolved visible arena count.",
-          ["world:arena-count"],
+          multiArenaRequired,
+          multiArena && world.arenas.count !== undefined,
+          "A required multi-arena contract needs a grounded visible arena count greater than one.",
+          multiArena ? ["world:arena-count"] : [],
         ),
         obligation(
           "arena-concurrency-resolved",
-          multiArena,
+          multiArenaRequired,
           world.arenas.safeConcurrentArenas !== undefined &&
             world.arenas.safeConcurrentArenas !== null,
-          "Multi-arena requires resolved playable concurrent capacity.",
-          ["capacity:safe-concurrency"],
+          "Multi-arena requires a source-supported playable concurrent capacity.",
+          world.arenas.safeConcurrentArenas == null
+            ? []
+            : ["capacity:safe-concurrency"],
         ),
         obligation(
           "arena-isolation-analyzed",
-          multiArena,
+          multiArenaRequired,
           world.analysisExecution.executedCapabilityIds.includes(
             "multiplayer-interleaving",
           ) &&
-          world.arenas.isolation.unknown === 0,
-          "Multi-arena requires scoped isolation analysis with no unknown ownership.",
+          world.arenas.isolation.unknown === 0 &&
+          world.arenas.isolation.partitionProofRequired === 0,
+          "Multi-arena requires scoped isolation analysis without unresolved ownership or partition proof.",
           ["analysis:multiplayer-interleaving"],
         ),
         obligation(
           "arena-lifecycle-analyzed",
-          multiArena,
+          multiArenaRequired,
           world.analysisExecution.executedCapabilityIds.includes(
             "arena-lifecycle-integrity",
           ),
@@ -797,36 +836,71 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         ),
         obligation(
           "arena-world-db-replica-proof",
-          multiArena,
-          !replicaProofIncomplete &&
+          multiArenaRequired,
+          multiArena &&
+            !replicaProofIncomplete &&
             (
               world.arenas.replicaIntegrity.complete > 0 ||
-              world.arenas.replicaIntegrity.bounded > 0 ||
               world.arenas.replicaIntegrity.diverged > 0
             ),
-          "Multi-arena full-map audit requires normalized world/topology replica proof. Divergence may continue to PROVE, but incomplete/no-proof replicas cannot close FORMALIZE.",
+          "All non-baseline arenas require distinct world/topology replica receipts; bounded/incomplete/no-proof and missing replicas cannot close FORMALIZE.",
           ["analysis:arena-replica-integrity"],
+        ),
+        obligation(
+          "arena-layout-reconciled",
+          multiArenaRequired,
+          multiArena && world.arenas.layoutStatus !== "conflict",
+          "An unresolved script/topology arena layout conflict cannot close the multi-arena contract.",
+          world.arenas.layoutStatus === "conflict"
+            ? []
+            : ["analysis:arena-lifecycle"],
         ),
       ],
     },
   ));
-
+  // Numeric capacity contracts already extracted from the selected map
+  // are material boundaries even when the safe-config extractor found no
+  // named binding. Missing bindings are a formalization gap, not absence.
+  const numericBoundaryDemand =
+    world.arenas.perArenaPlayerCapacity !== undefined ||
+    world.arenas.declaredMaxConcurrentPlayers !== undefined ||
+    world.arenas.declaredConcurrentArenaLimit !== undefined ||
+    world.arenas.requestedConcurrentArenas !== undefined;
+  const ungroundedBoundaryRecords = boundaries.records.filter((record) =>
+    record.sourcePath.trim().length === 0 ||
+    record.cases.length === 0
+  );
+  const boundaryFormalizationGaps = [
+    ...(boundaries.unresolvedNames.length > 0
+      ? ["unresolved boundary names: " +
+          boundaries.unresolvedNames.join(", ")] : []),
+    ...(ungroundedBoundaryRecords.length > 0
+      ? ["boundary records have missing source paths or no edge cases: " +
+          ungroundedBoundaryRecords.map((item) => item.id).join(", ")] : []),
+  ];
   checkpoint.push(receipt(
     "B5",
     "FORMALIZE",
     "Boundary Registry",
     boundaries.records.length === 0 &&
       boundaries.unresolvedNames.length === 0
-      ? discoverySupportsAbsence
-        ? "NOT_APPLICABLE"
-        : "OPEN"
-      : boundaries.unresolvedNames.length > 0
+      ? numericBoundaryDemand || !discoverySupportsAbsence
+        ? "OPEN"
+        : "NOT_APPLICABLE"
+      : boundaryFormalizationGaps.length > 0
         ? "PARTIAL"
         : "CLOSED",
-    boundaries.unresolvedNames.length > 0
-      ? "Material boundary names remain unresolved: " +
-        boundaries.unresolvedNames.join(", ") + "."
-      : "Material boundaries are extracted with edge cases.",
+    boundaries.records.length === 0 &&
+      boundaries.unresolvedNames.length === 0
+      ? numericBoundaryDemand
+        ? "Selected-map capacity/party boundaries exist, but no corresponding source-bound registry record was extracted."
+        : discoverySupportsAbsence
+          ? "Complete discovery supports absence of named or declared numeric gameplay boundaries."
+          : "Boundary applicability remains unresolved while discovery is incomplete."
+      : boundaryFormalizationGaps.length > 0
+        ? "Boundary FORMALIZE is incomplete: " +
+          boundaryFormalizationGaps.join("; ") + "."
+        : "Source-bound numeric boundary records and edge cases are available; gameplay boundary behavior is not yet evaluated.",
     boundaries.records.map((item) => item.id),
     ["BoundaryRegistry"],
   ));
@@ -836,23 +910,45 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // classification vacuously (nor prove that no capability exists).
   const hasCapabilityAssessments =
     hidden.capabilityDelivery.length > 0;
+  // A nonempty capability inventory must still cover the selected model's
+  // mechanic assessment inventory, with one unambiguous assessment per ID.
+  const capabilitySubjectIds = hidden.capabilityDelivery.map(
+    (item) => item.subjectId,
+  );
+  const capabilitySubjectSet = new Set(capabilitySubjectIds);
+  const missingMechanicCapabilityIds = hidden.mechanicCompleteness
+    .map((item) => item.mechanicId)
+    .filter((id) => !capabilitySubjectSet.has(id))
+    .sort();
+  const duplicateCapabilitySubjectIds = capabilitySubjectIds
+    .filter((id, index) => capabilitySubjectIds.indexOf(id) !== index)
+    .filter((id, index, items) => items.indexOf(id) === index)
+    .sort();
+  const capabilityFormalizationGaps = [
+    ...(capabilityDeliveryUnproven.length > 0
+      ? ["unproven capability subjects: " +
+          capabilityDeliveryUnproven.map((item) => item.subjectId).join(", ")] : []),
+    ...(missingMechanicCapabilityIds.length > 0
+      ? ["mechanics missing capability assessments: " +
+          missingMechanicCapabilityIds.join(", ")] : []),
+    ...(duplicateCapabilitySubjectIds.length > 0
+      ? ["duplicate capability assessment subjects: " +
+          duplicateCapabilitySubjectIds.join(", ")] : []),
+  ];
   checkpoint.push(receipt(
     "B6",
     "FORMALIZE",
     "Gameplay Capability Delivery",
     !hasCapabilityAssessments
       ? "OPEN"
-      : capabilityDeliveryUnproven.length > 0
+      : capabilityFormalizationGaps.length > 0
         ? "PARTIAL"
         : "CLOSED",
     !hasCapabilityAssessments
       ? "No selected-artifact capability assessments are available. Missing assessments cannot establish capability absence or successful delivery."
-      : capabilityDeliveryUnproven.length > 0
-        ? "Some player-visible/design capability assessments remain unproven: " +
-          capabilityDeliveryUnproven
-            .map((item) => item.subjectId)
-            .join(", ") +
-          "."
+      : capabilityFormalizationGaps.length > 0
+        ? "Gameplay capability FORMALIZE is incomplete: " +
+          capabilityFormalizationGaps.join("; ") + "."
         : capabilityDeliveryFailures.length > 0
           ? "Assessed capability degradation or absence must continue to PROVE; this structural checkpoint does not establish runtime behavior."
           : "All currently assessed capabilities have a source/model classification; runtime delivery remains unproven without independent observation.",
@@ -866,8 +962,8 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
           "capability-delivery-classified",
           true,
           hasCapabilityAssessments &&
-            capabilityDeliveryUnproven.length === 0,
-          "At least one selected-artifact capability assessment is required, and every assessed capability must have a classified source/model disposition; no classification proves live runtime delivery.",
+            capabilityFormalizationGaps.length === 0,
+          "Every selected-artifact mechanic assessment must be represented exactly once and classified in the existing capability inventory; classification does not prove live runtime delivery.",
           hidden.capabilityDelivery.flatMap(
             (item) => item.evidenceIds,
           ),
