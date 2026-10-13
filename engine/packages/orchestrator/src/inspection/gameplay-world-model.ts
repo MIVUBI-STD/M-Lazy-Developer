@@ -138,6 +138,7 @@ export interface GameplayWorldModel {
     perArenaPlayerCapacity?: number;
     perArenaPlayerCapacitySources?:
       NonNullable<ArenaCapacityExtractionResult["evidence"]["perArenaPlayerCapacitySources"]>;
+    unresolvedRosterCapacityPaths?: number;
     declaredMaxConcurrentPlayers?: number;
     capacityOk?: boolean;
     lifecycle: {
@@ -1820,6 +1821,13 @@ export function deriveGameplayWorldModel(
             perArenaPlayerCapacitySources:
               source.arena.capacity.evidence
                 .perArenaPlayerCapacitySources ?? [],
+          }),
+      ...(source.arena.capacity?.evidence
+          .unresolvedRosterCapacityPaths === undefined
+        ? {}
+        : {
+            unresolvedRosterCapacityPaths:
+              source.arena.capacity.evidence.unresolvedRosterCapacityPaths,
           }),
       ...(source.arena.capacity?.evidence
           .declaredMaxConcurrentPlayers === undefined

@@ -901,9 +901,12 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     playerCapacitySources.some((source) =>
       source.relativePath.trim().length > 0
     );
+  const unresolvedRosterCapacityPaths =
+    world.arenas.unresolvedRosterCapacityPaths ?? 0;
   const numericBoundaryDemand =
     world.arenas.perArenaPlayerCapacity !== undefined ||
-    world.arenas.declaredConcurrentArenaLimit !== undefined;
+    world.arenas.declaredConcurrentArenaLimit !== undefined ||
+    unresolvedRosterCapacityPaths > 0;
   const ungroundedBoundaryRecords = boundaries.records.filter((record) =>
     record.sourcePath.trim().length === 0 ||
     record.cases.length === 0
@@ -953,6 +956,9 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         bound.label + "=" + String(bound.value))
     );
   const boundaryFormalizationGaps = [
+    ...(unresolvedRosterCapacityPaths > 0
+      ? [String(unresolvedRosterCapacityPaths) +
+          " detected roster-admission path(s) lack an enforceable, source-bound numeric capacity; unresolved boundaries cannot be classified as safe or not applicable"] : []),
     ...(conflictingNamedCapacityValues.length > 0
       ? ["conflicting capacity declarations: " +
           conflictingNamedCapacityValues.join(", ")] : []),

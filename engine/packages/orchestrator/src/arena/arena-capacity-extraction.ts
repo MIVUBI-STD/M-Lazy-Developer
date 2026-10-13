@@ -93,6 +93,8 @@ export interface ArenaCapacityExtractionEvidence {
   perArenaPlayerCapacity?: number;
   /** Source references for authority-proven party capacity, not runtime success. */
   perArenaPlayerCapacitySources?: readonly SourceRef[];
+  /** Detected roster admission paths still lacking source-bound numeric proof. */
+  unresolvedRosterCapacityPaths?: number;
   declaredMaxConcurrentPlayers?: number;
   conflictingPlayerCapacityValues: readonly number[];
   reasons: readonly string[];
@@ -506,6 +508,7 @@ export function extractArenaConcurrencyCapacity(
       scriptTickingAreaManagerReferenced,
       scriptCapacitySignals,
       scriptTickingAreaCapacityResolved: false,
+      unresolvedRosterCapacityPaths: unresolvedRosterPaths,
       ...(perArenaPlayerCapacity === undefined
         ? {}
         : {

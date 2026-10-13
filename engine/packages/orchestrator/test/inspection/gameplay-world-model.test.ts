@@ -109,6 +109,18 @@ describe("gameplay world model", () => {
     expect(requestedOnly.arenas.count).toBeUndefined();
     expect(requestedOnly.arenas.requestedConcurrentArenas).toBe(6);
     expect(requestedOnly.gameplayClosure.unknownSurfaceIds).toContain("runtime:arena");
+    const unresolvedCapacity = deriveGameplayWorldModel({
+      ...source,
+      arena: {
+        autoDetected: true,
+        capacity: {
+          resources: [],
+          evidence: { ...capacityEvidence, unresolvedRosterCapacityPaths: 2 },
+        },
+      },
+    });
+    expect(unresolvedCapacity.arenas.unresolvedRosterCapacityPaths).toBe(2);
+    expect(unresolvedCapacity.arenas.perArenaPlayerCapacity).toBeUndefined();
     expect(requestedOnly.gameplayClosure.unknownSurfaceIds).toContain("runtime:arena-capacity");
 
     const withDiscoveredCount = deriveGameplayWorldModel({

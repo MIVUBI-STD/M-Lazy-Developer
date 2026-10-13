@@ -306,6 +306,7 @@ describe("arena concurrency capacity extraction", () => {
     });
     expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
     expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    expect(result.evidence.unresolvedRosterCapacityPaths).toBe(1);
     expect(result.evidence.reasons).toEqual(expect.arrayContaining([
       expect.stringContaining("no enforced numeric capacity proof"),
     ]));
