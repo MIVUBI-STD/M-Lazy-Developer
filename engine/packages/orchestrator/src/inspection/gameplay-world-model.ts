@@ -136,6 +136,8 @@ export interface GameplayWorldModel {
     safeConcurrentArenas?: number | null;
     declaredConcurrentArenaLimit?: number;
     perArenaPlayerCapacity?: number;
+    perArenaPlayerCapacitySources?:
+      NonNullable<ArenaCapacityExtractionResult["evidence"]["perArenaPlayerCapacitySources"]>;
     declaredMaxConcurrentPlayers?: number;
     capacityOk?: boolean;
     lifecycle: {
@@ -1815,6 +1817,9 @@ export function deriveGameplayWorldModel(
             perArenaPlayerCapacity:
               source.arena.capacity.evidence
                 .perArenaPlayerCapacity,
+            perArenaPlayerCapacitySources:
+              source.arena.capacity.evidence
+                .perArenaPlayerCapacitySources ?? [],
           }),
       ...(source.arena.capacity?.evidence
           .declaredMaxConcurrentPlayers === undefined

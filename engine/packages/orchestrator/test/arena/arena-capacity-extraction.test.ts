@@ -145,6 +145,10 @@ describe("arena concurrency capacity extraction", () => {
 
     expect(result.evidence).toMatchObject({
       perArenaPlayerCapacity: 5,
+      perArenaPlayerCapacitySources: [{
+        artifactId: "fixture",
+        relativePath: "scripts/main.ts",
+      }],
       declaredMaxConcurrentPlayers: 10,
       conflictingPlayerCapacityValues: [],
     });

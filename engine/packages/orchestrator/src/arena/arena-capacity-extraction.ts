@@ -13,6 +13,7 @@ import type {
   TickingAreaSemantics,
 } from "../../../../analyzers/commands/src/index.js";
 import type { ParsedScriptFile } from "../../../../analyzers/scripts/src/index.js";
+import type { SourceRef } from "../../../project-model/src/index.js";
 
 export interface ArenaCommandTickingAreaRecord {
   semantics: TickingAreaSemantics;
@@ -42,6 +43,8 @@ export interface ArenaCapacityExtractionEvidence {
   scriptCapacitySignals: readonly string[];
   scriptTickingAreaCapacityResolved: boolean;
   perArenaPlayerCapacity?: number;
+  /** Source references for authority-proven party capacity, not runtime success. */
+  perArenaPlayerCapacitySources?: readonly SourceRef[];
   declaredMaxConcurrentPlayers?: number;
   conflictingPlayerCapacityValues: readonly number[];
   reasons: readonly string[];
@@ -212,29 +215,34 @@ export function extractArenaConcurrencyCapacity(
       );
     }
   }
+  const playerCapacityAuthorityEvidence =
+    (input.scripts ?? []).flatMap((script) =>
+      (script.arenaAuthorityPaths ?? [])
+        .filter((path) =>
+          path.capacityAuthorityProven &&
+          path.capacityCheck?.capacityExpression !== undefined
+        )
+        .flatMap((path) => {
+          const check = path.capacityCheck!;
+          const value = Number(check.capacityExpression);
+          return Number.isInteger(value) && value > 0
+            ? [{ value, source: check.source }]
+            : [];
+        })
+    );
   const numericPlayerCapacities = [
-    ...new Set(
-      (input.scripts ?? []).flatMap((script) =>
-        (script.arenaAuthorityPaths ?? [])
-          .filter((path) =>
-            path.capacityAuthorityProven &&
-            path.capacityCheck?.capacityExpression !== undefined
-          )
-          .flatMap((path) => {
-            const raw =
-              path.capacityCheck!.capacityExpression!;
-            const value = Number(raw);
-            return Number.isInteger(value) && value > 0
-              ? [value]
-              : [];
-          })
-      ),
-    ),
+    ...new Set(playerCapacityAuthorityEvidence.map((item) => item.value)),
   ].sort((a, b) => a - b);
   const perArenaPlayerCapacity =
     numericPlayerCapacities.length === 1
       ? numericPlayerCapacities[0]
       : undefined;
+  const perArenaPlayerCapacitySources =
+    perArenaPlayerCapacity === undefined
+      ? []
+      : playerCapacityAuthorityEvidence
+          .filter((item) => item.value === perArenaPlayerCapacity)
+          .map((item) => item.source);
   const declaredMaxConcurrentPlayers =
     perArenaPlayerCapacity !== undefined &&
     requestedConcurrentArenas !== undefined
@@ -422,7 +430,10 @@ export function extractArenaConcurrencyCapacity(
       scriptTickingAreaCapacityResolved: false,
       ...(perArenaPlayerCapacity === undefined
         ? {}
-        : { perArenaPlayerCapacity }),
+        : {
+            perArenaPlayerCapacity,
+            perArenaPlayerCapacitySources,
+          }),
       ...(declaredMaxConcurrentPlayers === undefined
         ? {}
         : { declaredMaxConcurrentPlayers }),

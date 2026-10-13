@@ -875,10 +875,15 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // after an authority-backed selected-script capacity check. Do not require
   // a duplicate safe-config variable for the same object-property limit.
   // Derived total slots and requested topology counts belong to B4.
+  const playerCapacitySources =
+    world.arenas.perArenaPlayerCapacitySources ?? [];
   const playerCapacitySourceGrounded =
-    world.arenas.perArenaPlayerCapacity !== undefined;
+    world.arenas.perArenaPlayerCapacity !== undefined &&
+    playerCapacitySources.some((source) =>
+      source.relativePath.trim().length > 0
+    );
   const numericBoundaryDemand =
-    playerCapacitySourceGrounded ||
+    world.arenas.perArenaPlayerCapacity !== undefined ||
     world.arenas.declaredConcurrentArenaLimit !== undefined;
   const ungroundedBoundaryRecords = boundaries.records.filter((record) =>
     record.sourcePath.trim().length === 0 ||
@@ -966,7 +971,11 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       : boundaryFormalizationGaps.length > 0
         ? "Boundary FORMALIZE is incomplete: " +
           boundaryFormalizationGaps.join("; ") + "."
-        : "Named source-bound limits and source-grounded player capacity authority are accounted; gameplay behavior is not yet evaluated.",
+        : "Named boundaries and authority-backed party capacity are accounted in selected source (" +
+            (playerCapacitySources.map((source) => source.relativePath)
+              .filter((path) => path.trim().length > 0)
+              .join(", ") || "named script bindings") +
+            "); gameplay behavior is not yet evaluated.",
     boundaries.records.map((item) => item.id),
     ["BoundaryRegistry"],
   ));
