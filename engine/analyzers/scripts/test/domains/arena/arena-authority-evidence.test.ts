@@ -211,6 +211,65 @@ describe("arena authority evidence", () => {
     )).toBe(false);
   });
 
+  it("links a guarded join to an immutable module-scope object capacity with its exact declaration", () => {
+    const parsed = parseScriptFile("source-config", [
+      "const config = { max_member: 5, enabled: true };",
+      "function join(arena, player) {",
+      "  if (arena.members.length >= config.max_member) return;",
+      "  arena.members.push(player);",
+      "}",
+    ].join("\n"), source);
+    const path = parsed.arenaAuthorityPaths?.find((item) => item.capacityAuthorityProven);
+    expect(path?.capacityCheck).toMatchObject({
+      capacityExpression: "config.max_member",
+      resolvedCapacityValue: 5,
+      resolvedCapacitySource: expect.objectContaining({
+        range: expect.objectContaining({ lineStart: 1 }),
+      }),
+    });
+  });
+
+  it("does not steal a module config when the join shadows it or mutates the property", () => {
+    const cases = [
+      [
+        "const config = { max_member: 5 };",
+        "function join(arena, player, config) {",
+        "  if (arena.members.length >= config.max_member) return;",
+        "  arena.members.push(player);",
+        "}",
+      ],
+      [
+        "const config = { max_member: 5 };",
+        "config.max_member = 9;",
+        "function join(arena, player) {",
+        "  if (arena.members.length >= config.max_member) return;",
+        "  arena.members.push(player);",
+        "}",
+      ],
+      [
+        "const config = { max_member: 5 };",
+        "mutate(config);",
+        "function join(arena, player) {",
+        "  if (arena.members.length >= config.max_member) return;",
+        "  arena.members.push(player);",
+        "}",
+      ],
+      [
+        "const config = { max_member: 5 };",
+        "function join(arena, player) {",
+        "  if (arena.members.length >= other.max_member) return;",
+        "  arena.members.push(player);",
+        "}",
+      ],
+    ];
+    for (const statements of cases) {
+      const parsed = parseScriptFile("unproven-config", statements.join("\n"), source);
+      expect(parsed.arenaAuthorityPaths?.some((item) =>
+        item.capacityAuthorityProven
+      )).toBe(false);
+    }
+  });
+
   it("does not prove capacity ownership when a local limit belongs to a different arena object", () => {
     const parsed = parseScriptFile(
       "arena",

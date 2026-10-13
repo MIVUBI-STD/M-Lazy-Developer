@@ -32,7 +32,7 @@ const MEMBERSHIP_PROPERTY =
 const READY_PROPERTY =
   /^(?:ready|readyPlayers|readyMembers|readyParticipants)$/i;
 const CAPACITY_PROPERTY =
-  /^(?:maxPlayers|maxParticipants|capacity)$/i;
+  /^(?:maxPlayers|maxParticipants|maxMembers|max_member|max_members|capacity)$/i;
 const GENERATION_PROPERTY =
   /^(?:generation|arenaGeneration|generationId)$/i;
 const START_OWNER_PROPERTY =
@@ -459,6 +459,83 @@ function capacityExpression(
   return undefined;
 }
 
+/**
+ * A module-scope const object literal is a numeric capacity source only
+ * while the whole source keeps the object identity local and read-only.
+ * Any escaping reference, shadow declaration or property mutation abstains.
+ * This is selected-source authored capacity, never Minecraft runtime proof.
+ */
+function staticModuleCapacity(
+  expression: ts.Expression,
+  file: ts.SourceFile,
+  source: SourceRef,
+): { value: number; source: SourceRef } | undefined {
+  if (!ts.isPropertyAccessExpression(expression) ||
+      !ts.isIdentifier(expression.expression) ||
+      !CAPACITY_PROPERTY.test(expression.name.text)) return undefined;
+  const bindingName = expression.expression.text;
+  const declarations = file.statements.flatMap((statement) =>
+    ts.isVariableStatement(statement) &&
+    (statement.declarationList.flags & ts.NodeFlags.Const) !== 0
+      ? statement.declarationList.declarations.filter((declaration) =>
+          ts.isIdentifier(declaration.name) &&
+          declaration.name.text === bindingName
+        )
+      : [],
+  );
+  if (declarations.length !== 1) return undefined;
+  const declaration = declarations[0]!;
+  const initializer = declaration.initializer;
+  if (!initializer || !ts.isObjectLiteralExpression(initializer) ||
+      !initializer.properties.every((property) =>
+        ts.isPropertyAssignment(property) &&
+        (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name))
+      )) return undefined;
+  const candidates = initializer.properties.filter((property) =>
+    ts.isPropertyAssignment(property) &&
+    (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) &&
+    property.name.text === expression.name.text
+  );
+  if (candidates.length !== 1) return undefined;
+  const property = candidates[0] as ts.PropertyAssignment;
+  if (!ts.isNumericLiteral(property.initializer)) return undefined;
+  const value = Number(property.initializer.text);
+  if (!Number.isSafeInteger(value) || value < 1) return undefined;
+
+  let stable = true;
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === bindingName) {
+      if (node === declaration.name) {
+        // This is the unique declaration of the object.
+      } else if (ts.isPropertyAccessExpression(node.parent) &&
+                 node.parent.expression === node) {
+        const access = node.parent;
+        const parent = access.parent;
+        // No mutation, method dispatch, deletion, or escaping object alias.
+        if ((ts.isBinaryExpression(parent) &&
+             parent.left === access &&
+             parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+             parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) ||
+            (ts.isPrefixUnaryExpression(parent) &&
+             (parent.operator === ts.SyntaxKind.PlusPlusToken ||
+              parent.operator === ts.SyntaxKind.MinusMinusToken ||
+              parent.operator === ts.SyntaxKind.DeleteKeyword)) ||
+            (ts.isPostfixUnaryExpression(parent) &&
+             (parent.operator === ts.SyntaxKind.PlusPlusToken ||
+              parent.operator === ts.SyntaxKind.MinusMinusToken)) ||
+            (ts.isCallExpression(parent) && parent.expression === access)) {
+          stable = false;
+        }
+      } else {
+        stable = false;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return stable ? { value, source: lineSource(file, property, source) } : undefined;
+}
+
 function capacityComparisonEvidence(
   condition: ts.Expression,
   file: ts.SourceFile,
@@ -503,6 +580,7 @@ function capacityComparisonEvidence(
     file,
   );
   if (!capacity) return undefined;
+  const staticCapacity = staticModuleCapacity(other, file, source);
 
   if (
     capacity.arenaExpression !== undefined &&
@@ -510,7 +588,8 @@ function capacityComparisonEvidence(
     // this.definition.maxPlayers is an object-owned configuration path;
     // a different receiver remains unrelated until separately proven.
     capacity.arenaExpression !==
-      membership.arenaExpression + ".definition"
+      membership.arenaExpression + ".definition" &&
+    staticCapacity === undefined
   ) {
     return undefined;
   }
@@ -523,6 +602,10 @@ function capacityComparisonEvidence(
       membership.membershipExpression,
     capacityExpression:
       capacity.expression,
+    ...(staticCapacity ? {
+      resolvedCapacityValue: staticCapacity.value,
+      resolvedCapacitySource: staticCapacity.source,
+    } : {}),
     executionRegion:
       localExecutionRegionId(condition, file),
     source: lineSource(

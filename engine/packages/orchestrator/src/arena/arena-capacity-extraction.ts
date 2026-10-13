@@ -224,10 +224,25 @@ export function extractArenaConcurrencyCapacity(
         )
         .flatMap((path) => {
           const check = path.capacityCheck!;
-          const value = Number(check.capacityExpression);
-          return Number.isInteger(value) && value > 0
-            ? [{ value, source: check.source }]
-            : [];
+          const literalValue = Number(check.capacityExpression);
+          const literal =
+            Number.isSafeInteger(literalValue) && literalValue > 0
+              ? literalValue : undefined;
+          const bound =
+            check.resolvedCapacitySource?.artifactId === check.source.artifactId &&
+            check.resolvedCapacitySource.relativePath === check.source.relativePath &&
+            Number.isSafeInteger(check.resolvedCapacityValue) &&
+            (check.resolvedCapacityValue ?? 0) > 0
+              ? check.resolvedCapacityValue : undefined;
+          const value = literal ?? bound;
+          return value === undefined ? [] : [{
+            value,
+            sources: [
+              check.source,
+              ...(literal === undefined && bound !== undefined
+                ? [check.resolvedCapacitySource!] : []),
+            ],
+          }];
         })
     );
   const numericPlayerCapacities = [
@@ -242,7 +257,7 @@ export function extractArenaConcurrencyCapacity(
       ? []
       : playerCapacityAuthorityEvidence
           .filter((item) => item.value === perArenaPlayerCapacity)
-          .map((item) => item.source);
+          .flatMap((item) => item.sources);
   const declaredMaxConcurrentPlayers =
     perArenaPlayerCapacity !== undefined &&
     requestedConcurrentArenas !== undefined

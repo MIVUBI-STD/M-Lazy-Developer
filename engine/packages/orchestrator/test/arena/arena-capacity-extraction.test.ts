@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractArenaConcurrencyCapacity } from "../../src/arena/arena-capacity-extraction.js";
+import { parseScriptFile } from "../../../../analyzers/scripts/src/index.js";
 import type { ParsedScriptFile } from "../../../../analyzers/scripts/src/index.js";
 
 const absolute = (x: number, y: number, z: number) => ({
@@ -154,6 +155,28 @@ describe("arena concurrency capacity extraction", () => {
     });
     expect(result.resources).toEqual([]);
     expect(result.report?.safeConcurrentArenas).toBeNull();
+  });
+
+  it("retains both guard and immutable declaration provenance for source-owned capacity", () => {
+    const script = parseScriptFile(
+      "module-capacity",
+      [
+        "const settings = { max_member: 5 };",
+        "function join(arena, player) {",
+        "  if (arena.members.length >= settings.max_member) return;",
+        "  arena.members.push(player);",
+        "}",
+      ].join("\n"),
+      { artifactId: "fixture", relativePath: "scripts/main.js" },
+    );
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [script],
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBe(5);
+    expect(result.evidence.perArenaPlayerCapacitySources).toEqual([
+      expect.objectContaining({ range: expect.objectContaining({ lineStart: 3 }) }),
+      expect.objectContaining({ range: expect.objectContaining({ lineStart: 1 }) }),
+    ]);
   });
 
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {

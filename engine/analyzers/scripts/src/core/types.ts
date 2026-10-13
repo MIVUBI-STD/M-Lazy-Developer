@@ -542,6 +542,9 @@ export interface ScriptArenaAuthorityEvidence {
   capacityExpression?: string;
   /** Exact source span of the roster write enforced by this guard. */
   guardedCommitSource?: SourceRef;
+  /** Immutable selected-source numeric configuration, not runtime success. */
+  resolvedCapacityValue?: number;
+  resolvedCapacitySource?: SourceRef;
   ownerExpression?: string;
   generationExpression?: string;
   stateExpression?: string;
