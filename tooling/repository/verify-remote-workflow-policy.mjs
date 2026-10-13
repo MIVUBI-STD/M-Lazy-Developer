@@ -41,7 +41,7 @@ const requiredPolicy = [
   ]],
   ["docs/system/development-operations.md", [
     "This is a ChatGPT-native checker, not an installed, built, or running application",
-    "Node `24.21.0` and npm `11.19.0`",
+    "Node `22.16.0` and npm `10.9.2`",
     "not for ChatGPT's built-in checking capabilities",
   ]],
   ["docs/system/development-discipline.md", [

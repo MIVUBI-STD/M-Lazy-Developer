@@ -4,12 +4,13 @@
   "target": {
     "developerOs": [
       "Windows 10 x64",
-      "Windows 11 x64"
+      "Windows 11 x64",
+      "Linux x64 (ChatGPT tool execution)"
     ],
     "runtimeOs": [
       "Windows 10 x64",
       "Windows 11 x64",
-      "Linux CI x64"
+      "Linux x64"
     ],
     "architecture": "x86_64"
   },
@@ -24,14 +25,14 @@
     "lockfileRequired": true
   },
   "node": {
-    "major": 24,
+    "major": 22,
     "channel": "LTS",
     "scope": [
       "developer-build",
       "cli-runtime"
     ],
-    "pinPolicy": "exact developer/build version; package engines remain Node 24 compatible",
-    "version": "24.21.0"
+    "pinPolicy": "Node 22.16 ChatGPT-compatible baseline; package engines also permit Node 24",
+    "version": "22.16.0"
   },
   "npm": {
     "source": "bundled-with-node",
@@ -39,8 +40,8 @@
     "scope": [
       "developer-build"
     ],
-    "version": "11.19.0",
-    "pinPolicy": "exact developer/build version paired with pinned Node",
+    "version": "10.9.2",
+    "pinPolicy": "npm 10.9.2 available in ChatGPT; lockfile v3 retained",
     "installMode": "npm ci",
     "installScripts": "explicit allowlist in package.json#allowScripts"
   },

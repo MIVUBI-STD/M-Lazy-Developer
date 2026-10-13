@@ -26,7 +26,7 @@ GitHub ref / exact source
 → STOP
 ```
 
-A local checkout, Node installation, npm install, `npm run check`, Vitest, TypeScript execution, or `DEV.cmd` is **not required** for direct ChatGPT Minecraft checking or to complete normal remote repository work. Do not frame missing Node24/toolchain as a blocker for archive, scripts, functions, NBT, LevelDB, structures, and source-reasoning checks accessible through actual ChatGPT tools.
+A local checkout, Node installation, npm install, `npm run check`, Vitest, TypeScript execution, or `DEV.cmd` is **not required** for direct ChatGPT Minecraft checking or to complete normal remote repository work. Do not frame missing optional Node/npm dependencies as a blocker for archive, scripts, functions, NBT, LevelDB, structures, and source-reasoning checks accessible through actual ChatGPT tools.
 
 Remote completion must state its proof ceiling honestly. Source/static claims may close remotely. Claims about compiler execution, tests actually passing, archive execution, Minecraft import, or gameplay remain unclaimed unless matching execution evidence exists.
 
@@ -48,9 +48,15 @@ These commands are not ChatGPT workflow authority and never gate remote GitHub c
 
 ## Toolchain authority
 
-`toolchain.json` describes optional developer/build compatibility. It pins Node `24.21.0` and npm `11.19.0` for its **source-declared TypeScript CLI/build target**, not for ChatGPT's built-in checking capabilities; no such running app is presently established. `package.json#engines` and `package-lock.json` are source/package metadata, not ChatGPT execution or proof that a package was built. If source-declared build tasks are ever genuinely executed in a separately authorized context, their dependency policies apply there; they are not part of the current ChatGPT-only workflow.
+`toolchain.json` describes optional developer/build compatibility. It pins Node `22.16.0` and npm `10.9.2` as the **ChatGPT-container-compatible baseline**, not for ChatGPT's built-in checking capabilities; no running application is presently established. `package.json#engines` supports Node 22.12+ and Node 24, while the source minimum for TypeScript is 5.8.3. The exact lockfile still installs TypeScript 5.9.3 and Node 24 typings; version compatibility does not imply that package installation, TypeScript compilation, native addons or Minecraft gameplay has executed. If source-declared build tasks are genuinely executed, use the installed dependency versions and disclose the actual Node/toolchain proof.
 
 Do not require global TypeScript/Vitest/build tools when package-managed versions are sufficient.
+
+### ChatGPT execution compatibility
+
+The lowest verified *toolchain baseline* in the current ChatGPT container is Node 22.16.0, npm 10.9.2 and globally available TypeScript 5.8.3. The optional dependency graph permits this Node major for common JavaScript tooling (Vite 7.3.6 requires Node >=22.12), but a locked optional native binary `@napi-rs/lzma-linux-x64-gnu@1.5.1` declares Node ^22.20 or ^24.12. `@8crafter/leveldb-zlib` also has a native install script. A full `npm ci`/native world-DB run on 22.16 therefore remains **UNVERIFIED**, not PASS.
+
+Execution levels must remain distinct: (1) exact GitHub source and selected `.mcworld` archive inspection, available with native ChatGPT tools; (2) isolated AST/JavaScript probes using installed TypeScript, executable where source bytes are accessible; (3) exact repository `tsc`, Vitest or `runSelectedMapAudit()` only when the *complete exact-ref* source and matching locked dependencies are actually available; (4) Minecraft gameplay only with real game execution evidence. No lower version requirement can solve missing repository mounting or missing `node_modules`. Never replace an unexecuted tier with a source-only PASS.
 
 ## Verification lanes
 

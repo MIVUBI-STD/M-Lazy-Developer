@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Minecraft Bedrock and Minecraft Education content-engineering workspace",
   "engines": {
-    "node": ">=24 <25"
+    "node": "^22.12.0 || ^24.0.0"
   },
   "scripts": {
     "verify:repository": "node tooling/repository/verify.mjs && npm run verify:ownership && npm run verify:capability-truth && npm run verify:authority && npm run verify:naming && npm run verify:information-architecture && npm run verify:knowledge-architecture && npm run verify:remote-workflow-policy && npm run verify:documentation-paths && npm run verify:documentation-routing && npm run verify:documentation-ownership && npm run verify:bug-finding-coverage && npm run verify:skills && npm run verify:skill-evals && npm run verify:permissions && npm run verify:audit-entrypoint && npm run audit:skills && npm run verify:modules && npm run verify:dependencies && node tooling/repository/verify-boundaries.mjs && node tooling/repository/verify-contract-registry.mjs && node tooling/repository/verify-reliability-catalogs.mjs && node tooling/repository/verify-reliability-history.mjs && node tooling/repository/verify-knowledge-catalogs.mjs && npm run verify:knowledge-bindings && npm run verify:detection-corpus",
@@ -61,7 +61,7 @@
     "fast-check": "4.10.2",
     "prismarine-nbt": "^2.7.0",
     "svelte": "5.57.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "6.2.4",
@@ -70,7 +70,7 @@
     "vite": "7.3.6",
     "vitest": "^3.2.0"
   },
-  "packageManager": "npm@11.19.0",
+  "packageManager": "npm@10.9.2",
   "allowScripts": {
     "@8crafter/leveldb-zlib@1.6.0": true,
     "esbuild@0.28.2": true

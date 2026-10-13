@@ -167,6 +167,6 @@ See [workspace/README.md](workspace/README.md) and [planning/README.md](planning
 
 Canonical toolchain policy is [toolchain.json](toolchain.json).
 
-Optional developer/build **source configuration** is owned by `tooling/windows-toolchain/`. The Node 24 pin is not a ChatGPT checking prerequisite, and no executable application has been established by that metadata.
+Optional developer/build **source configuration** is owned by `tooling/windows-toolchain/`. Its baseline is Node 22.16.0 / npm 10.9.2 to match the ChatGPT execution environment, while package engines also support Node 24. This pin is not a ChatGPT source-checking prerequisite; it is not proof of a runnable application, installed dependencies or successful repository tests.
 
 Historical audit/run evidence belongs in `engine/reliability/history/`; reusable evaluation material belongs in `engine/reliability/corpus/`; superseded implementation detail remains in Git history.
