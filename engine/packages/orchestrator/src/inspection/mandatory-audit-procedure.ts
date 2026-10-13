@@ -471,28 +471,95 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     },
   ));
 
+  // Vanilla actors and player roles need not have custom entity JSON.
+  // FORMALIZE must account for the authored actor/role and scenario demand,
+  // not infer actor absence from zero custom entity definitions alone.
+  const selectedEvidenceIds = new Set(
+    intent.evidence
+      .filter((item) => item.scope === "selected-artifact")
+      .map((item) => item.id),
+  );
+  const actorNodes = intent.nodes.filter((node) =>
+    (node.kind === "actor" || node.kind === "role") &&
+    node.status !== "hypothesis"
+  );
+  const groundedActorNodes = actorNodes.filter((node) =>
+    node.evidenceIds.some((id) => selectedEvidenceIds.has(id))
+  );
+  const actorKnowledgeRequirements = graph.knowledgeRequirements.filter(
+    (item) => item.domain === "entity-behavior"
+  );
+  const actorKnowledgeDemanded =
+    demanded.has("entity-behavior") ||
+    actorKnowledgeRequirements.length > 0;
+  const actorApplicable =
+    world.entities.definitions > 0 ||
+    world.entities.resolvedSpawnEvidence > 0 ||
+    actorNodes.length > 0 ||
+    actorKnowledgeDemanded;
+  const actorEvidenceMissing =
+    world.entities.definitions === 0 &&
+    world.entities.resolvedSpawnEvidence === 0 &&
+    groundedActorNodes.length === 0;
+  const actorKnowledgeUnresolved =
+    actorKnowledgeDemanded &&
+    (actorKnowledgeRequirements.length === 0 ||
+      actorKnowledgeRequirements.some((required) =>
+        !graph.knowledgeReceipts.some((item) =>
+          item.requirementId === required.id &&
+          item.scenarioId === required.scenarioId &&
+          item.status === "SATISFIED"
+        )
+      ));
+  const actorFormalizationGaps = [
+    ...(actorNodes.length > groundedActorNodes.length
+      ? ["actor/role intent lacks selected-source grounding"] : []),
+    ...(world.entities.knowledgePrerequisiteGaps > 0
+      ? ["required entity knowledge prerequisites are unresolved"] : []),
+    ...(world.entities.staticAnalysisLimits > 0
+      ? ["entity static analysis remains limited"] : []),
+    ...(world.entities.navigationEnvironment.unresolved > 0
+      ? ["entity navigation/environment contracts are unresolved"] : []),
+    ...(world.entities.aiStack.targetedStackIncomplete > 0
+      ? ["targeted entity AI stack is incomplete"] : []),
+    ...(actorKnowledgeUnresolved
+      ? ["required actor/entity knowledge receipts are incomplete"] : []),
+  ];
   checkpoint.push(receipt(
     "B1",
     "FORMALIZE",
     "Actor / Entity Contract",
-    world.entities.definitions === 0
-      ? positiveNotApplicable(
-          discovery,
-          demanded.has("entity-behavior"),
-          world.entities.definitions > 0,
-        )
-        ? "NOT_APPLICABLE"
-        : "OPEN"
-      : world.entities.staticAnalysisLimits > 0 ||
-          world.entities.navigationEnvironment.unresolved > 0
-        ? "PARTIAL"
-        : "CLOSED",
-    world.entities.definitions === 0
+    !actorApplicable
+      ? discoverySupportsAbsence ? "NOT_APPLICABLE" : "OPEN"
+      : actorEvidenceMissing
+        ? "OPEN"
+        : actorFormalizationGaps.length > 0
+          ? "PARTIAL"
+          : "CLOSED",
+    !actorApplicable
       ? discoverySupportsAbsence
-        ? "No actor/role intent or entity definition remains after complete discovery."
-        : "Entity applicability is unresolved while discovery remains incomplete."
-      : "Entity behavior/navigation evidence is accounted.",
-    ["analysis:entity-behavior"],
+        ? "No selected-source actor/role, entity implementation, spawn evidence, or entity-behavior demand remains after complete discovery."
+        : "Actor/entity applicability is unresolved while discovery remains incomplete."
+      : actorEvidenceMissing
+        ? "Actor/entity behavior is demanded, but no selected-source actor/role, entity definition, or resolved spawn evidence grounds the contract."
+        : actorFormalizationGaps.length > 0
+          ? "Actor/entity FORMALIZE is incomplete: " +
+            actorFormalizationGaps.join("; ") + "."
+          : "Actor/entity source and required knowledge are accounted; this is not Minecraft runtime behavior proof.",
+    [...new Set([
+      ...groundedActorNodes.flatMap((node) =>
+        node.evidenceIds.filter((id) => selectedEvidenceIds.has(id))
+      ),
+      ...actorKnowledgeRequirements.flatMap((required) =>
+        graph.knowledgeReceipts
+          .filter((item) =>
+            item.requirementId === required.id &&
+            item.scenarioId === required.scenarioId &&
+            item.status === "SATISFIED"
+          )
+          .flatMap((item) => item.evidenceIds)
+      ),
+    ])],
     ["ActorEntityContract"],
   ));
 
@@ -571,47 +638,83 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     },
   ));
 
+  // Multiplayer intent can exist without a detected arena. A missing
+  // arena cannot excuse an unexecuted player/session interleaving contract.
+  const multiplayerKnowledgeRequired =
+    demanded.has("multiplayer-interleaving") ||
+    graph.knowledgeRequirements.some(
+      (item) => item.domain === "multiplayer-interleaving"
+    ) ||
+    graph.scenarios.some((scenario) =>
+      scenario.playerCounts.some((count) => count > 1)
+    );
+  const multiplayerRequired =
+    multiplayer.applicable || multiplayerKnowledgeRequired;
+  const multiplayerAnalysisExecuted =
+    world.analysisExecution.executedCapabilityIds.includes(
+      "multiplayer-interleaving",
+    );
+  // The state-validation plan contains hypothetical mixed-player tests;
+  // their mixed:* IDs are not Scenario Graph IDs or authored source proof.
+  const multiplayerSourceEvidenceIds = [
+    ...new Set(graph.scenarios
+      .filter((scenario) =>
+        scenario.playerCounts.some((count) => count > 1)
+      )
+      .flatMap((scenario) => scenario.sourceSubjectIds)
+      .flatMap((id) =>
+        intent.nodes.find((node) => node.id === id)?.evidenceIds ?? []
+      )
+      .filter((id) => selectedEvidenceIds.has(id))),
+  ].sort();
+  const multiplayerFormalizationGaps = [
+    ...(multiplayerSourceEvidenceIds.length === 0
+      ? ["mixed-player scenario lacks selected-artifact source grounding"] : []),
+    ...(!multiplayer.applicable
+      ? ["multiplayer source applicability has not been established"] : []),
+    ...(multiplayer.scenarios.length === 0
+      ? ["no applicable mixed-player scenario is compiled"] : []),
+    ...(!multiplayerAnalysisExecuted
+      ? ["multiplayer interleaving/isolation analysis has not executed"] : []),
+  ];
   checkpoint.push(receipt(
     "B3",
     "FORMALIZE",
     "Multiplayer Contract",
-    !multiplayer.applicable
-      ? (
-          discoverySupportsAbsence &&
-          !world.arenas.detected &&
-          !graph.scenarios.some((scenario) =>
-            scenario.playerCounts.some((count) => count > 1)
-          )
-        )
+    !multiplayerRequired
+      ? discoverySupportsAbsence && !world.arenas.detected
         ? "NOT_APPLICABLE"
         : "OPEN"
-      : multiplayer.scenarios.length > 0
-        ? "CLOSED"
-        : "PARTIAL",
-    !multiplayer.applicable
-      ? discoverySupportsAbsence
-        ? "No multiplayer signal remains after complete discovery and no multi-player scenario count is present."
-        : "Multiplayer applicability cannot close while discovery is incomplete."
-      : "Applicable mixed-player scenarios are compiled.",
-    multiplayer.scenarios.map((item) => item.id),
+      : multiplayerFormalizationGaps.length > 0
+        ? "PARTIAL"
+        : "CLOSED",
+    !multiplayerRequired
+      ? discoverySupportsAbsence && !world.arenas.detected
+        ? "No selected-map multiplayer demand, actor/player-count scenario, or arena signal remains after complete discovery."
+        : "Multiplayer applicability is unresolved while discovery or arena ownership is incomplete."
+      : multiplayerFormalizationGaps.length > 0
+        ? "Multiplayer FORMALIZE is incomplete: " +
+          multiplayerFormalizationGaps.join("; ") + "."
+        : "Applicable mixed-player scenarios and interleaving knowledge are accounted; this is not proof of multiplayer runtime delivery.",
+    multiplayerSourceEvidenceIds,
     ["MultiplayerContract"],
     {
       obligations: [
         obligation(
           "multiplayer-scenarios-compiled",
-          multiplayer.applicable,
-          multiplayer.scenarios.length > 0,
-          "Applicable multiplayer requires at least one mixed-player scenario.",
+          multiplayerRequired,
+          multiplayer.applicable && multiplayer.scenarios.length > 0,
+          "Applicable multiplayer requires grounded mixed-player scenarios.",
           multiplayer.scenarios.map((item) => item.id),
         ),
         obligation(
           "multiplayer-knowledge-executed",
-          multiplayer.applicable,
-          world.analysisExecution.executedCapabilityIds.includes(
-            "multiplayer-interleaving",
-          ) || !world.arenas.detected,
-          "Arena/shared multiplayer must execute interleaving/isolation analysis.",
-          ["analysis:multiplayer-interleaving"],
+          multiplayerRequired,
+          multiplayerAnalysisExecuted,
+          "Any required multiplayer, including shared player state without arenas, must execute interleaving/isolation analysis.",
+          multiplayerAnalysisExecuted
+            ? ["analysis:multiplayer-interleaving"]
+            : [],
         ),
       ],
     },
