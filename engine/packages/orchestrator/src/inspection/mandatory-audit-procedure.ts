@@ -2,6 +2,10 @@ import { artifactIdFromFingerprint } from "../../../artifact/src/index.js";
 import type { SemanticIr } from "../../../semantic-ir/src/index.js";
 import type { GameplayIntentModel } from "../../../gameplay-intent/src/index.js";
 import type { GameplayWorldModel } from "./gameplay-world-model.js";
+import type {
+  GameplayScenario,
+  GameplayScenarioGraph,
+} from "./gameplay-scenario-model.js";
 import type { GameplayDiscoveryClosure } from "./gameplay-discovery-closure.js";
 import type { GameplayBoundaryRegistry } from "./gameplay-boundary-registry.js";
 import type { MultiplayerStateValidationPlan } from "./multiplayer-state-validation.js";
@@ -32,6 +36,115 @@ import type {
   MandatoryAuditCheckpointReceipt,
   MandatoryAuditProcedureReceipt,
 } from "./mandatory-audit-support.js";
+
+/**
+ * Shared selected-source causal-link admission for EVALUATE C6/C9.
+ * A domain-only runtime edge or a matching scenario name is not evidence
+ * that an authored gameplay dependency was evaluated.
+ */
+function sourceBoundScenarioLinks(
+  scenario: GameplayScenario,
+  graph: GameplayScenarioGraph,
+  selectedSourceEvidenceIds: ReadonlySet<string>,
+): GameplayScenarioGraph["causalLinks"][number][] {
+  return scenario.causalLinkIds.flatMap((id) =>
+    graph.causalLinks.filter((link) =>
+      link.id === id &&
+      link.scenarioId === scenario.id &&
+      link.status !== "DETECTION_GAP" &&
+      link.fromComponentId !== link.toComponentId &&
+      scenario.componentIds.includes(link.fromComponentId) &&
+      scenario.componentIds.includes(link.toComponentId) &&
+      link.evidenceIds.some((evidenceId) =>
+        selectedSourceEvidenceIds.has(evidenceId)
+      ) &&
+      [link.fromComponentId, link.toComponentId].some((componentId) =>
+        graph.components.some((component) =>
+          component.id === componentId &&
+          component.evidenceIds.some((evidenceId) =>
+            selectedSourceEvidenceIds.has(evidenceId)
+          )
+        )
+      )
+    )
+  );
+}
+
+function scenarioKnowledgeAccounted(
+  scenario: GameplayScenario,
+  graph: GameplayScenarioGraph,
+): boolean {
+  return scenario.requiredKnowledgeIds.length > 0 &&
+    scenario.requiredKnowledgeIds.every((id) =>
+      graph.knowledgeReceipts.some((receipt) =>
+        receipt.scenarioId === scenario.id &&
+        receipt.requirementId === id &&
+        receipt.status === "SATISFIED"
+      )
+    );
+}
+
+/**
+ * C6 readiness describes an evaluated source contract, never the
+ * absence of bugs or observed Minecraft terminal behavior.
+ */
+export function assessTerminalCollisionSourceCoverage(input: {
+  readonly scenario: GameplayScenario | undefined;
+  readonly graph: GameplayScenarioGraph;
+  readonly selectedSourceEvidenceIds: ReadonlySet<string>;
+  readonly lifecycle: Pick<GameplayWorldModel["arenas"]["lifecycle"], "unresolvedTerminalRaces" | "terminalPrecedenceUnresolved" | "multiIngressTerminalTargets" | "terminalRaces">;
+}): {
+  readonly complete: boolean;
+  readonly evidenceIds: readonly string[];
+  readonly missing: readonly string[];
+} {
+  const { scenario, graph, selectedSourceEvidenceIds, lifecycle } = input;
+  const links = scenario === undefined ? [] :
+    sourceBoundScenarioLinks(scenario, graph, selectedSourceEvidenceIds);
+  const knowledgeReady = scenario !== undefined &&
+    scenarioKnowledgeAccounted(scenario, graph);
+  // A source link elsewhere in the same preset does not establish that
+  // the authored ending itself was evaluated. Require a source-grounded
+  // outcome path, or an explicitly classified multi-ingress terminal race.
+  const outcomeLinked = links.some((link) =>
+    graph.components.some((component) =>
+      component.kind === "outcome" &&
+      component.evidenceIds.some((id) => selectedSourceEvidenceIds.has(id)) &&
+      (link.fromComponentId === component.id ||
+       link.toComponentId === component.id ||
+       (link.impactPathComponentIds.includes(component.id) &&
+        link.impactPathEvidenceIds.some((id) =>
+          selectedSourceEvidenceIds.has(id))))
+    )
+  );
+  const terminalRaceClassified = lifecycle.terminalRaces.some((race) =>
+    race.ingresses.length >= 2 && race.status !== "unresolved"
+  );
+  const terminalPathAccounted = outcomeLinked || terminalRaceClassified;
+  const unresolvedTerminalOwnership =
+    lifecycle.unresolvedTerminalRaces > 0 ||
+    lifecycle.terminalPrecedenceUnresolved > 0 ||
+    lifecycle.multiIngressTerminalTargets > lifecycle.terminalRaces.length;
+  const missing = [
+    ...(scenario === undefined
+      ? ["exact compiled terminal-collision preset is absent"] : []),
+    ...(scenario !== undefined && links.length === 0
+      ? ["no exact selected-source causal link supports the terminal scenario"] : []),
+    ...(scenario !== undefined && links.length > 0 && !terminalPathAccounted
+      ? ["source-bound scenario links do not establish an authored terminal outcome or classified multi-ingress path"] : []),
+    ...(scenario !== undefined && !knowledgeReady
+      ? ["terminal scenario knowledge requirements are not all satisfied"] : []),
+    ...(unresolvedTerminalOwnership
+      ? ["terminal ingress, precedence or race ownership remains unresolved"] : []),
+  ];
+  return {
+    complete: missing.length === 0,
+    evidenceIds: [...new Set(links.flatMap((link) =>
+      link.evidenceIds.filter((id) => selectedSourceEvidenceIds.has(id))
+    ))].sort(),
+    missing,
+  };
+}
 
 export function deriveMandatoryAuditProcedureReceipt(input: {
   readonly artifactId: string;
@@ -1256,26 +1369,48 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     );
   const competingTerminalIntent =
     intent.nodes.filter((node) => node.kind === "outcome").length > 1;
+  const terminalCoverage = assessTerminalCollisionSourceCoverage({
+    scenario: terminalScenario,
+    graph,
+    selectedSourceEvidenceIds: selectedEvidenceIds,
+    lifecycle: world.arenas.lifecycle,
+  });
+  const terminalRequired =
+    terminalScenario !== undefined ||
+    terminalPresetRequired ||
+    competingTerminalIntent ||
+    world.arenas.lifecycle.multiIngressTerminalTargets > 0 ||
+    world.arenas.lifecycle.terminalRaces.length > 0 ||
+    world.arenas.lifecycle.unresolvedTerminalRaces > 0 ||
+    world.arenas.lifecycle.terminalPrecedenceUnresolved > 0;
   checkpoint.push(receipt(
     "C6",
     "EVALUATE",
     "Terminal Ownership",
-    terminalScenario
-      ? "CLOSED"
-      : discoverySupportsAbsence &&
-          !competingTerminalIntent &&
-          !terminalPresetRequired
-        ? "NOT_APPLICABLE"
-        : "OPEN",
-    terminalScenario
-      ? "The terminal-collision preset is represented by its compiled identity; causal proof remains separate."
-      : terminalPresetRequired
-        ? "The required terminal-collision preset is missing or its compiled identity/flow does not match."
-        : discoverySupportsAbsence
-          ? "No materially competing terminal scenario was activated after complete discovery."
-          : "Terminal-collision applicability cannot close while discovery is incomplete.",
-    terminalScenario ? [terminalScenario.id] : [],
+    terminalRequired
+      ? terminalCoverage.complete ? "CLOSED" : "OPEN"
+      : discoverySupportsAbsence ? "NOT_APPLICABLE" : "OPEN",
+    terminalRequired
+      ? terminalCoverage.complete
+        ? "The exact terminal-collision scenario has selected-source causal evidence and satisfied knowledge receipts; actual gameplay outcome proof belongs to PROVE."
+        : "Terminal collision EVALUATE is incomplete: " +
+          terminalCoverage.missing.join("; ") + "."
+      : discoverySupportsAbsence
+        ? "No materially competing terminal scenario was activated after complete discovery."
+        : "Terminal-collision applicability cannot close while discovery is incomplete.",
+    terminalCoverage.evidenceIds,
     ["TerminalCollisionMatrix"],
+    {
+      obligations: [
+        obligation(
+          "terminal-collision-source-evaluated",
+          terminalRequired,
+          terminalCoverage.complete,
+          "A terminal-collision scenario requires an exact selected-source causal link, satisfied scenario knowledge, and no unaccounted terminal ownership residue; PROVE separately decides gameplay failure or safety.",
+          terminalCoverage.evidenceIds,
+        ),
+      ],
+    },
   ));
 
   const cleanupApplicable =
@@ -1520,34 +1655,10 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // one of its linked components must have selected-artifact evidence, and
   // the source compiler must not classify the edge as a DETECTION_GAP.
   // RUNTIME_BLOCKED remains valid EVALUATE source coverage, not PROVE success.
-  const selectedSourceEvidenceIds = new Set(
-    intent.evidence
-      .filter((record) => record.scope === "selected-artifact")
-      .map((record) => record.id),
-  );
+  const selectedSourceEvidenceIds = selectedEvidenceIds;
   const sourceBoundCrossSystemLinks = crossSystemScenarios.map((scenario) => ({
     scenarioId: scenario.id,
-    links: scenario.causalLinkIds.flatMap((id) =>
-      graph.causalLinks.filter((link) =>
-        link.id === id &&
-        link.scenarioId === scenario.id &&
-        link.status !== "DETECTION_GAP" &&
-        link.fromComponentId !== link.toComponentId &&
-        scenario.componentIds.includes(link.fromComponentId) &&
-        scenario.componentIds.includes(link.toComponentId) &&
-        link.evidenceIds.some((evidenceId) =>
-          selectedSourceEvidenceIds.has(evidenceId)
-        ) &&
-        [link.fromComponentId, link.toComponentId].some((componentId) =>
-          graph.components.some((component) =>
-            component.id === componentId &&
-            component.evidenceIds.some((evidenceId) =>
-              selectedSourceEvidenceIds.has(evidenceId)
-            )
-          )
-        )
-      )
-    ),
+    links: sourceBoundScenarioLinks(scenario, graph, selectedSourceEvidenceIds),
   }));
   const unboundCrossSystemScenarios = sourceBoundCrossSystemLinks
     .filter((item) => item.links.length === 0)
@@ -1562,14 +1673,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   ].sort();
   const unaccountedCrossSystemKnowledge = crossSystemScenarios
     .filter((scenario) =>
-      scenario.requiredKnowledgeIds.length === 0 ||
-      scenario.requiredKnowledgeIds.some((id) =>
-        !graph.knowledgeReceipts.some((receipt) =>
-          receipt.scenarioId === scenario.id &&
-          receipt.requirementId === id &&
-          receipt.status === "SATISFIED"
-        )
-      )
+      !scenarioKnowledgeAccounted(scenario, graph)
     )
     .map((scenario) => scenario.id)
     .sort();

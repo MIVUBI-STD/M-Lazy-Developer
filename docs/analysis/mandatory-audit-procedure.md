@@ -1073,6 +1073,8 @@ Required questions:
 
 A terminal collision is PROVEN when two reachable terminal paths can both commit a non-idempotent consequence without a blocking guard.
 
+**EVALUATE C6 source acceptance:** A compiled `terminal-collision` preset alone does not close Terminal Ownership. The canonical scenario must contain a selected-artifact-backed causal dependency reaching an authored outcome, or a separately classified multi-ingress terminal race, and its scoped knowledge receipts must be satisfied. Unresolved terminal ingress, precedence, or race ownership leaves C6 OPEN. This uses the same source-link and knowledge-applicability checks as EVALUATE C9. C6 CLOSED only means this bounded source contract was evaluated; PROVE independently decides causal defects, blocking counterproof, and irreducible runtime questions. No `DETECTION_GAP` link, generated preset label, or unrelated domain receipt may substitute for selected-source evidence.
+
 ---
 
 ## A12. Player-Facing Information Integrity
