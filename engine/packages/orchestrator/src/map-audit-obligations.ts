@@ -16,6 +16,7 @@ import {
 import type {
   GameplayWorldModel,
 } from "./inspection/gameplay-world-model.js";
+import type { MandatoryAuditProcedureReceipt } from "./inspection/mandatory-audit-support.js";
 import type { GameplayDiscoveryClosure } from "./inspection/gameplay-discovery-closure.js";
 import type {
   AuditUserIntentEnvelope,
@@ -831,8 +832,42 @@ export function capabilityDeliveryObligations(
   return [...unproven, ...unroutedFailures];
 }
 
+function mandatoryCrossSystemCoverageObligations(
+  procedure: MandatoryAuditProcedureReceipt | undefined,
+): AuditObligation[] {
+  const checkpoint = procedure?.checkpoints.find((item) => item.id === "C9");
+  if (
+    checkpoint === undefined ||
+    checkpoint.status === "CLOSED" ||
+    checkpoint.status === "NOT_APPLICABLE"
+  ) return [];
+
+  const missing = checkpoint.obligations.filter(
+    (item) => item.required && !item.satisfied,
+  );
+  // Project the existing checkpoint decision; do not independently recompute
+  // scenario admission or treat checkpoint IDs as selected-source evidence.
+  return [normalize({
+    id: "mandatory-checkpoint:C9",
+    source: "scenario-coverage",
+    stage: "EVALUATE",
+    title: "Resolve required cross-system scenario coverage (C9)",
+    reason: checkpoint.reason,
+    missingProof: missing.length > 0
+      ? missing.map((item) => item.id + ": " + item.reason).join(" ")
+      : "Complete selected-artifact discovery or establish the outstanding cross-system applicability and evidence.",
+    validationTest:
+      "Reconcile every required preset against source-bound components, scenario-scoped causal links and its knowledge receipts; resolve missing identities and rerun the existing checkpoint. This is not proof of a bug or runtime success.",
+    validationGroupKey: "mandatory:C9",
+    subjectIds: checkpoint.evidenceIds,
+    componentIds: [],
+    evidenceIds: [],
+  })];
+}
+
 export function deriveAuditObligations(input: {
   readonly graph: GameplayScenarioGraph;
+  readonly mandatoryAuditProcedure?: MandatoryAuditProcedureReceipt;
   readonly defectResolution: GameplayDefectResolutionGate;
   readonly gameplayWorld: GameplayWorldModel;
   readonly capabilityDelivery:
@@ -854,6 +889,7 @@ export function deriveAuditObligations(input: {
   readonly replicaDivergenceIds?: readonly string[];
 }): readonly AuditObligation[] {
   const items: AuditObligation[] = [
+    ...mandatoryCrossSystemCoverageObligations(input.mandatoryAuditProcedure),
     ...graphObligations(input.graph),
     ...closureObligations(input.gameplayClosure),
     ...capabilityDeliveryObligations(input.capabilityDelivery, input.graph),

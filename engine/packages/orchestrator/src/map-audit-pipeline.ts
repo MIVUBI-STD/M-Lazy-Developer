@@ -504,6 +504,7 @@ function deriveSelectedMapAuditControl(input: {
   const auditObligations = evidenceProjectionAuthorized
     ? deriveAuditObligations({
         graph: input.scenario.graph,
+        mandatoryAuditProcedure: input.procedure,
         defectResolution: input.scenario.defectResolution,
         gameplayWorld: input.gameplayWorld,
         capabilityDelivery: input.capabilityDelivery,
@@ -559,6 +560,7 @@ function deriveSelectedMapAuditControl(input: {
         });
   const honesty = assessAuditHonesty({
     graph: input.scenario.graph,
+    mandatoryAuditProcedure: input.procedure,
     gate: input.scenario.defectResolution,
     gameplayClosure: input.gameplayClosure,
     capabilityDelivery: input.capabilityDelivery,

@@ -911,6 +911,22 @@ export function formatSelectedMapAuditBrief(input: {
         : "See independently grounded win/lose conditions; runtime NOT proven."),
     "",
   ];
+  const crossSystemCoverage = report.auditObligations?.find(
+    (item) => item.id === "mandatory-checkpoint:C9",
+  );
+  if (crossSystemCoverage !== undefined) {
+    out.push(
+      "## Cross-System Coverage — EVALUATE / C9",
+      "**Unresolved audit obligation, not a gameplay defect.**",
+      "Reason: " + concise(crossSystemCoverage.reason),
+      "Missing proof: " + concise(crossSystemCoverage.missingProof),
+      "Next check: " + concise(crossSystemCoverage.validationTest),
+      ...(crossSystemCoverage.reason.length > 300
+        ? ["Additional scenario reasons are retained in the structured audit obligation."]
+        : []),
+      "",
+    );
+  }
   // Navigation over the EXISTING canonical Intent owns edges. This is
   // source-structure containment, never a chronological player journey.
   // Show the discovered shape first, before technical evidence inventories.

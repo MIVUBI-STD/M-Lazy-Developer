@@ -16,6 +16,7 @@ import type {
   AuditIssueProjection,
 } from "./map-audit-issue-projection.js";
 import { capabilityDeliveryObligations } from "./map-audit-obligations.js";
+import type { MandatoryAuditProcedureReceipt } from "./inspection/mandatory-audit-support.js";
 import type {
   GameplayDiscoveryChallengeSignal,
 } from "./inspection/gameplay-discovery-challenger.js";
@@ -182,6 +183,7 @@ function unresolvedClosureResidueIds(
 
 export function assessAuditHonesty(input: {
   readonly graph: GameplayScenarioGraph;
+  readonly mandatoryAuditProcedure?: MandatoryAuditProcedureReceipt;
   readonly gate: GameplayDefectResolutionGate;
   readonly gameplayClosure: GameplayModelClosureResult;
   readonly capabilityDelivery:
@@ -206,6 +208,11 @@ export function assessAuditHonesty(input: {
         input.graph,
         input.gate,
       ),
+      ...(input.mandatoryAuditProcedure?.checkpoints.some((item) =>
+        item.id === "C9" &&
+        item.status !== "CLOSED" &&
+        item.status !== "NOT_APPLICABLE"
+      ) ? ["mandatory-checkpoint:C9"] : []),
       ...unresolvedClosureResidueIds(
         input.gameplayClosure,
       ),

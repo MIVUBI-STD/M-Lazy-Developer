@@ -1262,6 +1262,20 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     missingCrossSystemLabels.length === 0 &&
     unboundCrossSystemScenarios.length === 0 &&
     unaccountedCrossSystemKnowledge.length === 0;
+  const crossSystemCoverageReasons = [
+    ...(missingCrossSystemLabels.length === 0 ? [] : [
+      "Required cross-system preset identities are missing: " +
+        missingCrossSystemLabels.join(", ") + ".",
+    ]),
+    ...(unboundCrossSystemScenarios.length === 0 ? [] : [
+      "Cross-system scenarios lack selected-source component or causal-link evidence: " +
+        unboundCrossSystemScenarios.join(", ") + ".",
+    ]),
+    ...(unaccountedCrossSystemKnowledge.length === 0 ? [] : [
+      "Cross-system scenarios lack satisfied scoped knowledge receipts: " +
+        unaccountedCrossSystemKnowledge.join(", ") + ".",
+    ]),
+  ];
 
   checkpoint.push(receipt(
     "C9",
@@ -1274,20 +1288,13 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       : crossSystemCoverageComplete
         ? "CLOSED"
         : "OPEN",
-    missingCrossSystemLabels.length > 0
-      ? "Required cross-system preset identities are missing: " +
-        missingCrossSystemLabels.join(", ") + "."
-      : unboundCrossSystemScenarios.length > 0
-        ? "Cross-system scenarios lack selected-source component or causal-link evidence: " +
-          unboundCrossSystemScenarios.join(", ") + "."
-        : unaccountedCrossSystemKnowledge.length > 0
-          ? "Cross-system scenarios lack satisfied scoped knowledge receipts: " +
-            unaccountedCrossSystemKnowledge.join(", ") + "."
-          : requiredCrossSystemScenarioLabels.size > 0
-            ? "Every required cross-system preset has scoped component/link evidence and satisfied knowledge receipts; PROVE separately determines gameplay conclusions."
-            : discoverySupportsAbsence
-              ? "No high-value cross-system intersection is demanded after complete discovery."
-              : "Cross-system applicability cannot close while discovery is incomplete.",
+    crossSystemCoverageReasons.length > 0
+      ? crossSystemCoverageReasons.join(" ")
+      : requiredCrossSystemScenarioLabels.size > 0
+        ? "Every required cross-system preset has scoped component/link evidence and satisfied knowledge receipts; PROVE separately determines gameplay conclusions."
+        : discoverySupportsAbsence
+          ? "No high-value cross-system intersection is demanded after complete discovery."
+          : "Cross-system applicability cannot close while discovery is incomplete.",
     crossSystemScenarios.map((item) => item.id),
     ["ActivatedCrossSystemScenarioSet"],
     {
