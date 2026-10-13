@@ -193,6 +193,102 @@ describe("gameplay defect resolution crosscheck depth", () => {
     expect(result.confirmedDefectReadyIds).toEqual([]);
   });
 
+  it("rejects a supplied blocking counter-proof without a graph-backed exclusion", () => {
+    const result = assessGameplayDefectResolutionGate(graph, [{
+      causalLinkId: "link:arena-capacity",
+      scenarioId: "preset:arena-capacity",
+      disposition: "BLOCKING_COUNTERPROOF",
+      counterProofEvidenceIds: ["source:unrelated-or-invented"],
+    }]);
+
+    expect(result.status).toBe("BLOCKED");
+    expect(result.blockingCounterProofIds).toEqual([]);
+    expect(result.counterProofSearchRequiredIds).toEqual(["link:arena-capacity"]);
+    expect(result.issues.join(" ")).toMatch(/exact PROVEN exclusion/i);
+    expect(result.resolutions[0]?.disposition).toBe("COUNTERPROOF_SEARCH_REQUIRED");
+  });
+
+  it("rejects foreign proof evidence despite a real unrelated guard", () => {
+    const withUnrelatedGuard: GameplayScenarioGraph = {
+      ...graph,
+      causalLinks: [
+        ...graph.causalLinks,
+        {
+          ...graph.causalLinks[0]!,
+          id: "link:unrelated-counterproof",
+          intentEdgeKind: "excludes",
+          status: "PROVEN",
+          toComponentId: "policy:other",
+          evidenceIds: ["source:other-guard"],
+        },
+      ],
+    };
+    const result = assessGameplayDefectResolutionGate(withUnrelatedGuard, [{
+      causalLinkId: "link:arena-capacity",
+      disposition: "BLOCKING_COUNTERPROOF",
+      counterProofEvidenceIds: ["source:other-guard"],
+    }]);
+    expect(result.blockingCounterProofIds).toEqual([]);
+    expect(result.status).toBe("BLOCKED");
+    expect(result.issues.join(" ")).toMatch(/exact PROVEN exclusion/i);
+  });
+
+  it("accepts a supplied blocker only when the same target has a real exclusion", () => {
+    const withExactGuard: GameplayScenarioGraph = {
+      ...graph,
+      causalLinks: [
+        ...graph.causalLinks,
+        {
+          ...graph.causalLinks[0]!,
+          id: "link:real-exclusion",
+          intentEdgeKind: "excludes",
+          status: "PROVEN",
+          evidenceIds: ["source:exact-guard"],
+        },
+      ],
+    };
+    const supported = assessGameplayDefectResolutionGate(withExactGuard, [{
+      causalLinkId: "link:arena-capacity",
+      disposition: "BLOCKING_COUNTERPROOF",
+      counterProofEvidenceIds: ["source:exact-guard"],
+    }]);
+    expect(supported.status).toBe("READY_FOR_PROPOSED_BUG_SET");
+    expect(supported.blockingCounterProofIds).toEqual(["link:arena-capacity"]);
+    expect(supported.confirmedDefectReadyIds).toEqual([]);
+
+    const forged = assessGameplayDefectResolutionGate(withExactGuard, [{
+      causalLinkId: "link:arena-capacity",
+      disposition: "BLOCKING_COUNTERPROOF",
+      counterProofEvidenceIds: ["source:exact-guard", "source:invented"],
+    }]);
+    expect(forged.status).toBe("BLOCKED");
+    expect(forged.issues.join(" ")).toMatch(/foreign or unsupported evidence/i);
+    expect(forged.resolutions[0]?.counterProofEvidenceIds).toEqual(["source:exact-guard"]);
+  });
+
+  it("does not accept supplied defect confirmation when source-proven exclusion blocks it", () => {
+    const withGuard: GameplayScenarioGraph = {
+      ...graph,
+      causalLinks: [
+        ...graph.causalLinks,
+        {
+          ...graph.causalLinks[0]!,
+          id: "link:source-guard",
+          intentEdgeKind: "excludes",
+          status: "PROVEN",
+          evidenceIds: ["source:exact-guard"],
+        },
+      ],
+    };
+    const result = assessGameplayDefectResolutionGate(withGuard, resolution([
+      "owner", "guard", "generation", "scope", "cleanup", "exclusion",
+    ]));
+    expect(result.status).toBe("BLOCKED");
+    expect(result.issues.join(" ")).toMatch(/cannot override source-proven blocking counter-proof/i);
+    expect(result.confirmedDefectReadyIds).toEqual([]);
+    expect(result.blockingCounterProofIds).toEqual(["link:arena-capacity"]);
+  });
+
   it("accepts confirmation only after all context-relevant dimensions were searched", () => {
     const result = assessGameplayDefectResolutionGate(
       graph,

@@ -2100,6 +2100,8 @@ Before confirming a contradiction, search the exact path for applicable:
 
 Blocking Proof is valid only when it is reachable, executes before the wrong mutation/commit, and makes the contradicted state unreachable.
 
+**EVALUATE → PROVE source admission:** An externally supplied `BLOCKING_COUNTERPROOF` must cite evidence already owned by a `PROVEN` `excludes` causal link matching the contradicted scenario and commit target. A foreign guard, fabricated evidence ID, or overlapping but different target cannot dismiss a contradiction. Likewise, supplied `CONFIRMED_DEFECT_READY` cannot override a source-proven blocking exclusion. Validate all supplied resolution receipts **before** placing them in the canonical PROVE inventory; invalid receipts are rejected and the graph-owned automatic disposition remains visible, with an explicit admission issue. This source admission is not a claim that Minecraft gameplay has been executed.
+
 The following are not Blocking Proof by themselves:
 - nearby healthy code;
 - existence of a queue/fallback/config;

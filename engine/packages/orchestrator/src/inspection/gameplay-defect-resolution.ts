@@ -375,6 +375,12 @@ function validateResolution(
   const issues: string[] = [];
 
   if (resolution.disposition === "CONFIRMED_DEFECT_READY") {
+    if (blockingCounterProofFor(graph, link).length > 0) {
+      issues.push(
+        link.id +
+          ": confirmed defect cannot override source-proven blocking counter-proof at the same commit target.",
+      );
+    }
     if (!nonEmpty(resolution.gameplayTrigger)) {
       issues.push(link.id + ": confirmed defect requires gameplayTrigger.");
     }
@@ -480,10 +486,16 @@ function validateResolution(
   }
 
   if (resolution.disposition === "BLOCKING_COUNTERPROOF") {
-    if (unique(resolution.counterProofEvidenceIds).length === 0) {
+    const supportedIds = blockingCounterProofFor(graph, link);
+    const suppliedIds = unique(resolution.counterProofEvidenceIds);
+    // A supplied proof cannot dismiss a CONTRADICTED source link with
+    // unrelated evidence or a guard on another commit target.
+    if (supportedIds.length === 0 ||
+        suppliedIds.length === 0 ||
+        !suppliedIds.every((id) => supportedIds.includes(id))) {
       issues.push(
         link.id +
-          ": blocking counter-proof requires concrete counterProofEvidenceIds.",
+          ": blocking counter-proof must cite an exact PROVEN exclusion at the contradicted commit target; foreign or unsupported evidence cannot suppress the finding.",
       );
     }
     if (
@@ -864,6 +876,20 @@ export function assessGameplayDefectResolutionGate(
         resolution.causalLinkId +
           ": RUNTIME_BLOCKED cannot become a gameplay finding or safe counter-proof without a runtime-backed causal-link refresh.",
       );
+      continue;
+    }
+    // Invalid externally supplied resolutions are never projected into
+    // PROVE or the issue set, even while the overall admission is BLOCKED.
+    // Fall back to the canonical graph-derived disposition instead.
+    if (sourceLink === undefined) continue;
+    const scenario = graph.scenarios.find(
+      (candidate) => candidate.id === sourceLink.scenarioId,
+    );
+    const invalid = validateResolution(
+      graph, sourceLink, resolution, scenario,
+    );
+    if (invalid.length > 0) {
+      issues.push(...invalid);
       continue;
     }
     byId.set(resolution.causalLinkId, resolution);
