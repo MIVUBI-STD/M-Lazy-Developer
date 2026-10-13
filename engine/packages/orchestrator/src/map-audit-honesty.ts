@@ -2,6 +2,7 @@ import type {
   GameplayModelClosureResult,
 } from "../../gameplay-intent/src/index.js";
 import type {
+  GameplayCapabilityDeliveryAssessment,
   NegativeSpaceSignal,
   TemporalInteractionRisk,
 } from "../../diagnostic-reasoning/src/index.js";
@@ -14,6 +15,7 @@ import type {
 import type {
   AuditIssueProjection,
 } from "./map-audit-issue-projection.js";
+import { capabilityDeliveryObligations } from "./map-audit-obligations.js";
 import type {
   GameplayDiscoveryChallengeSignal,
 } from "./inspection/gameplay-discovery-challenger.js";
@@ -182,6 +184,8 @@ export function assessAuditHonesty(input: {
   readonly graph: GameplayScenarioGraph;
   readonly gate: GameplayDefectResolutionGate;
   readonly gameplayClosure: GameplayModelClosureResult;
+  readonly capabilityDelivery:
+    readonly GameplayCapabilityDeliveryAssessment[];
   readonly negativeSpace: readonly NegativeSpaceSignal[];
   readonly temporalRisks: readonly TemporalInteractionRisk[];
   readonly discoveryChallenges:
@@ -204,6 +208,9 @@ export function assessAuditHonesty(input: {
       ),
       ...unresolvedClosureResidueIds(
         input.gameplayClosure,
+      ),
+      ...capabilityDeliveryObligations(input.capabilityDelivery).map(
+        item => item.id,
       ),
       ...input.negativeSpace.map(
         (signal) => signal.id,

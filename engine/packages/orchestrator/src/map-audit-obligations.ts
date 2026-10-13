@@ -2,6 +2,7 @@ import type {
   GameplayModelClosureResult,
 } from "../../gameplay-intent/src/index.js";
 import type {
+  GameplayCapabilityDeliveryAssessment,
   NegativeSpaceSignal,
   TemporalInteractionRisk,
 } from "../../diagnostic-reasoning/src/index.js";
@@ -758,10 +759,48 @@ function closureObligations(
   return items;
 }
 
+/** Non-finding FORMALIZE residue shared by the obligation list and honesty gate. */
+export function capabilityDeliveryObligations(
+  assessments: readonly GameplayCapabilityDeliveryAssessment[],
+): readonly AuditObligation[] {
+  if (assessments.length === 0) {
+    return [normalize({
+      id: "capability-delivery:unassessed",
+      source: "gameplay-closure",
+      stage: "FORMALIZE",
+      title: "Account for selected-artifact gameplay capabilities",
+      reason: "No capability delivery assessment was produced; an empty list is not proof of no applicable capability or successful delivery.",
+      missingProof: "Selected-artifact gameplay capability inventory and applicability, including unresolved source and intent surfaces.",
+      validationTest: "Reconcile discovered player-facing mechanics against intent and source/model capability assessments. Preserve UNKNOWN where purpose or activation is ungrounded.",
+      validationGroupKey: "formalize:capability-delivery",
+      subjectIds: [],
+      componentIds: [],
+      evidenceIds: [],
+    })];
+  }
+  return assessments
+    .filter(item => item.status === "UNPROVEN")
+    .map(item => normalize({
+      id: "capability-delivery:" + item.subjectId,
+      source: "gameplay-closure",
+      stage: "FORMALIZE",
+      title: "Ground capability delivery for " + item.label,
+      reason: item.reason,
+      missingProof: "Selected-artifact evidence of designed player-visible behavior, implementation, ownership and effect; source classification does not prove runtime delivery.",
+      validationTest: "Trace the selected capability through intent, activation guards, effects and player-visible delivery. Retain narrow native-runtime uncertainty.",
+      validationGroupKey: "formalize:capability-delivery:" + item.subjectId,
+      subjectIds: [item.subjectId],
+      componentIds: [],
+      evidenceIds: item.evidenceIds,
+    }));
+}
+
 export function deriveAuditObligations(input: {
   readonly graph: GameplayScenarioGraph;
   readonly defectResolution: GameplayDefectResolutionGate;
   readonly gameplayWorld: GameplayWorldModel;
+  readonly capabilityDelivery:
+    readonly GameplayCapabilityDeliveryAssessment[];
   readonly userIntent?: AuditUserIntentEnvelope;
   readonly gameplayClosure: GameplayModelClosureResult;
   readonly discovery?: GameplayDiscoveryClosure;
@@ -781,6 +820,7 @@ export function deriveAuditObligations(input: {
   const items: AuditObligation[] = [
     ...graphObligations(input.graph),
     ...closureObligations(input.gameplayClosure),
+    ...capabilityDeliveryObligations(input.capabilityDelivery),
     ...resolutionObligations(
       input.graph,
       input.defectResolution,

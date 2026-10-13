@@ -506,6 +506,7 @@ function deriveSelectedMapAuditControl(input: {
         graph: input.scenario.graph,
         defectResolution: input.scenario.defectResolution,
         gameplayWorld: input.gameplayWorld,
+        capabilityDelivery: input.capabilityDelivery,
         userIntent: input.userIntent,
         gameplayClosure: input.gameplayClosure,
         discovery: input.discovery,
@@ -560,6 +561,7 @@ function deriveSelectedMapAuditControl(input: {
     graph: input.scenario.graph,
     gate: input.scenario.defectResolution,
     gameplayClosure: input.gameplayClosure,
+    capabilityDelivery: input.capabilityDelivery,
     negativeSpace: input.negativeSpace,
     temporalRisks: input.temporalRisks,
     discoveryChallenges:
