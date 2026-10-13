@@ -293,6 +293,95 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("binds uniform array.map configuration through a class-expression constructor", () => {
+    const parsed = parseScriptFile("mapped-session", [
+      "var definitions = [0, 128, 256].map((offset) => {",
+      "  return { id: String(offset), maxPlayers: 5, offset };",
+      "});",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "};",
+      "class Sessions { parties = definitions.map((item) => new Party(item)); }",
+    ].join("\n"), source);
+    const check = parsed.arenaAuthorityPaths?.find((item) =>
+      item.capacityAuthorityProven
+    )?.capacityCheck;
+    expect(check).toMatchObject({
+      capacityExpression: "this.definition.maxPlayers",
+      resolvedCapacityValue: 5,
+      resolvedCapacitySource: expect.objectContaining({
+        range: expect.objectContaining({ lineStart: 2 }),
+      }),
+    });
+    expect(check?.resolvedCapacityWitnesses?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("preserves UNKNOWN for mutable, conflicting, aliased or escaping mapped capacity", () => {
+    const base = [
+      "var definitions = [0, 128].map((offset) => {",
+      "  return { id: String(offset), maxPlayers: 5 };",
+      "});",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "};",
+      "class Sessions { parties = definitions.map((item) => new Party(item)); }",
+    ];
+    const invalid = [
+      (rows: string[]) => rows.map((line) =>
+        line.replace("maxPlayers: 5", "maxPlayers: computeLimit()")),
+      (rows: string[]) => [
+        ...rows, "definitions[0].maxPlayers = 9;",
+      ],
+      (rows: string[]) => [
+        ...rows, "var Alias = Party;",
+      ],
+      (rows: string[]) => rows.map((line) =>
+        line.replace("this.definition = definition;",
+          "this.definition = definition; this.definition = other;")),
+      (rows: string[]) => [
+        ...rows, "var alien = new Other(new Party(definitions[0]));",
+      ],
+      (rows: string[]) => rows.map((line) =>
+        line.replace("return this.members.length >= this.definition.maxPlayers",
+          "leak(this); return this.members.length >= this.definition.maxPlayers")),
+      (rows: string[]) => rows.map((line) =>
+        line.replace("return { id: String(offset), maxPlayers: 5 };",
+          "if (offset) return {maxPlayers: 5}; return {maxPlayers: 6};")),
+      (rows: string[]) => rows.map((line) =>
+        line.replace("parties = definitions.map((item) => new Party(item))",
+          "parties = definitions.map((item) => createParty(item))")),
+    ];
+    for (const modify of invalid) {
+      const parsed = parseScriptFile("mapped-negative", modify(base).join("\n"), source);
+      expect(parsed.arenaAuthorityPaths?.some((item) =>
+        item.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
+  it("does not turn recovery-only over-capacity validation into an admission guard", () => {
+    const parsed = parseScriptFile("recovery-only", [
+      "var definitions = [0, 1].map((id) => ({maxPlayers: 5}));",
+      "function restore(session) {",
+      "  if (session.members.length > 5) throw Error('invalid saved roster');",
+      "  return session;",
+      "}",
+    ].join("\n"), source);
+    expect(parsed.arenaAuthorityPaths?.some((item) =>
+      item.capacityAuthorityProven || item.capacityCheck?.resolvedCapacityValue !== undefined
+    )).toBe(false);
+  });
+
   it("resolves a literal constructor-to-instance cap through the existing field binding", () => {
     const script = [
       "class Party {",

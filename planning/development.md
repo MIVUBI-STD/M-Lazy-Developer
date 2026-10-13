@@ -1,3 +1,17 @@
+## Bounded uniform mapped capacity source join (2026-10-14)
+
+**Work:** reusable arena capacity binding via same-source `.map()` generator → class-expression constructor → membership guard. **Scope:** existing `arena-authority-evidence.ts` only, consumed by the current extractor/B3/B5; no second parser/manager.
+
+**Change prepared:** accept a uniform positive literal capacity produced by a single array-literal `.map()` returning an object literal, only when a unique same-source class expression has one parameter → `this.field` constructor binding, the cap is read in its guarded join, and every class construction uses a bound generated element. Retain the exact numeric property, generator, constructor assignment and allocation source spans. Reject incompatible return branches, computed/dynamic capacity values, duplicate/shadowed bindings, class/config mutations, callback alias leaks and unfamiliar constructor escapes. Recovery-only comparisons remain non-admission evidence.
+
+**Empirical guardrail:** Independent TypeScript AST inspection actually executed on frozen Pillager and Defense artifacts. Pillager has R generator `maxPlayers:5` at `main.js:2:4677` and a matching `K.join` guard at `2:5714`, but it also passes `new K(R[0])` into an unrelated constructor (`45:34304`). The latter remains **UNKNOWN** under the new bounded rule; do not assert effective numeric authority for all K instances. Defense has a six-arena `partyConfig` generator `max_member:5` but the join obtains `config` via a party-config lookup; source ownership crosses that boundary and remains **UNKNOWN**. Neither map is hardcoded into engine matching.
+
+**Verification ceiling:** Source changes and positive/negative parser/extractor regressions **authored**, not actually executed with repository TypeScript/Vitest. Original archive SHA-256 checked previously. Stand-alone AST inspection of the selected JavaScript was executed (not `runSelectedMapAudit()`). Do not advance FORMALIZE, EVALUATE or REPORT acceptance without a production audit receipt.
+
+**Next:** execute exact-head TypeScript/Vitest when truly available, then compare production outputs for both SHA-pinned original maps. Only extend lookup/generator provenance where observed source paths and negative counterexamples justify it.
+
+---
+
 ## Empirical selected-map acceptance — source-only result (2026-10-14)
 
 **Work:** selected-map FORMALIZE → EVALUATE → PROVE → REPORT vertical acceptance. **State:** BLOCKED on exact-repository execution and unproven config-value joins; no stage promoted to CLOSED.

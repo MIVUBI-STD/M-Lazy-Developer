@@ -765,6 +765,308 @@ function staticConstructorCapacity(
   };
 }
 
+
+/**
+ * Source-only uniform capacity carried through an array generator and a
+ * constructor parameter. This is deliberately a closed, same-file AST
+ * witness, not a numeric guess from a property name or a recovery check.
+ * Dynamic factories, escaped generated elements, writes and mixed values
+ * stay unresolved.
+ */
+function mappedConstructorCapacity(
+  expression: ts.Expression,
+  file: ts.SourceFile,
+  source: SourceRef,
+  fieldBindings: readonly ScriptConstructorFieldBinding[],
+): { value: number; source: SourceRef; witnesses: readonly SourceRef[] } | undefined {
+  if (!ts.isPropertyAccessExpression(expression) ||
+      !CAPACITY_PROPERTY.test(expression.name.text) ||
+      !ts.isPropertyAccessExpression(expression.expression) ||
+      expression.expression.expression.kind !== ts.SyntaxKind.ThisKeyword) return undefined;
+  const fieldName = expression.expression.name.text;
+  let method: ts.Node | undefined = expression.parent;
+  while (method && !ts.isMethodDeclaration(method)) {
+    if (ts.isFunctionLike(method) || ts.isClassLike(method)) return undefined;
+    method = method.parent;
+  }
+  if (!method || !ts.isMethodDeclaration(method) ||
+      !ts.isClassExpression(method.parent)) return undefined;
+  const cls = method.parent;
+  const declaration = cls.parent;
+  if (!ts.isVariableDeclaration(declaration) ||
+      !ts.isIdentifier(declaration.name) ||
+      !ts.isVariableDeclarationList(declaration.parent) ||
+      !ts.isVariableStatement(declaration.parent.parent) ||
+      declaration.parent.parent.parent !== file ||
+      declaration.parent.parent.modifiers?.some((modifier) =>
+        modifier.kind === ts.SyntaxKind.ExportKeyword ||
+        modifier.kind === ts.SyntaxKind.DefaultKeyword
+      ) ||
+      cls.heritageClauses?.length) return undefined;
+  const className = declaration.name.text;
+  // A mutable class binding is not unique instance identity.
+  if (declaration.initializer !== cls) return undefined;
+  const fields = fieldBindings.filter((binding) =>
+    binding.className === className &&
+    binding.fieldName === fieldName &&
+    binding.source.artifactId === source.artifactId &&
+    binding.source.relativePath === source.relativePath
+  );
+  if (fields.length !== 1) return undefined;
+  const binding = fields[0]!;
+  const constructors = cls.members.filter(ts.isConstructorDeclaration);
+  if (constructors.length !== 1) return undefined;
+  const ctor = constructors[0]!;
+  const parameter = ctor.parameters[binding.parameterIndex];
+  if (!parameter || !ts.isIdentifier(parameter.name) ||
+      parameter.initializer || parameter.dotDotDotToken) return undefined;
+  const formalName = parameter.name.text;
+  let formalReferences = 0;
+  let fieldAccesses = 0;
+  let fieldStable = true;
+  const scanClass = (node: ts.Node): void => {
+    if (node.kind === ts.SyntaxKind.ThisKeyword) {
+      const parent = node.parent;
+      if (ts.isCallExpression(parent) ||
+          ts.isReturnStatement(parent) ||
+          ts.isVariableDeclaration(parent) ||
+          ts.isArrayLiteralExpression(parent) ||
+          ts.isPropertyAssignment(parent)) fieldStable = false;
+    }
+    if (ts.isElementAccessExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ThisKeyword)
+      fieldStable = false;
+    if (ts.isIdentifier(node) && node.text === formalName &&
+        node.pos >= ctor.pos && node.end <= ctor.end) formalReferences++;
+    if (ts.isPropertyAccessExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ThisKeyword &&
+        node.name.text === fieldName) {
+      fieldAccesses++;
+      const p = node.parent;
+      const constructorWrite =
+        ts.isBinaryExpression(p) &&
+        p.left === node &&
+        p.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        p.right.getText(file) === formalName &&
+        p.parent.parent === ctor.body;
+      const capacityRead = node === expression.expression &&
+        ts.isPropertyAccessExpression(p) && p.expression === node;
+      if (!constructorWrite && !capacityRead) fieldStable = false;
+    }
+    if (ts.isElementAccessExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ThisKeyword) fieldStable = false;
+    ts.forEachChild(node, scanClass);
+  };
+  scanClass(cls);
+  if (!fieldStable || fieldAccesses !== 2 || formalReferences !== 2) return undefined;
+
+  // Only a direct array-literal .map() returning a definite object literal
+  // qualifies. No spread/computed capacity keys or alternate return paths.
+  const generators = new Map<string, { value: number; property: SourceRef; generator: SourceRef }>();
+  for (const statement of file.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const d of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(d.name) || !d.initializer ||
+          !ts.isCallExpression(d.initializer) ||
+          !ts.isPropertyAccessExpression(d.initializer.expression) ||
+          d.initializer.expression.name.text !== "map" ||
+          !ts.isArrayLiteralExpression(d.initializer.expression.expression)) continue;
+      const cb = d.initializer.arguments[0];
+      if (!cb || !ts.isArrowFunction(cb)) continue;
+      const returns = ts.isBlock(cb.body)
+        ? cb.body.statements.filter(ts.isReturnStatement)
+            .map((item) => item.expression)
+        : [cb.body];
+      if (returns.length !== 1 || !returns[0]) continue;
+      const returned = ts.isParenthesizedExpression(returns[0])
+        ? returns[0].expression : returns[0];
+      if (!ts.isObjectLiteralExpression(returned) ||
+          !returned.properties.every((p) =>
+            ts.isPropertyAssignment(p) ||
+            ts.isShorthandPropertyAssignment(p))) continue;
+      // A shorthand of the same capacity key is also a duplicate and
+      // prevents inferring that the numeric property is authoritative.
+      const props = returned.properties.filter((p) =>
+        (ts.isPropertyAssignment(p) ||
+         ts.isShorthandPropertyAssignment(p)) &&
+        (ts.isIdentifier(p.name) || ts.isStringLiteralLike(p.name)) &&
+        p.name.text === expression.name.text
+      );
+      if (props.length !== 1 || !ts.isPropertyAssignment(props[0]!) ||
+          !ts.isNumericLiteral(props[0]!.initializer)) continue;
+      const value = Number(props[0]!.initializer.text);
+      if (Number.isSafeInteger(value) && value > 0 &&
+          d.initializer.expression.expression.elements.length > 0)
+        generators.set(d.name.text, {
+          value,
+          property: lineSource(file, props[0]!, source),
+          generator: lineSource(file, d.initializer, source),
+        });
+    }
+  }
+  if (generators.size === 0) return undefined;
+  // Only exact one-source generator identities can support an instance cap.
+  // Ambiguous or rebound class/collection identifiers are not adopted.
+  const seenBindings = new Map<string, number>();
+  const scanBindings = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      seenBindings.set(node.name.text,
+        (seenBindings.get(node.name.text) ?? 0) + 1);
+    }
+    ts.forEachChild(node, scanBindings);
+  };
+  scanBindings(file);
+  if (seenBindings.get(className) !== 1) return undefined;
+  let valid = true;
+  const allocations: SourceRef[] = [];
+  let generatorName: string | undefined;
+  const stableElement = (argument: ts.Expression, callbackName?: string):
+    string | undefined => {
+    if (callbackName !== undefined &&
+        ts.isIdentifier(argument) && argument.text === callbackName)
+      return generatorName;
+    if (ts.isElementAccessExpression(argument) &&
+        ts.isIdentifier(argument.expression) &&
+        generators.has(argument.expression.text) &&
+        argument.argumentExpression &&
+        ts.isNumericLiteral(argument.argumentExpression))
+      return argument.expression.text;
+    return undefined;
+  };
+  const walkAllocations = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === className &&
+        node !== declaration.name &&
+        !(ts.isNewExpression(node.parent) && node.parent.expression === node))
+      valid = false;
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) &&
+        node.expression.text === className) {
+      const argument = node.arguments?.[binding.parameterIndex];
+      if (!argument) { valid = false; return; }
+      let sourceName: string | undefined;
+      if (ts.isArrowFunction(node.parent) &&
+          ts.isCallExpression(node.parent.parent) &&
+          ts.isPropertyAccessExpression(node.parent.parent.expression) &&
+          node.parent.parent.expression.name.text === "map" &&
+          ts.isIdentifier(node.parent.parent.expression.expression) &&
+          node.parent.parameters.length === 1 &&
+          ts.isIdentifier(node.parent.parameters[0]!.name) &&
+          node.parent.body === node &&
+          ts.isIdentifier(argument) &&
+          argument.text === node.parent.parameters[0]!.name.text) {
+        sourceName = node.parent.parent.expression.expression.text;
+      } else {
+        // Direct literal-index instance allocations are supported only
+        // when a const owns the object; forwarding an instance to an
+        // unknown constructor/function would lose mutation authority.
+        const parent = node.parent;
+        const owned = ts.isVariableDeclaration(parent) &&
+          parent.initializer === node &&
+          ts.isVariableDeclarationList(parent.parent) &&
+          (parent.parent.flags & ts.NodeFlags.Const) !== 0;
+        if (owned) sourceName = stableElement(argument);
+      }
+      if (!sourceName || !generators.has(sourceName) ||
+          (generatorName !== undefined && generatorName !== sourceName))
+        valid = false;
+      else {
+        generatorName = sourceName;
+        allocations.push(lineSource(file, node, source));
+      }
+    }
+    ts.forEachChild(node, walkAllocations);
+  };
+  walkAllocations(file);
+  if (!valid || allocations.length === 0 || !generatorName) return undefined;
+  const gen = generators.get(generatorName)!;
+  if (seenBindings.get(generatorName) !== 1) return undefined;
+  // No authored mutable write to the numeric field may override
+  // the generator value (including writes through other receivers).
+  const visitWrites = (node: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(node) &&
+        node.name.text === expression.name.text) {
+      const parent = node.parent;
+      if ((ts.isBinaryExpression(parent) && parent.left === node &&
+           parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+           parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) ||
+          (ts.isPrefixUnaryExpression(parent) ||
+           ts.isPostfixUnaryExpression(parent)) ||
+          (ts.isDeleteExpression(parent) && parent.expression === node))
+        valid = false;
+    }
+    ts.forEachChild(node, visitWrites);
+  };
+  visitWrites(file);
+  if (!valid) return undefined;
+
+  // The generated collection may be inspected by map/some/for-of, but its
+  // elements must never escape or be reassigned through those readers.
+  const readOnlyAlias = (scope: ts.Node, name: string): boolean => {
+    let safe = true;
+    const visit = (node: ts.Node): void => {
+      if (ts.isIdentifier(node) && node.text === name) {
+        if (ts.isParameter(node.parent) && node.parent.name === node) {
+          // declaration
+        } else if (ts.isVariableDeclaration(node.parent) &&
+                   node.parent.name === node) {
+          // declaration
+        } else if (ts.isPropertyAccessExpression(node.parent) &&
+                   node.parent.expression === node &&
+                   !(ts.isBinaryExpression(node.parent.parent) &&
+                     node.parent.parent.left === node.parent)) {
+          // read one member only
+        } else safe = false;
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(scope);
+    return safe;
+  };
+  const checkReferences = (node: ts.Node): void => {
+    if (!ts.isIdentifier(node) || node.text !== generatorName) {
+      ts.forEachChild(node, checkReferences);
+      return;
+    }
+    if (ts.isVariableDeclaration(node.parent) && node.parent.name === node)
+      return;
+    const p = node.parent;
+    if (ts.isPropertyAccessExpression(p) && p.expression === node &&
+        ts.isCallExpression(p.parent) && p.parent.expression === p &&
+        (p.name.text === "map" || p.name.text === "some")) {
+      const cb = p.parent.arguments[0];
+      if (!cb || !ts.isArrowFunction(cb) ||
+          cb.parameters.length < 1 || !ts.isIdentifier(cb.parameters[0]!.name))
+        valid = false;
+      else if (p.name.text === "some" ||
+          !(ts.isNewExpression(cb.body) &&
+            ts.isIdentifier(cb.body.expression) &&
+            cb.body.expression.text === className)) {
+        if (!readOnlyAlias(cb.body, cb.parameters[0]!.name.text))
+          valid = false;
+      }
+    } else if (ts.isForOfStatement(p) && p.expression === node &&
+               ts.isVariableDeclarationList(p.initializer) &&
+               p.initializer.declarations.length === 1 &&
+               ts.isIdentifier(p.initializer.declarations[0]!.name)) {
+      if (!readOnlyAlias(p.statement, p.initializer.declarations[0]!.name.text))
+        valid = false;
+    } else if (ts.isElementAccessExpression(p) && p.expression === node &&
+               p.argumentExpression &&
+               ts.isNumericLiteral(p.argumentExpression) &&
+               ts.isNewExpression(p.parent) &&
+               ts.isIdentifier(p.parent.expression) &&
+               p.parent.expression.text === className) {
+      // new Class(generatedCollection[literalIndex])
+    } else valid = false;
+  };
+  checkReferences(file);
+  if (!valid) return undefined;
+  return {
+    value: gen.value,
+    source: gen.property,
+    witnesses: [binding.source, gen.generator, ...allocations],
+  };
+}
+
 function capacityComparisonEvidence(
   condition: ts.Expression,
   file: ts.SourceFile,
@@ -811,7 +1113,8 @@ function capacityComparisonEvidence(
   );
   if (!capacity) return undefined;
   const staticCapacity = staticModuleCapacity(other, file, source) ??
-    staticConstructorCapacity(other, file, source, fieldBindings);
+    staticConstructorCapacity(other, file, source, fieldBindings) ??
+    mappedConstructorCapacity(other, file, source, fieldBindings);
 
   if (
     capacity.arenaExpression !== undefined &&

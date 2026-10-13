@@ -400,6 +400,45 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.evidence.perArenaPlayerCapacitySources).toHaveLength(2);
   });
 
+  it("projects a source-bound mapped constructor capacity without equating it to runtime slots", () => {
+    const script = parseScriptFile("mapped-classes", [
+      "var configs = [0, 200].map((offset) => {",
+      "  return { offset: offset, maxPlayers: 5 };",
+      "});",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "};",
+      "class SessionManager { sessions = configs.map((cfg) => new Party(cfg)); }",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/generated-sessions.js",
+    });
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [script], declaredArenaCount: 2,
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBe(5);
+    expect(result.evidence.declaredMaxConcurrentPlayers).toBe(10);
+    expect(result.evidence.perArenaPlayerCapacitySources).toEqual([
+      expect.objectContaining({
+        range: expect.objectContaining({ lineStart: 8 }),
+      }),
+      expect.objectContaining({
+        range: expect.objectContaining({ lineStart: 2 }),
+      }),
+      ...Array(3).fill(expect.objectContaining({
+        artifactId: "fixture",
+        relativePath: "scripts/generated-sessions.js",
+      })),
+    ]);
+    // Source-authored slot arithmetic must not turn into a delivered
+    // multi-arena capacity or observed gameplay assertion.
+    expect(result.report?.safeConcurrentArenas ?? null).toBeNull();
+  });
+
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {
     const script = {
       arenaAuthorityPaths: [{
