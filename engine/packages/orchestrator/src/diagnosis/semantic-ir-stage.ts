@@ -5,6 +5,7 @@ import {
   tagAccesses,
 } from "../../../../analyzers/commands/src/index.js";
 import type { ParsedFunction } from "../../../../analyzers/functions/src/index.js";
+import { resolveScriptImports } from "../../../../analyzers/scripts/src/parser/resolve.js";
 import type {
   ParsedScriptFile,
   CrossFileCallEdge,
@@ -844,6 +845,47 @@ export function buildInspectionSemanticIr(
     const path = parsed.source.relativePath.replaceAll("\\", "/");
     scriptsByPath.set(path, [...(scriptsByPath.get(path) ?? []), parsed]);
   }
+  // import("./chunk.js") is a possible asynchronous module handoff, not a
+  // synchronous function call, a Minecraft runtime observation or evidence
+  // that the imported module initialized successfully.
+  //
+  // Reuse the existing source import resolver (pack/artifact and ambiguity
+  // checks) rather than choosing a matching file by label. A nonliteral
+  // request, missing target or ambiguous target remains an unresolved edge.
+  for (const resolution of resolveScriptImports(
+    input.parsedScripts.map(item => item.parsed),
+  )) {
+    if (!resolution.importSyntax) continue;
+    const candidates = scriptsByPath.get(
+      resolution.fromSourcePath.replaceAll("\\", "/")) ?? [];
+    const site = resolution.source;
+    if (candidates.length !== 1 || site === undefined ||
+        resolution.executionRegion === undefined ||
+        candidates[0]!.source.artifactId !== site.artifactId ||
+        candidates[0]!.source.relativePath !== site.relativePath)
+      continue;
+    const from = ensureScriptRegion(
+      candidates[0]!, resolution.executionRegion, site);
+    const targets = resolution.targetSourcePath
+      ? scriptsByPath.get(resolution.targetSourcePath.replaceAll("\\", "/")) ?? []
+      : [];
+    const target = resolution.status === "resolved" &&
+      targets.length === 1 &&
+      targets[0]!.source.artifactId === site.artifactId
+      ? targets[0] : undefined;
+    const to = target === undefined ? undefined :
+      ensureScriptRegion(target, "module", target.source);
+    addEdge({
+      from,
+      ...(to === undefined ? {} : { to }),
+      kind: "deferred",
+      targetLabel: "import(" + resolution.module + ")",
+      resolution: to === undefined ? "unresolved" : "resolved",
+      controlFlow: "deferred",
+      source: site,
+    });
+  }
+
   const exactImportedCallSite = (
     script: ParsedScriptFile,
     call: CrossFileCallEdge,
