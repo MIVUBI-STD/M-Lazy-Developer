@@ -1,4 +1,5 @@
 import ts from "typescript";
+import { sourceMethodRegion } from "../core/control-flow.js";
 import type { SourceRef } from "../../../../packages/project-model/src/index.js";
 import type { ScriptArgumentParameterBinding, ScriptImportedThisConstruction, ScriptConstructorFieldBinding, ScriptThisInstanceDispatch, ScriptSourceClassMethod, ScriptClassMapCollection, ScriptClassMapAccess } from "../core/types.js";
 
@@ -116,7 +117,7 @@ function region(node: ts.Node, file: ts.SourceFile): string {
     if (ts.isMethodDeclaration(current)) {
       const name = current.name;
       if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) {
-        return "function:" + name.text;
+        return sourceMethodRegion(current, file);
       }
     }
     if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
@@ -380,10 +381,9 @@ function callableSource(file: ts.SourceFile): ReadonlyMap<string, CallableSource
  * declare `var Service = class { static method() {} }` and export the
  * variable later. These are callable bodies, not proof of initialization.
  *
- * Retain an executable region only when the existing source region identity
- * (function:<method>) identifies exactly one declaration in the target
- * module. Otherwise a same-named method of another class could be silently
- * mistaken for the intended target; keep that call unresolved.
+ * Unique source-coordinate method regions distinguish same-named
+ * declarations. Mutated class bindings and duplicate member declarations
+ * remain unresolved rather than being joined through a guessed target.
  */
 function staticClassCallables(file: ts.SourceFile): {
   readonly classNames: ReadonlySet<string>;
@@ -414,16 +414,11 @@ function staticClassCallables(file: ts.SourceFile): {
     }
   }
 
-  const methodRegions = new Map<string, number>();
   const writes = new Set<string>();
   const nameOf = (node: ts.PropertyName | undefined): string | undefined =>
     node && (ts.isIdentifier(node) || ts.isStringLiteralLike(node))
       ? node.text : undefined;
   const visit = (node: ts.Node): void => {
-    if (ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node)) {
-      const name = nameOf(node.name);
-      if (name) methodRegions.set(name, (methodRegions.get(name) ?? 0) + 1);
-    }
     // Exported class expressions declared with var/let can be overwritten.
     // An authored write to the class or its static property is a resolution gap.
     if (ts.isBinaryExpression(node) &&
@@ -459,11 +454,10 @@ function staticClassCallables(file: ts.SourceFile): {
           !hasModifier(member, ts.SyntaxKind.StaticKeyword)) continue;
       const methodName = nameOf(member.name);
       if (!methodName ||
-          methodRegions.get(methodName) !== 1 ||
           declaration.members.filter(item => nameOf(item.name) === methodName).length !== 1)
         continue;
       methods.set(JSON.stringify([name, methodName]), {
-        region: "function:" + methodName,
+        region: sourceMethodRegion(member, file),
         parameters: member.parameters,
         body: member.body,
       });
@@ -1431,7 +1425,7 @@ export function extractScriptClassMapSites(file: ts.SourceFile, owner: SourceRef
             accesses.push({
               source:nodeSource(file,node,owner),
               className:cls.name!.text,
-              executionRegion:"function:"+methodName,
+              executionRegion:sourceMethodRegion(method, file),
               fieldName:field,operation,keyExpression:keyExpr,
               ...(value===undefined?{}:{valueExpression:value.getText(file).slice(0,200)}),
               ...(constructorName===undefined?{}:{constructorName}),

@@ -983,8 +983,8 @@ class Session {
     expect(parsed.localFunctionCalls).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          callerRegion: "function:reset",
-          targetRegion: "function:cleanup",
+          callerRegion: expect.stringMatching(/^function:Session\.reset@/),
+          targetRegion: expect.stringMatching(/^function:Session\.cleanup@/),
           targetName: "cleanup",
         }),
       ]),
@@ -1452,10 +1452,10 @@ const arenas = joins.map((entry, index) => {
       item.executionRegion, item.targetExpression,
       item.operator,item.valueExpression,
     ])).toEqual([
-      ["function:addContribution","player.score","+=","points"],
-      ["function:addContribution",
+      [expect.stringMatching(/^function:GuessGame\.addContribution@/),"player.score","+=","points"],
+      [expect.stringMatching(/^function:GuessGame\.addContribution@/),
         "player.scores_by_difficulty[this.state.difficulty]","+=","points"],
-      ["function:guess","this.state.players[id].score","+=","5"],
+      [expect.stringMatching(/^function:GuessGame\.guess@/),"this.state.players[id].score","+=","5"],
     ]);
     expect(writes[2]?.lexicalGuards?.some(g =>
       g.conditionText === "correct" && g.branch === "true")).toBe(true);
@@ -1489,12 +1489,12 @@ const arenas = joins.map((entry, index) => {
     expect(operations).toHaveLength(2);
     expect(operations[0]).toMatchObject({
       operation:"set",keyExpression:"a.id",valueExpression:"game",
-      constructorName:"Session",executionRegion:"function:boot",
+      constructorName:"Session",executionRegion:expect.stringMatching(/^function:Arena\.boot@/),
     });
     expect(operations[0]?.constructorSource?.range?.lineStart).toBe(6);
     expect(operations[1]).toMatchObject({
       operation:"get",keyExpression:"this.membership(player.id)",
-      executionRegion:"function:use",
+      executionRegion:expect.stringMatching(/^function:Arena\.use@/),
     });
     expect(operations[1]?.constructorName).toBeUndefined();
   });

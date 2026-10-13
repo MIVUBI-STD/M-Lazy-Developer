@@ -81,7 +81,7 @@ import {
 import { inferPersistentStateScopes } from "../domains/persistence/persistent-state-scope.js";
 import { inferPersistentStateLifetimes } from "../domains/persistence/persistent-state-lifetime.js";
 import { deriveBlockCustomComponentRegistrations } from "../domains/automation/block-custom-component-evidence.js";
-import { deriveScriptControlFlow } from "../core/control-flow.js";
+import { deriveScriptControlFlow, sourceMethodRegion } from "../core/control-flow.js";
 import { derivePersistentReconciliationEvidence } from "../domains/persistence/persistent-reconciliation.js";
 
 function scriptKind(path: string): ts.ScriptKind {
@@ -656,7 +656,7 @@ function localExecutionRegionId(
     }
     if (ts.isMethodDeclaration(current)) {
       const name = declarationMemberName(current.name);
-      if (name) return "function:" + name;
+      if (name) return sourceMethodRegion(current, file);
     }
     if (
       ts.isArrowFunction(current) ||
@@ -1650,7 +1650,7 @@ function inferFallbackGuardedOutcomes(
       );
     } else if (ts.isMethodDeclaration(node) && node.body) {
       const name = declarationMemberName(node.name);
-      if (name) scanBody(node.body, "function:" + name);
+      if (name) scanBody(node.body, sourceMethodRegion(node, file));
     }
 
     ts.forEachChild(node, visit);
@@ -2967,9 +2967,9 @@ export function parseScriptFile(
           : [];
         const lexicalGuards = lexicalBranchGuards(node, file, source);
         const precedenceGuards = precedingEarlyExitGuards(node, file, source);
-        localFunctionCalls.push({
+        if (target) localFunctionCalls.push({
           callerRegion: localExecutionRegionId(node, file),
-          targetRegion: "function:" + localMethodTarget,
+          targetRegion: sourceMethodRegion(target, file),
           targetName: localMethodTarget,
           ...(bindings.length ? {argumentParameterBindings:bindings} : {}),
           argumentExpressions:node.arguments.map(arg => arg.getText(file)),

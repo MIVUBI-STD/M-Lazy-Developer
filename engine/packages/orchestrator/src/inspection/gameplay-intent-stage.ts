@@ -15,6 +15,7 @@ import type {
 import type { SourceRef } from "../../../project-model/src/index.js";
 import { semanticIrExecutionTraces, type SemanticIr } from "../../../semantic-ir/src/index.js";
 import { eventRegionId, scriptRegionId } from "../diagnosis/semantic-ir-stage.js";
+import { sourceClassMethodRegion } from "../../../../analyzers/scripts/src/core/control-flow.js";
 import {
   validateGameplayIntentModel,
   type GameplayIntentEdge,
@@ -1540,9 +1541,14 @@ export function buildGameplayIntentModel(
       methodCounts.set(member.member,
         (methodCounts.get(member.member) ?? 0) + 1);
     }
+    const methodRegion = (method: NonNullable<typeof script.sourceClassMethods>[number]): string | undefined =>
+      sourceClassMethodRegion(method.className, method.methodName, method.source);
+    const knownRegions = new Set((script.sourceClassMethods ?? [])
+      .map(methodRegion).filter((region): region is string => region !== undefined));
     const uniqueMethod = (region: string): boolean =>
-      region.startsWith("function:") &&
-      methodCounts.get(region.slice("function:".length)) === 1;
+      knownRegions.has(region) ||
+      (region.startsWith("function:") &&
+       methodCounts.get(region.slice("function:".length)) === 1);
     const linkedContentRegions = new Map<string,string>();
     for (const use of script.authoredContentUses ?? []) {
       if (!use.executionRegion.startsWith("method:") ||
@@ -1550,8 +1556,12 @@ export function buildGameplayIntentModel(
           use.source.relativePath !== path) continue;
       const methodName = use.executionRegion.slice("method:".length).split(".").at(-1);
       if (!methodName) continue;
-      const region = "function:" + methodName;
-      if (!uniqueMethod(region)) continue;
+      const declared = (script.sourceClassMethods ?? []).filter(method =>
+        method.methodName === methodName &&
+        use.executionRegion.includes("method:" + method.className + "."));
+      if (declared.length !== 1) continue;
+      const region = methodRegion(declared[0]!);
+      if (!region || !uniqueMethod(region)) continue;
       const id = "mechanic:source-content-consumer:" +
         encodeURIComponent(script.source.artifactId + ":" +
           path + "#" + use.executionRegion);
@@ -1840,9 +1850,11 @@ export function buildGameplayIntentModel(
           (sourceMethodCounts.get(method.methodName)??0)+1);
       }
       for(const access of accesses){
-        const methodName=access.executionRegion.startsWith("function:")
-          ?access.executionRegion.slice("function:".length):undefined;
-        if(!methodName || sourceMethodCounts.get(methodName)!==1)continue;
+        const method = (script.sourceClassMethods ?? []).filter(m =>
+          m.className === declared.className &&
+          sourceClassMethodRegion(m.className, m.methodName, m.source) === access.executionRegion);
+        if(method.length !== 1 ||
+           sourceMethodCounts.get(method[0]!.methodName) !== 1) continue;
         const nodeId="mechanic:source-method:"+encodeURIComponent(
           script.source.artifactId+":"+script.source.relativePath+"#"+
           access.executionRegion);
@@ -1945,8 +1957,9 @@ export function buildGameplayIntentModel(
       item.className === className && item.methodName === name);
     return matches.length === 1 ? matches[0] : undefined;
   };
-  const methodNames = (script:ParsedScriptFile,name:string) =>
-    (script.sourceClassMethods ?? []).filter(m => m.methodName === name);
+  const methodNames = (script:ParsedScriptFile,region:string) =>
+    (script.sourceClassMethods ?? []).filter(m =>
+      sourceClassMethodRegion(m.className, m.methodName, m.source) === region);
   const keyFor = (script:ParsedScriptFile, cls:string,method:string,index:number) =>
     [script.source.artifactId,script.source.relativePath,cls,method,index].join("\u0000");
   const bindings = new Map<string,BoundReceiver>();
@@ -2030,8 +2043,8 @@ export function buildGameplayIntentModel(
       for (const call of script.localFunctionCalls ?? []) {
         if (!call.callerRegion.startsWith("function:") ||
             !call.targetRegion.startsWith("function:")) continue;
-        const callers=methodNames(script,call.callerRegion.slice(9));
-        const targets=methodNames(script,call.targetRegion.slice(9));
+        const callers=methodNames(script,call.callerRegion);
+        const targets=methodNames(script,call.targetRegion);
         if (callers.length!==1 || targets.length!==1 ||
             callers[0]!.className!==targets[0]!.className) continue;
         const caller=callers[0]!,target=targets[0]!;
@@ -2069,7 +2082,7 @@ export function buildGameplayIntentModel(
     for(const site of script.unresolvedReceiverCalls ?? []){
       if(!/^[A-Za-z_$][\w$]*$/.test(site.receiverExpression) ||
          !site.executionRegion.startsWith("function:"))continue;
-      const owners=methodNames(script,site.executionRegion.slice(9));
+      const owners=methodNames(script,site.executionRegion);
       if(owners.length!==1)continue;
       const owner=owners[0]!;
       const index=owner.parameterNames.indexOf(site.receiverExpression);
@@ -2084,10 +2097,12 @@ export function buildGameplayIntentModel(
         encodeURIComponent(script.source.artifactId+":"+
           script.source.relativePath+"#"+site.executionRegion);
       if(!nodes.has(sourceId))continue;
+      const targetRegion = sourceClassMethodRegion(target.className,
+        target.methodName, target.source);
+      if (!targetRegion) continue;
       const targetId="mechanic:source-method:"+
         encodeURIComponent(receiver.targetScript.source.artifactId+":"+
-          receiver.targetScript.source.relativePath+
-          "#function:"+target.methodName);
+          receiver.targetScript.source.relativePath+"#"+targetRegion);
       const siteId=sourceWitness("source-instance-receiver-call",site.source,
         "Authored call on an exactly forwarded formal parameter; instance origin is a source candidate, not universal runtime identity.");
       const targetIdEvidence=sourceWitness(
@@ -2095,8 +2110,7 @@ export function buildGameplayIntentModel(
         "Uniquely declared source class method; does not prove dynamic invocation.");
       if(!nodes.has(targetId))nodes.set(targetId,{
         id:targetId,kind:"mechanic",
-        label:"function:"+target.methodName+
-          " (source method; gameplay purpose UNKNOWN)",
+        label:targetRegion+" (source method; gameplay purpose UNKNOWN)",
         status:"inferred",evidenceIds:[targetIdEvidence],
       });
       const edgeId="source-instance-candidate:"+

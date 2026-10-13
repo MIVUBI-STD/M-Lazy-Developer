@@ -2,6 +2,44 @@ import ts from "typescript";
 import type { SourceRef, SourceSequentialSite } from "../../../../packages/project-model/src/index.js";
 import type { ScriptControlFlowRegion, ScriptControlFlowNode, ScriptControlFlowEdge } from "./types.js";
 
+
+/**
+ * A class method's authored source identity, not the identity of a live
+ * JavaScript object. Coordinate-qualified names avoid collision between
+ * identically named methods inside a bundled/minified source file.
+ */
+function methodIdentity(cls: string, method: string, line: number, column: number): string {
+  return "function:" + encodeURIComponent(cls) + "." +
+    encodeURIComponent(method) + "@" + line + ":" + column;
+}
+
+export function sourceClassMethodRegion(
+  className: string, methodName: string, source: SourceRef,
+): string | undefined {
+  const r = source.range;
+  return className && methodName && r?.lineStart && r.columnStart
+    ? methodIdentity(className, methodName, r.lineStart, r.columnStart)
+    : undefined;
+}
+
+export function sourceMethodRegion(node: ts.MethodDeclaration, file: ts.SourceFile): string {
+  const name = node.name;
+  const methodName = ts.isIdentifier(name) || ts.isStringLiteralLike(name)
+    ? name.text : undefined;
+  if (!methodName) return "unresolved-method";
+  const cls = node.parent;
+  let owner: string | undefined;
+  if (ts.isClassDeclaration(cls)) {
+    owner = cls.name?.text;
+  } else if (ts.isClassExpression(cls)) {
+    owner = ts.isVariableDeclaration(cls.parent) && ts.isIdentifier(cls.parent.name)
+      ? cls.parent.name.text : cls.name?.text;
+  }
+  if (!owner) return "function:" + methodName;
+  const loc = file.getLineAndCharacterOfPosition(node.getStart(file));
+  return methodIdentity(owner, methodName, loc.line + 1, loc.character + 1);
+}
+
 /**
  * Source-local basic-statement CFG over the SAME AST used by parseScriptFile.
  * Supported: sequential blocks, if/else blocks, return and throw.
@@ -157,7 +195,7 @@ export function deriveScriptControlFlow(
       addRegion(node.name ? "function:" + node.name.text : "anonymous-function", node.body);
     } else if (ts.isMethodDeclaration(node) && node.body && node.name &&
                ts.isIdentifier(node.name)) {
-      addRegion("function:" + node.name.text, node.body);
+      addRegion(sourceMethodRegion(node, file), node.body);
     } else if ((ts.isArrowFunction(node) || ts.isFunctionExpression(node)) &&
                ts.isBlock(node.body)) {
       const start = file.getLineAndCharacterOfPosition(node.getStart(file));

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveCrossFileCallEdges,
 } from "../../src/parser/cross-file-call.js";
+import { parseScriptFile } from "../../src/parser/parse.js";
 
 describe("cross-file call resolution", () => {
   it("resolves named ESM imports across TypeScript .js specifiers", () => {
@@ -338,9 +339,6 @@ describe("cross-file call resolution", () => {
   });
 
 
-});
-
-
   it("reconstructs unique exported static methods from authored class expressions", () => {
     const edges = deriveCrossFileCallEdges([
       { path: "behavior_packs/BP/scripts/chunks/service.js",
@@ -352,10 +350,11 @@ describe("cross-file call resolution", () => {
     ]);
     expect(edges).toEqual([expect.objectContaining({
       localName: "Scheduler.register", targetExport: "Scheduler",
-      targetRegion: "function:register", status: "resolved",
+      status: "resolved",
       targetModule: "behavior_packs/BP/scripts/chunks/service.js",
     })]);
     expect(edges[0]?.source.range?.columnStart).toBeGreaterThan(0);
+    expect(edges[0]?.targetRegion).toMatch(/^function:Scheduler\.register@/);
   });
 
 
@@ -367,12 +366,13 @@ describe("cross-file call resolution", () => {
         text: 'import { Gate } from "./service.js"; Gate.unlock();' },
     ]);
     expect(edges).toEqual([expect.objectContaining({
-      localName: "Gate.unlock", targetRegion: "function:unlock",
+      localName: "Gate.unlock",
       status: "resolved", targetExport: "Gate",
     })]);
+    expect(edges[0]?.targetRegion).toMatch(/^function:Gate\.unlock@/);
   });
 
-  it("retains collisions as unresolved when two classes use the same method region", () => {
+  it("keeps same-name static methods distinct by class and authored location", () => {
     const edges = deriveCrossFileCallEdges([
       { path: "scripts/service.js", source: { artifactId: "map", relativePath: "scripts/service.js" },
         text: 'var A = class { static init() {} }; var B = class { static init() {} }; export { A, B };' },
@@ -380,9 +380,9 @@ describe("cross-file call resolution", () => {
         text: 'import { A } from "./service.js"; A.init();' },
     ]);
     expect(edges).toEqual([expect.objectContaining({
-      localName: "A.init", targetExport: "A", status: "unresolved",
+      localName: "A.init", targetExport: "A", status: "resolved",
     })]);
-    expect(edges[0]?.targetRegion).toBeUndefined();
+    expect(edges[0]?.targetRegion).toMatch(/^function:A\.init@/);
   });
 
   it("does not fabricate a class method for unrelated imported objects or mutated classes", () => {
@@ -420,6 +420,46 @@ describe("cross-file call resolution", () => {
       text: 'import { Gate } from "./service.js"; Gate.open();' };
     expect(deriveCrossFileCallEdges([target, notShadow])).toEqual([]);
   });
+
+  it("keeps the resolver's target region identical to the parser and CFG", () => {
+    const service = {
+      path: "behavior_packs/BP/scripts/service.js",
+      text: 'var A = class { static init() { world.setDynamicProperty("a", 1); } }; var B = class { static init() { world.setDynamicProperty("b", 1); } }; export { A, B };',
+      source: { artifactId: "selected", relativePath: "behavior_packs/BP/scripts/service.js" },
+    };
+    const main = {
+      path: "behavior_packs/BP/scripts/main.js",
+      text: 'import { B } from "./service.js"; B.init();',
+      source: { artifactId: "selected", relativePath: "behavior_packs/BP/scripts/main.js" },
+    };
+    const edges = deriveCrossFileCallEdges([main, service]);
+    const parsed = parseScriptFile(service.path, service.text, service.source);
+    const methodRegions = parsed.controlFlowRegions?.map(item => item.region) ?? [];
+    expect(edges[0]?.status).toBe("resolved");
+    expect(edges[0]?.targetRegion).toMatch(/^function:B\.init@/);
+    expect(methodRegions).toContain(edges[0]!.targetRegion);
+    expect(methodRegions).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^function:A\.init@/),
+      expect.stringMatching(/^function:B\.init@/),
+    ]));
+  });
+
+  it("refuses a class with duplicate identically named members", () => {
+    const edges = deriveCrossFileCallEdges([{
+      path: "scripts/service.js",
+      text: 'var Service = class { static start() {} static start() {} }; export { Service };',
+      source: { artifactId: "map", relativePath: "scripts/service.js" },
+    }, {
+      path: "scripts/main.js",
+      text: 'import { Service } from "./service.js"; Service.start();',
+      source: { artifactId: "map", relativePath: "scripts/main.js" },
+    }]);
+    expect(edges[0]?.status).toBe("unresolved");
+    expect(edges[0]?.targetRegion).toBeUndefined();
+  });
+
+});
+
 describe("exact ESM argument-to-parameter reference evidence", () => {
   const file = (name: string, text: string) => ({
     path: "behavior_packs/example/scripts/" + name, text,
