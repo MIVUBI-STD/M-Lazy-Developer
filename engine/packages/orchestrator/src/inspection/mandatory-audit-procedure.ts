@@ -1220,26 +1220,74 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       .map((preset) => preset.kind + " [" + preset.id + "]"),
   ].sort();
 
+  // Compiling a preset is not the same as evaluating a gameplay dependency.
+  // Verify scoped source components, a concrete causal path, and every
+  // declared knowledge receipt using existing Scenario Graph evidence.
+  // Leave missing evidence unresolved rather than accepting an empty
+  // scenario or a domain-only/generic placeholder as inspected gameplay.
+  const unboundCrossSystemScenarios = crossSystemScenarios
+    .filter((scenario) =>
+      !scenario.componentIds.some((id) =>
+        graph.components.some((component) =>
+          component.id === id && component.evidenceIds.length > 0
+        )
+      ) ||
+      !scenario.causalLinkIds.some((id) =>
+        graph.causalLinks.some((link) =>
+          link.id === id &&
+          link.scenarioId === scenario.id &&
+          link.evidenceIds.length > 0 &&
+          link.fromComponentId !== link.toComponentId &&
+          scenario.componentIds.includes(link.fromComponentId) &&
+          scenario.componentIds.includes(link.toComponentId)
+        )
+      )
+    )
+    .map((scenario) => scenario.id)
+    .sort();
+  const unaccountedCrossSystemKnowledge = crossSystemScenarios
+    .filter((scenario) =>
+      scenario.requiredKnowledgeIds.length === 0 ||
+      scenario.requiredKnowledgeIds.some((id) =>
+        !graph.knowledgeReceipts.some((receipt) =>
+          receipt.scenarioId === scenario.id &&
+          receipt.requirementId === id &&
+          receipt.status === "SATISFIED"
+        )
+      )
+    )
+    .map((scenario) => scenario.id)
+    .sort();
+  const crossSystemCoverageComplete =
+    missingCrossSystemLabels.length === 0 &&
+    unboundCrossSystemScenarios.length === 0 &&
+    unaccountedCrossSystemKnowledge.length === 0;
+
   checkpoint.push(receipt(
     "C9",
     "EVALUATE",
-    "Cross-System Activation",
-    missingCrossSystemLabels.length === 0
-      ? requiredCrossSystemScenarioLabels.size > 0
+    "Cross-System Scenario Coverage",
+    requiredCrossSystemScenarioLabels.size === 0
+      ? discoverySupportsAbsence
+        ? "NOT_APPLICABLE"
+        : "OPEN"
+      : crossSystemCoverageComplete
         ? "CLOSED"
-        : discoverySupportsAbsence
-          ? "NOT_APPLICABLE"
-          : "OPEN"
-      : "OPEN",
+        : "OPEN",
     missingCrossSystemLabels.length > 0
-      ? "Required cross-system scenario families are missing: " +
-        missingCrossSystemLabels.join(", ") +
-        "."
-      : requiredCrossSystemScenarioLabels.size > 0
-        ? "Every required cross-system preset identity is represented in the compiled scenario graph."
-        : discoverySupportsAbsence
-          ? "No high-value cross-system intersection is demanded after complete discovery."
-          : "Cross-system applicability cannot close while discovery is incomplete.",
+      ? "Required cross-system preset identities are missing: " +
+        missingCrossSystemLabels.join(", ") + "."
+      : unboundCrossSystemScenarios.length > 0
+        ? "Cross-system scenarios lack selected-source component or causal-link evidence: " +
+          unboundCrossSystemScenarios.join(", ") + "."
+        : unaccountedCrossSystemKnowledge.length > 0
+          ? "Cross-system scenarios lack satisfied scoped knowledge receipts: " +
+            unaccountedCrossSystemKnowledge.join(", ") + "."
+          : requiredCrossSystemScenarioLabels.size > 0
+            ? "Every required cross-system preset has scoped component/link evidence and satisfied knowledge receipts; PROVE separately determines gameplay conclusions."
+            : discoverySupportsAbsence
+              ? "No high-value cross-system intersection is demanded after complete discovery."
+              : "Cross-system applicability cannot close while discovery is incomplete.",
     crossSystemScenarios.map((item) => item.id),
     ["ActivatedCrossSystemScenarioSet"],
     {
@@ -1248,9 +1296,32 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
           "required-cross-system-scenarios-activated",
           requiredCrossSystemScenarioLabels.size > 0,
           missingCrossSystemLabels.length === 0,
-          "Every materially demanded cross-system intersection must activate its scenario family; one unrelated cross-system scenario cannot satisfy the whole checkpoint.",
-          crossSystemScenarios.map(
-            (item) => item.id,
+          "Every materially demanded cross-system intersection must activate its exact preset identity.",
+          crossSystemScenarios.map((item) => item.id),
+        ),
+        obligation(
+          "cross-system-scenarios-source-bound",
+          requiredCrossSystemScenarioLabels.size > 0,
+          missingCrossSystemLabels.length === 0 &&
+            unboundCrossSystemScenarios.length === 0,
+          "Every required cross-system scenario must bind selected-source components and a scoped evidenced causal link, not only a preset name.",
+          crossSystemScenarios.flatMap((scenario) =>
+            scenario.causalLinkIds.filter((id) =>
+              graph.causalLinks.some((link) =>
+                link.id === id && link.scenarioId === scenario.id &&
+                link.evidenceIds.length > 0
+              )
+            )
+          ),
+        ),
+        obligation(
+          "cross-system-scenarios-knowledge-accounted",
+          requiredCrossSystemScenarioLabels.size > 0,
+          missingCrossSystemLabels.length === 0 &&
+            unaccountedCrossSystemKnowledge.length === 0,
+          "Each required cross-system scenario must have explicit, satisfied knowledge receipts scoped to its declared requirements.",
+          crossSystemScenarios.flatMap((scenario) =>
+            scenario.requiredKnowledgeIds
           ),
         ),
       ],
