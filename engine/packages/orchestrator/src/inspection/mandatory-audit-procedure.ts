@@ -789,20 +789,15 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // layout source is not proof that script and physical layouts agree.
   const arenaLayoutReconciled =
     world.arenas.layoutStatus === "consistent";
+  // FORMALIZE owns source-authored arena count, ownership and lifecycle.
+  // Physical replica parity and concurrency budget remain mandatory at C9.
   const multiArenaFormalizationGaps = [
     ...(!multiArena
       ? ["multi-arena design is demanded but source/topology count is not established"] : []),
-    ...(multiArena && world.arenas.safeConcurrentArenas == null
-      ? ["playable concurrency is unresolved"] : []),
-    ...(multiArena && !arenaLayoutReconciled
-      ? ["script/topology arena layout reconciliation is not established (" +
-          (world.arenas.layoutStatus ?? "unavailable") + ")"] : []),
     ...(multiArena && world.arenas.isolation.unknown > 0
       ? ["arena state ownership remains unknown"] : []),
     ...(multiArena && world.arenas.isolation.partitionProofRequired > 0
       ? ["arena state partitions require ownership proof"] : []),
-    ...(replicaProofIncomplete
-      ? ["replica proof is missing, incomplete, bounded, or does not cover each non-baseline arena exactly once"] : []),
   ];
   checkpoint.push(receipt(
     "B4",
@@ -825,12 +820,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       : multiArenaFormalizationGaps.length > 0
         ? "Multi-arena FORMALIZE is incomplete: " +
           multiArenaFormalizationGaps.join("; ") + "."
-        : world.arenas.count !== undefined &&
-            world.arenas.safeConcurrentArenas !== undefined &&
-            world.arenas.safeConcurrentArenas !== null &&
-            world.arenas.safeConcurrentArenas < world.arenas.count
-          ? "Arena capacity is modeled, but declared visible capacity exceeds source-derived playable concurrency. This is a contract fact, not a proven runtime gameplay defect."
-          : "Arena topology, replica coverage, ownership and concurrency source contracts are accounted; no Minecraft runtime proof is asserted.",
+        : "Authored arena count, ownership and lifecycle contracts are accounted. EVALUATE C9 retains physical layout, replica and concurrency checks; no runtime success is inferred.",
     [
       "analysis:arena-lifecycle",
       "analysis:multiplayer-interleaving",
@@ -844,16 +834,6 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
           multiArena && world.arenas.count !== undefined,
           "A required multi-arena contract needs a grounded visible arena count greater than one.",
           multiArena ? ["world:arena-count"] : [],
-        ),
-        obligation(
-          "arena-concurrency-resolved",
-          multiArenaRequired,
-          world.arenas.safeConcurrentArenas !== undefined &&
-            world.arenas.safeConcurrentArenas !== null,
-          "Multi-arena requires a source-supported playable concurrent capacity.",
-          world.arenas.safeConcurrentArenas == null
-            ? []
-            : ["capacity:safe-concurrency"],
         ),
         obligation(
           "arena-isolation-analyzed",
@@ -874,25 +854,6 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
           ),
           "Multi-arena requires lifecycle/cleanup analysis.",
           ["analysis:arena-lifecycle"],
-        ),
-        obligation(
-          "arena-world-db-replica-proof",
-          multiArenaRequired,
-          multiArena &&
-            !replicaProofIncomplete &&
-            (
-              world.arenas.replicaIntegrity.complete > 0 ||
-              world.arenas.replicaIntegrity.diverged > 0
-            ),
-          "All non-baseline arenas require distinct world/topology replica receipts; bounded/incomplete/no-proof and missing replicas cannot close FORMALIZE.",
-          ["analysis:arena-replica-integrity"],
-        ),
-        obligation(
-          "arena-layout-reconciled",
-          multiArenaRequired,
-          multiArena && arenaLayoutReconciled,
-          "B4 layout reconciliation closes only with consistent script and topology arena evidence; absent, script-only, topology-only, or conflicting layouts remain unproven.",
-          [],
         ),
       ],
     },
@@ -1457,7 +1418,8 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       "multi-arena-parallel",
     );
   }
-  if (multiArena) {
+  // Demand survives a missing or incomplete native arena count.
+  if (multiArenaRequired) {
     requiredCrossSystemScenarioLabels.add(
       "arena-replica-integrity",
     );
@@ -1611,11 +1573,27 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     )
     .map((scenario) => scenario.id)
     .sort();
+  // These are EVALUATE source/world and resource checks, not B4
+  // gameplay-intent claims. PROVE still owns actual in-game delivery.
+  const multiArenaEvaluationGaps = [
+    ...(multiArenaRequired && world.arenas.safeConcurrentArenas == null
+      ? ["multi-arena resource/concurrency capacity is not source-resolved"] : []),
+    ...(multiArenaRequired && !arenaLayoutReconciled
+      ? ["authored versus physical arena layout is unverified (" +
+          (world.arenas.layoutStatus ?? "unavailable") + ")"] : []),
+    ...(multiArenaRequired && (replicaProofIncomplete ||
+      !multiArena ||
+      (world.arenas.replicaIntegrity.complete === 0 &&
+       world.arenas.replicaIntegrity.diverged === 0))
+      ? ["physical arena replica integrity lacks complete source/world proof"] : []),
+  ];
   const crossSystemCoverageComplete =
     missingCrossSystemLabels.length === 0 &&
     unboundCrossSystemScenarios.length === 0 &&
-    unaccountedCrossSystemKnowledge.length === 0;
+    unaccountedCrossSystemKnowledge.length === 0 &&
+    multiArenaEvaluationGaps.length === 0;
   const crossSystemCoverageReasons = [
+    ...multiArenaEvaluationGaps,
     ...(missingCrossSystemLabels.length === 0 ? [] : [
       "Required cross-system preset identities are missing: " +
         missingCrossSystemLabels.join(", ") + ".",
@@ -1682,6 +1660,32 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
               )
               .flatMap((receipt) => receipt.evidenceIds)
           ),
+        ),
+        obligation(
+          "arena-concurrency-resolved",
+          multiArenaRequired,
+          multiArena && world.arenas.safeConcurrentArenas != null,
+          "EVALUATE requires source-modeled resource/concurrency capacity; arithmetic is not live Minecraft delivery.",
+          world.arenas.safeConcurrentArenas == null
+            ? []
+            : ["capacity:safe-concurrency"],
+        ),
+        obligation(
+          "arena-world-db-replica-proof",
+          multiArenaRequired,
+          multiArena &&
+            !replicaProofIncomplete &&
+            (world.arenas.replicaIntegrity.complete > 0 ||
+             world.arenas.replicaIntegrity.diverged > 0),
+          "EVALUATE requires distinct world/topology evidence for each non-baseline arena; incomplete replicas cannot inherit baseline safety.",
+          ["analysis:arena-replica-integrity"],
+        ),
+        obligation(
+          "arena-layout-reconciled",
+          multiArenaRequired,
+          multiArena && arenaLayoutReconciled,
+          "EVALUATE must reconcile the authored and physical arena layouts before replica or concurrency conclusions.",
+          [],
         ),
       ],
     },

@@ -162,6 +162,46 @@ describe("selected-map audit admission", () => {
     }, completed)).toBe(false);
   });
 
+  it("keeps EVALUATE publication blocked after source-only arena formalization closes", () => {
+    const base = procedure([]);
+    const B4 = {
+      ...base.checkpoints[2]!,
+      id: "B4",
+      block: "FORMALIZE" as const,
+      label: "Multi-Arena Contract",
+      status: "CLOSED" as const,
+      blocksPublication: false,
+    };
+    const C9 = {
+      ...base.checkpoints[3]!,
+      id: "C9",
+      block: "EVALUATE" as const,
+      label: "Cross-System Scenario Coverage",
+      status: "OPEN" as const,
+      blocksPublication: true,
+      reasonCode: "OBLIGATION_INCOMPLETE" as const,
+    };
+    const receipt: MandatoryAuditProcedureReceipt = {
+      ...base,
+      checkpoints: [...base.checkpoints, B4, C9],
+      blockingCheckpointIds: ["C9"],
+      status: "OPEN",
+    };
+    const admission = assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: receipt,
+    });
+    expect(admission.status).toBe("BLOCKED");
+    expect(admission.firstBlockingStage).toBe("EVALUATE");
+    expect(canProjectIndependentAuditEvidence(receipt)).toBe(true);
+    expect(canAdmitAuditIssueLanes(admission, receipt)).toBe(false);
+    expect(admission.issues).toEqual([
+      expect.objectContaining({
+        stage: "EVALUATE",
+        code: "PROCEDURE_BLOCKED",
+      }),
+    ]);
+  });
+
   it("never projects evidence without verified TARGET or accounted Discovery", () => {
     expect(canProjectIndependentAuditEvidence(undefined)).toBe(false);
     expect(canProjectIndependentAuditEvidence(procedure(["A1"]))).toBe(false);

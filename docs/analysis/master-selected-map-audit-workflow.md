@@ -498,11 +498,11 @@ Boundary
 Capability Delivery
 ~~~
 
-## 4.1 Full-map / world-DB replica normalization
+## 4.1 Multi-arena source contract and EVALUATE replica handoff
 
 When repeated arenas/regions exist, do not full-audit every arena independently.
 
-Canonical subflow:
+One continuous source-to-world investigation (B4 records authorship and scope; C9 evaluates physical replicas and capacity):
 
 ~~~
 world DB / topology
@@ -538,8 +538,11 @@ DIVERGENCE_REQUIRES_CLASSIFICATION
 → send only grounded material consequence to EVALUATE / PROVE
 
 incomplete / no proof
-→ FORMALIZE remains PARTIAL
+→ EVALUATE C9 remains OPEN; baseline safety cannot be inherited
+→ B4 is OPEN/PARTIAL only if authored count, ownership, or lifecycle is itself unresolved
 ~~~
+
+B4 closure establishes only the source-authored arena contract. It does not certify replica parity, source-modeled concurrency budgets, or playable multi-session delivery. C9 retains the exact replica, layout and capacity obligations; PROVE owns runtime consequences. Whole-map REPORT admission must still block on unresolved C9 evidence.
 
 Never:
 - assume physical arenas are gameplay-equivalent;

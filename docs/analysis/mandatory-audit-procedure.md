@@ -193,7 +193,7 @@ Cross-system participation does not create extra findings. One root cause remain
 
 ## Full-map replica flow
 
-When repeated arenas/regions exist, full-map inspection must not audit each arena as an unrelated map. The canonical FORMALIZE subflow is:
+When repeated arenas/regions exist, full-map inspection must not audit each arena as an unrelated map. The following is one FORMALIZE → EVALUATE investigation, not parallel workflows:
 
 ```text
 world DB / topology
@@ -219,10 +219,11 @@ material divergence
 → continue to causal PROVE
 
 incomplete / no proof
-→ FORMALIZE remains PARTIAL
+→ preserve an EVALUATE C9 replica obligation; do not inherit baseline safety
+→ FORMALIZE stays OPEN/PARTIAL only when authored arena count, state ownership, or lifecycle itself is unresolved
 ```
 
-A physical arena count is not proof of equivalent gameplay. Source/config equivalence is also not enough when world DB/topology differs. Full-map closure requires both replica integrity and runtime/source ownership reasoning.
+**Stage boundary:** FORMALIZE B4 accounts for authored arena count, state ownership and lifecycle contracts. EVALUATE C9 retains physical-versus-authored layout reconciliation, source-modeled concurrency limits and per-replica world/topology comparison. PROVE decides player-visible runtime consequences. Moving these existing obligations never satisfies them or permits whole-audit publication. A physical arena count is not proof of equivalent gameplay. Full-map closure still requires replica integrity and appropriate runtime/source ownership reasoning.
 
 Do not generate one duplicated bug per arena when the same root cause affects all equivalent replicas. Conversely, do not generalize one arena's proof to all replicas when a material delta exists.
 
