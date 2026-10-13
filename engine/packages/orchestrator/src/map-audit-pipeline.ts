@@ -472,18 +472,21 @@ function deriveSelectedMapAuditControl(input: {
   // blocked checkpoints) still blocks publication, not independent analysis.
   const evidenceProjectionAuthorized =
     canProjectIndependentAuditEvidence(input.procedure);
-  const issueLanesAuthorized = canAdmitAuditIssueLanes(
+  // Showing independently proven/confirmation-ready findings is not the
+  // same authority as admitting a complete audit to the proposed issue set.
+  // Per-finding causal and proof checks remain in the projection owners.
+  const proposalAdmissionAuthorized = canAdmitAuditIssueLanes(
     input.admission,
     input.procedure,
   );
-  const provenIssues = issueLanesAuthorized
+  const provenIssues = evidenceProjectionAuthorized
     ? projectReadyAuditIssues(
         input.scenario.graph,
         input.scenario.defectResolution,
         input.capabilityDelivery,
       )
     : [];
-  const needValidationIssues = issueLanesAuthorized
+  const needValidationIssues = evidenceProjectionAuthorized
     ? projectNeedValidationAuditIssues(
         input.scenario.graph,
         input.scenario.defectResolution,
@@ -588,7 +591,9 @@ function deriveSelectedMapAuditControl(input: {
         item.issueType === "DESIGN_MISMATCH",
     ),
   } as const;
-  const candidateGroups = issueLanesAuthorized
+  // Proposal grouping remains gated by the ordered mandatory procedure.
+  // Partial report visibility must never approve publication or repair.
+  const candidateGroups = proposalAdmissionAuthorized
     ? groupReadyAuditIssuesForCandidateCoverage(
         input.scenario.graph,
         issueLanes.BUG.filter(

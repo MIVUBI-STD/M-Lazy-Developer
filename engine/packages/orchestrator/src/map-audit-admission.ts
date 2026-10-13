@@ -74,7 +74,13 @@ export function canProjectIndependentAuditEvidence(
       discovery[0]?.status === "PARTIAL");
 }
 
-/** Issue lanes are proof-stage conclusions, not early discovery hints. */
+/**
+ * Authorizes candidate/proposed issue-set grouping after stage admission.
+ * Independently supported findings may be displayed earlier by the selected
+ * audit pipeline using canProjectIndependentAuditEvidence() and the existing
+ * per-finding PROVE projection gates. This check never controls partial
+ * report visibility or overrides whole-audit publication readiness.
+ */
 export function canAdmitAuditIssueLanes(
   admission: SelectedMapAuditAdmission,
   procedure: MandatoryAuditProcedureReceipt | undefined,
