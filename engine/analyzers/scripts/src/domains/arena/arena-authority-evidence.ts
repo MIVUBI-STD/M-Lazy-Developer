@@ -590,6 +590,8 @@ function staticConstructorCapacity(
         modifier.kind === ts.SyntaxKind.DefaultKeyword
       )) return undefined;
   const cls = scope.parent;
+  // An inherited method may mutate the capacity field out of sight.
+  if (cls.heritageClauses?.length) return undefined;
   const name = cls.name!.text;
   const fields = fieldBindings.filter((binding) =>
     binding.className === name &&
@@ -605,17 +607,34 @@ function staticConstructorCapacity(
   const param = ctor.parameters[binding.parameterIndex];
   if (!param || !ts.isIdentifier(param.name) ||
       param.initializer || param.dotDotDotToken) return undefined;
+  const formalName = param.name.text;
+  let formalReferences = 0;
+  const countFormal = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === formalName) formalReferences++;
+    ts.forEachChild(node, countFormal);
+  };
+  countFormal(ctor);
+  // One declaration and one direct field write; no mutable config alias.
+  if (formalReferences !== 2) return undefined;
 
   // This field can only be set by the exact constructor binding.
   let fieldUseSafe = true;
   const scanClass = (node: ts.Node): void => {
+    if (ts.isElementAccessExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ThisKeyword) {
+      fieldUseSafe = false;
+    }
+    if (node.kind === ts.SyntaxKind.ThisKeyword) {
+      const parent = node.parent;
+      if (ts.isCallExpression(parent) ||
+          ts.isReturnStatement(parent) ||
+          ts.isVariableDeclaration(parent) ||
+          ts.isArrayLiteralExpression(parent) ||
+          ts.isPropertyAssignment(parent)) fieldUseSafe = false;
+    }
     if (ts.isPropertyAccessExpression(node) &&
         node.expression.kind === ts.SyntaxKind.ThisKeyword &&
         node.name.text === fieldName) {
-      if (node.getStart(file) >= (binding.source.range?.lineStart ?? Infinity)) {
-        // Source range identity below is intentionally checked using source
-        // line/column, not only a coincidental lexical name.
-      }
       const site = lineSource(file, node.parent, source).range;
       const assignment = ts.isBinaryExpression(node.parent) &&
         node.parent.left === node &&
@@ -916,8 +935,8 @@ function returnTernaryCapacityEvidence(
         ...conditionChecks(expr.right),
       ];
     }
-    // In a reject-on-true ternary, only a count >= cap (or count > cap)
-    // comparison can prevent over-capacity admission on the false arm.
+    // Reject-on-true requires count >= cap: count > cap admits one
+    // additional player and cannot prove the authored maximum.
     // The generic IfStatement collector supports other directions, but
     // importing them here would invert the meaning of the rejection gate.
     if (

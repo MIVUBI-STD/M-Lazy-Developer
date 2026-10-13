@@ -338,6 +338,21 @@ describe("arena authority evidence", () => {
       const check = parsed.arenaAuthorityPaths?.find((item)=>item.capacityAuthorityProven)?.capacityCheck;
       expect(check?.resolvedCapacityValue).toBeUndefined();
     }
+    const unsafeConstructors = [
+      header.replace("this.definition = definition; this.members = [];",
+        "this.definition = definition; this.other = definition; this.members = [];"),
+      header.replace("this.definition = definition; this.members = [];",
+        "this.definition = definition; Object.assign(this, {definition:{maxPlayers:9}}); this.members = [];"),
+      header.replace("this.definition = definition; this.members = [];",
+        "this.definition = definition; this['definition']={maxPlayers:9}; this.members = [];"),
+      header.replace("class Party {","class Party extends Base {"),
+    ];
+    for(const definition of unsafeConstructors){
+      const parsed = parseScriptFile("constructor-unsafe",
+        definition+"\nconst party = new Party({maxPlayers:5}); party.join('test');",source);
+      const cap = parsed.arenaAuthorityPaths?.find((item)=>item.capacityAuthorityProven)?.capacityCheck;
+      expect(cap?.resolvedCapacityValue).toBeUndefined();
+    }
   });
 
   it("does not prove capacity ownership when a local limit belongs to a different arena object", () => {
