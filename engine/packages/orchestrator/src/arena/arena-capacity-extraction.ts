@@ -231,7 +231,7 @@ export function extractArenaConcurrencyCapacity(
           const bound =
             check.resolvedCapacitySource?.artifactId === check.source.artifactId &&
             check.resolvedCapacitySource.relativePath === check.source.relativePath &&
-            Number.isSafeInteger(check.resolvedCapacityValue) &&
+            Number.isSafeInteger(check.resolvedCapacityValue ?? NaN) &&
             (check.resolvedCapacityValue ?? 0) > 0
               ? check.resolvedCapacityValue : undefined;
           const value = literal ?? bound;

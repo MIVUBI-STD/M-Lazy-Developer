@@ -261,6 +261,22 @@ describe("arena authority evidence", () => {
         "  arena.members.push(player);",
         "}",
       ],
+      [
+        "const config = { max_member: 5 };",
+        "delete config.max_member;",
+        "function join(arena, player) {",
+        "  if (arena.members.length >= config.max_member) return;",
+        "  arena.members.push(player);",
+        "}",
+      ],
+      [
+        "const config = { max_member: 5 };",
+        "[config.max_member] = [9];",
+        "function join(arena, player) {",
+        "  if (arena.members.length >= config.max_member) return;",
+        "  arena.members.push(player);",
+        "}",
+      ],
     ];
     for (const statements of cases) {
       const parsed = parseScriptFile("unproven-config", statements.join("\n"), source);

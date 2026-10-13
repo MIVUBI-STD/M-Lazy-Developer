@@ -511,20 +511,35 @@ function staticModuleCapacity(
                  node.parent.expression === node) {
         const access = node.parent;
         const parent = access.parent;
-        // No mutation, method dispatch, deletion, or escaping object alias.
-        if ((ts.isBinaryExpression(parent) &&
-             parent.left === access &&
-             parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
-             parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment) ||
-            (ts.isPrefixUnaryExpression(parent) &&
-             (parent.operator === ts.SyntaxKind.PlusPlusToken ||
-              parent.operator === ts.SyntaxKind.MinusMinusToken ||
-              parent.operator === ts.SyntaxKind.DeleteKeyword)) ||
-            (ts.isPostfixUnaryExpression(parent) &&
-             (parent.operator === ts.SyntaxKind.PlusPlusToken ||
-              parent.operator === ts.SyntaxKind.MinusMinusToken)) ||
-            (ts.isCallExpression(parent) && parent.expression === access)) {
-          stable = false;
+        // Follow nested assignment targets, including destructuring.
+        // Reading the scalar is fine; writing through any enclosing LHS,
+        // deleting it, or dispatching a method against the object is not.
+        let target: ts.Node = access;
+        while (target.parent && !ts.isExpressionStatement(target.parent)) {
+          const enclosing = target.parent;
+          if ((ts.isBinaryExpression(enclosing) &&
+               enclosing.left === target &&
+               enclosing.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+               enclosing.operatorToken.kind <= ts.SyntaxKind.LastAssignment) ||
+              (ts.isPrefixUnaryExpression(enclosing) &&
+               (enclosing.operator === ts.SyntaxKind.PlusPlusToken ||
+                enclosing.operator === ts.SyntaxKind.MinusMinusToken)) ||
+              (ts.isPostfixUnaryExpression(enclosing) &&
+               (enclosing.operator === ts.SyntaxKind.PlusPlusToken ||
+                enclosing.operator === ts.SyntaxKind.MinusMinusToken)) ||
+              (ts.isDeleteExpression(enclosing) &&
+               enclosing.expression === target) ||
+              (ts.isForOfStatement(enclosing) &&
+               enclosing.initializer === target) ||
+              (ts.isForInStatement(enclosing) &&
+               enclosing.initializer === target) ||
+              (ts.isCallExpression(enclosing) &&
+               enclosing.expression === access)) {
+            stable = false;
+            break;
+          }
+          if (ts.isFunctionLike(enclosing) || ts.isSourceFile(enclosing)) break;
+          target = enclosing;
         }
       } else {
         stable = false;
