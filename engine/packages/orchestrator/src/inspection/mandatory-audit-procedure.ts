@@ -57,6 +57,17 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   } = input;
   const graph = hidden.scenarioAudit.graph;
   const scenarioClosure = hidden.scenarioAudit.closure;
+  // Preset identity is the authority for mandatory scenario activation.
+  // A source-authored scenario may legitimately have the same display label,
+  // but cannot substitute for a missing generated preset or its flow scope.
+  const compiledPresetScenarios =
+    hidden.auditScenarioPreset.scenarios.flatMap((preset) =>
+      graph.scenarios.filter((scenario) =>
+        scenario.id === "preset:" + preset.id &&
+        scenario.label === preset.kind &&
+        scenario.gameplayStage === preset.flowStage
+      )
+    );
   // Source accounting alone cannot prove a gameplay system is not applicable.
   const discoverySupportsAbsence = positiveNotApplicable(discovery, false, false);
   const defectResolution = hidden.scenarioAudit.defectResolution;
@@ -947,9 +958,13 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     },
   ));
 
-  const terminalScenario = graph.scenarios.find(
+  const terminalScenario = compiledPresetScenarios.find(
     (scenario) => scenario.label === "terminal-collision",
   );
+  const terminalPresetRequired =
+    hidden.auditScenarioPreset.scenarios.some(
+      (preset) => preset.kind === "terminal-collision",
+    );
   const competingTerminalIntent =
     intent.nodes.filter((node) => node.kind === "outcome").length > 1;
   checkpoint.push(receipt(
@@ -959,14 +974,17 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     terminalScenario
       ? "CLOSED"
       : discoverySupportsAbsence &&
-          !competingTerminalIntent
+          !competingTerminalIntent &&
+          !terminalPresetRequired
         ? "NOT_APPLICABLE"
         : "OPEN",
     terminalScenario
-      ? "Terminal collision scenario is compiled and routed through causal analysis."
-      : discoverySupportsAbsence
-        ? "No materially competing terminal scenario was activated after complete discovery."
-        : "Terminal-collision applicability cannot close while discovery is incomplete.",
+      ? "The terminal-collision preset is represented by its compiled identity; causal proof remains separate."
+      : terminalPresetRequired
+        ? "The required terminal-collision preset is missing or its compiled identity/flow does not match."
+        : discoverySupportsAbsence
+          ? "No materially competing terminal scenario was activated after complete discovery."
+          : "Terminal-collision applicability cannot close while discovery is incomplete.",
     terminalScenario ? [terminalScenario.id] : [],
     ["TerminalCollisionMatrix"],
   ));
@@ -1015,9 +1033,13 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     },
   ));
 
-  const repeated = graph.scenarios.find(
+  const repeated = compiledPresetScenarios.find(
     (scenario) => scenario.label === "repeated-run",
   );
+  const repeatedPresetRequired =
+    hidden.auditScenarioPreset.scenarios.some(
+      (preset) => preset.kind === "repeated-run",
+    );
   const reuseDemand =
     world.arenas.detected ||
     intent.edges.some(
@@ -1031,21 +1053,25 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     "Second-Run Equivalence",
     repeated
       ? "CLOSED"
-      : discoverySupportsAbsence && !reuseDemand
+      : discoverySupportsAbsence &&
+          !reuseDemand &&
+          !repeatedPresetRequired
         ? "NOT_APPLICABLE"
         : "OPEN",
     repeated
-      ? "Repeated-run scenario is compiled and checked through shared lifecycle dependencies."
-      : discoverySupportsAbsence && !reuseDemand
-        ? "No replay/reuse/reset/recovery surface is present after complete discovery."
-        : "Replay/reuse applicability is unresolved; detected reset/recovery or arena lifecycle requires explicit repeated-run accounting.",
+      ? "The repeated-run preset is represented by its compiled identity; lifecycle proof is assessed by the applicable knowledge obligations."
+      : repeatedPresetRequired
+        ? "The required repeated-run preset is missing or its compiled identity/flow does not match."
+        : discoverySupportsAbsence && !reuseDemand
+          ? "No replay/reuse/reset/recovery surface is present after complete discovery."
+          : "Replay/reuse applicability is unresolved; detected reset/recovery or arena lifecycle requires explicit repeated-run accounting.",
     repeated ? [repeated.id] : [],
     ["SecondRunEquivalenceAssessment"],
     {
       obligations: [
         obligation(
           "repeated-run-scenario",
-          repeated !== undefined,
+          repeatedPresetRequired || reuseDemand,
           repeated !== undefined,
           "Replay/reuse requires a repeated-run scenario.",
           repeated ? [repeated.id] : [],
@@ -1172,26 +1198,27 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     }
   }
 
-  const crossSystemScenarios = graph.scenarios.filter(
-    (scenario) =>
-      requiredCrossSystemScenarioLabels.has(
-        scenario.label,
-      ),
-  );
-  const activatedCrossSystemLabels =
-    new Set(
-      crossSystemScenarios.map(
-        (scenario) => scenario.label,
-      ),
+  const requiredCrossSystemPresets =
+    hidden.auditScenarioPreset.scenarios.filter((preset) =>
+      requiredCrossSystemScenarioLabels.has(preset.kind)
     );
+  const crossSystemScenarios = compiledPresetScenarios.filter(
+    (scenario) => requiredCrossSystemPresets.some(
+      (preset) => scenario.id === "preset:" + preset.id,
+    ),
+  );
+  // A required kind missing from the preset inventory is still a gap;
+  // a declared preset missing from the graph is a separate specific gap.
   const missingCrossSystemLabels = [
-    ...requiredCrossSystemScenarioLabels,
-  ]
-    .filter(
-      (label) =>
-        !activatedCrossSystemLabels.has(label),
-    )
-    .sort();
+    ...[...requiredCrossSystemScenarioLabels].filter((kind) =>
+      !requiredCrossSystemPresets.some((preset) => preset.kind === kind)
+    ),
+    ...requiredCrossSystemPresets
+      .filter((preset) => !crossSystemScenarios.some(
+        (scenario) => scenario.id === "preset:" + preset.id,
+      ))
+      .map((preset) => preset.kind + " [" + preset.id + "]"),
+  ].sort();
 
   checkpoint.push(receipt(
     "C9",
@@ -1209,7 +1236,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         missingCrossSystemLabels.join(", ") +
         "."
       : requiredCrossSystemScenarioLabels.size > 0
-        ? "Every high-value cross-system scenario family demanded by the selected artifact is activated."
+        ? "Every required cross-system preset identity is represented in the compiled scenario graph."
         : discoverySupportsAbsence
           ? "No high-value cross-system intersection is demanded after complete discovery."
           : "Cross-system applicability cannot close while discovery is incomplete.",
