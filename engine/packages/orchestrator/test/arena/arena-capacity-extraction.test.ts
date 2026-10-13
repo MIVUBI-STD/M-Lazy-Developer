@@ -230,14 +230,14 @@ describe("arena concurrency capacity extraction", () => {
       "    this.members.push(player);",
       "  }",
       "}",
-    ].join("\\n"), {
+    ].join("\n"), {
       artifactId: "fixture", relativePath: "scripts/limited.js",
     });
     const unguarded = parseScriptFile("open", [
       "class Open {",
       "  join(player) { this.members.push(player); }",
       "}",
-    ].join("\\n"), {
+    ].join("\n"), {
       artifactId: "fixture", relativePath: "scripts/open.js",
     });
     const result = extractArenaConcurrencyCapacity({
@@ -256,7 +256,7 @@ describe("arena concurrency capacity extraction", () => {
       "  if (arena.members.length >= 5) return;",
       "  arena.members.push(player);",
       "}",
-    ].join("\\n"), {
+    ].join("\n"), {
       artifactId: "fixture", relativePath: "scripts/limited.js",
     });
     const unknown = parseScriptFile("unresolved", [
@@ -266,7 +266,7 @@ describe("arena concurrency capacity extraction", () => {
       "      ? false : (this.members.push(player), true);",
       "  }",
       "}",
-    ].join("\\n"), {
+    ].join("\n"), {
       artifactId: "fixture", relativePath: "scripts/other.js",
     });
     const result = extractArenaConcurrencyCapacity({
@@ -284,7 +284,7 @@ describe("arena concurrency capacity extraction", () => {
         "  if (arena.members.length >= 5) return;",
         "  arena.members.push(player);",
         "}",
-      ].join("\\n"), {
+      ].join("\n"), {
         artifactId: "fixture", relativePath: "scripts/" + name + ".js",
       })
     );
