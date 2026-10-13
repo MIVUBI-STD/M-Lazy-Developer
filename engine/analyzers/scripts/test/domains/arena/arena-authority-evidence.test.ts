@@ -111,6 +111,44 @@ describe("arena authority evidence", () => {
     ]);
   });
 
+
+  it("accepts an inline numeric membership cap only with a same-arena commit", () => {
+    const accepted = parseScriptFile(
+      "literal",
+      [
+        "function join(arena, player) {",
+        "  if (arena.members.length >= 5) return;",
+        "  arena.members.push(player);",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(accepted.arenaAuthorityPaths?.find(
+      (item) => item.arenaExpression === "arena",
+    )).toMatchObject({
+      capacityAuthorityProven: true,
+      capacityCheck: expect.objectContaining({
+        capacityExpression: "5",
+      }),
+    });
+
+    const wrongOwner = parseScriptFile(
+      "other",
+      [
+        "function join(arena, otherArena, player) {",
+        "  if (arena.members.length >= 5) return;",
+        "  otherArena.members.push(player);",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(wrongOwner.arenaAuthorityPaths?.find(
+      (item) => item.arenaExpression === "arena",
+    )).toMatchObject({
+      capacityAuthorityProven: false,
+    });
+  });
+
   it("does not prove capacity ownership when a local limit belongs to a different arena object", () => {
     const parsed = parseScriptFile(
       "arena",

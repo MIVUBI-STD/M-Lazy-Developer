@@ -1392,12 +1392,20 @@ export function correlateScriptArenaAuthorityPaths(
       const directCapacityExpression =
         capacityExpression !== undefined &&
         capacityExpression.includes(".");
+      // A positive integer literal is already a source-scoped capacity
+      // limit when the same lexical path contains the membership commit.
+      // Do not require a separate capacity operand for an inline ">= 5"
+      // check; the upstream extractor still rejects zero/noninteger caps.
+      const numericCapacityLiteral =
+        capacityExpression !== undefined &&
+        /^(?:0|[1-9]\d*)$/.test(capacityExpression);
       const localCapacityExpression =
         capacityExpression !== undefined &&
         /^[A-Za-z_$][\w$]*$/.test(
           capacityExpression,
         );
       const capacityMatchesOperand =
+        numericCapacityLiteral ||
         directCapacityExpression ||
         (
           localCapacityExpression &&
