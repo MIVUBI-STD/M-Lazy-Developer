@@ -156,6 +156,39 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.report?.safeConcurrentArenas).toBeNull();
   });
 
+  it("does not convert a guarded but unresolved config property into numeric capacity", () => {
+    const script = {
+      arenaAuthorityPaths: [{
+        arenaExpression: "this",
+        executionRegion: "method:join",
+        capacityAuthorityProven: true,
+        startAuthorityProven: false,
+        startGuardProven: false,
+        capacityCheck: {
+          kind: "capacity-check",
+          arenaExpression: "this",
+          membershipExpression: "this.members",
+          capacityExpression: "this.definition.maxPlayers",
+          executionRegion: "method:join",
+          source: {
+            artifactId: "fixture",
+            relativePath: "scripts/compiled.js",
+          },
+        },
+      }],
+      propertyAccesses: [],
+      methodCalls: [],
+      moduleMemberAccesses: [],
+    } as unknown as ParsedScriptFile;
+
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [],
+      scripts: [script],
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(result.evidence.perArenaPlayerCapacitySources).toBeUndefined();
+  });
+
   it("reports a shortfall when runtime admission caps six arenas at two", () => {
     const offsets = Array.from(
       { length: 5 },

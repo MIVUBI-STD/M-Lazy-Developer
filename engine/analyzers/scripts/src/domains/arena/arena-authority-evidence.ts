@@ -454,13 +454,11 @@ function capacityExpression(
   return undefined;
 }
 
-function capacityCheckEvidence(
-  node: ts.Node,
+function capacityComparisonEvidence(
+  condition: ts.Expression,
   file: ts.SourceFile,
   source: SourceRef,
 ): ScriptArenaAuthorityEvidence | undefined {
-  if (!ts.isIfStatement(node)) return undefined;
-  const condition = node.expression;
   if (!ts.isBinaryExpression(condition)) {
     return undefined;
   }
@@ -503,8 +501,11 @@ function capacityCheckEvidence(
 
   if (
     capacity.arenaExpression !== undefined &&
+    capacity.arenaExpression !== membership.arenaExpression &&
+    // this.definition.maxPlayers is an object-owned configuration path;
+    // a different receiver remains unrelated until separately proven.
     capacity.arenaExpression !==
-      membership.arenaExpression
+      membership.arenaExpression + ".definition"
   ) {
     return undefined;
   }
@@ -525,6 +526,125 @@ function capacityCheckEvidence(
       source,
     ),
   };
+}
+
+function capacityCheckEvidence(
+  node: ts.Node,
+  file: ts.SourceFile,
+  source: SourceRef,
+): ScriptArenaAuthorityEvidence | undefined {
+  if (!ts.isIfStatement(node)) return undefined;
+  return capacityComparisonEvidence(node.expression, file, source);
+}
+
+/**
+ * Conservative return-ternary join contract:
+ * return (otherRejections || members.length >= cap) ? false
+ *   : (members.push(player), true)
+ *
+ * A comparison in an arbitrary expression is not enough. Membership
+ * must be committed directly on the successful (false) branch of the
+ * same returned conditional, not a nested/independent call or opposite
+ * branch. Only OR-chains can establish that all rejection guards are
+ * false before the successful branch is selected.
+ */
+function returnTernaryCapacityEvidence(
+  node: ts.Node,
+  file: ts.SourceFile,
+  source: SourceRef,
+): readonly ScriptArenaAuthorityEvidence[] {
+  if (!ts.isConditionalExpression(node)) return [];
+  let expression: ts.Node = node;
+  while (
+    expression.parent !== undefined &&
+    ts.isParenthesizedExpression(expression.parent)
+  ) expression = expression.parent;
+  if (!ts.isReturnStatement(expression.parent)) return [];
+
+  const unwrap = (value: ts.Expression): ts.Expression =>
+    ts.isParenthesizedExpression(value)
+      ? unwrap(value.expression)
+      : value;
+  const rejection = unwrap(node.whenTrue);
+  const definitelyFalse =
+    rejection.kind === ts.SyntaxKind.FalseKeyword ||
+    (
+      ts.isPrefixUnaryExpression(rejection) &&
+      rejection.operator === ts.SyntaxKind.ExclamationToken &&
+      ts.isNumericLiteral(rejection.operand) &&
+      rejection.operand.text === "1"
+    );
+  if (!definitelyFalse) return [];
+
+  const conditionChecks = (value: ts.Expression):
+    ScriptArenaAuthorityEvidence[] => {
+    const expr = unwrap(value);
+    if (
+      ts.isBinaryExpression(expr) &&
+      expr.operatorToken.kind === ts.SyntaxKind.BarBarToken
+    ) {
+      return [
+        ...conditionChecks(expr.left),
+        ...conditionChecks(expr.right),
+      ];
+    }
+    // In a reject-on-true ternary, only a count >= cap (or count > cap)
+    // comparison can prevent over-capacity admission on the false arm.
+    // The generic IfStatement collector supports other directions, but
+    // importing them here would invert the meaning of the rejection gate.
+    if (
+      !ts.isBinaryExpression(expr) ||
+      ![
+        ts.SyntaxKind.GreaterThanEqualsToken,
+        ts.SyntaxKind.GreaterThanToken,
+      ].includes(expr.operatorToken.kind) ||
+      membershipCount(expr.left, file) === undefined
+    ) return [];
+    const check = capacityComparisonEvidence(expr, file, source);
+    return check === undefined ? [] : [check];
+  };
+  const checks = conditionChecks(node.condition);
+  if (checks.length === 0) return [];
+
+  const committed = (value: ts.Expression):
+    ScriptArenaAuthorityEvidence[] => {
+    const expr = unwrap(value);
+    if (
+      ts.isBinaryExpression(expr) &&
+      expr.operatorToken.kind === ts.SyntaxKind.CommaToken
+    ) {
+      return [
+        ...committed(expr.left),
+        ...committed(expr.right),
+      ];
+    }
+    if (
+      !ts.isCallExpression(expr) ||
+      !ts.isPropertyAccessExpression(expr.expression) ||
+      !["push", "add", "set"].includes(expr.expression.name.text)
+    ) return [];
+    const membership = membershipCollection(expr.expression.expression);
+    const subject = expr.arguments[0];
+    if (membership === undefined || subject === undefined) return [];
+    return [{
+      kind: "membership-commit",
+      arenaExpression: membership.arenaExpression,
+      membershipExpression: membership.membershipExpression,
+      subjectExpression: subject.getText(file),
+      executionRegion: localExecutionRegionId(node, file),
+      source: lineSource(file, expr, source),
+    }];
+  };
+  const commits = committed(node.whenFalse);
+  // Emit only a matched comparison and commit for exactly the same arena
+  // membership collection. Never merge two different session owners.
+  const supported = checks.flatMap((check) =>
+    commits.filter((commit) =>
+      commit.arenaExpression === check.arenaExpression &&
+      commit.membershipExpression === check.membershipExpression
+    ).flatMap((commit) => [check, commit])
+  );
+  return supported;
 }
 
 function startOwnerEvidence(
@@ -1274,6 +1394,7 @@ export function deriveScriptArenaAuthorityEvidence(
       source,
     );
     if (capacity) output.push(capacity);
+    output.push(...returnTernaryCapacityEvidence(node, file, source));
 
     const ownerGuard = startOwnerGuardEvidence(
       node,

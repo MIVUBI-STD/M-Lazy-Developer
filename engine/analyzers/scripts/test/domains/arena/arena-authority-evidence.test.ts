@@ -172,6 +172,123 @@ describe("arena authority evidence", () => {
     });
   });
 
+
+  it("links a return-ternary rejection guard only to its successful membership commit", () => {
+    const parsed = parseScriptFile(
+      "minified-party",
+      [
+        "class Party {",
+        "  join(player) {",
+        "    return !['waiting','countdown'].includes(this.phase) ||",
+        "      this.members.length >= this.definition.maxPlayers ||",
+        "      this.members.includes(player)",
+        "      ? !1 : (this.members.push(player), this.ready.delete(player), !0);",
+        "  }",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(parsed.arenaAuthorityPaths?.find(
+      (path) => path.arenaExpression === "this" &&
+        path.capacityCheck?.capacityExpression ===
+          "this.definition.maxPlayers",
+    )).toMatchObject({
+      capacityAuthorityProven: true,
+      capacityCheck: expect.objectContaining({
+        membershipExpression: "this.members",
+      }),
+      membershipCommit: expect.objectContaining({
+        membershipExpression: "this.members",
+      }),
+    });
+  });
+
+  it("does not confuse a wrong-owner or wrong-polarity ternary with enforced membership capacity", () => {
+    const wrongOwner = parseScriptFile(
+      "other",
+      [
+        "class Party {",
+        "  join(player, other) {",
+        "    return this.members.length >= this.definition.maxPlayers",
+        "      ? false : (other.members.push(player), true);",
+        "  }",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(wrongOwner.arenaAuthorityPaths?.some(
+      (path) => path.capacityAuthorityProven,
+    )).toBe(false);
+
+    const wrongPolarity = parseScriptFile(
+      "reversed",
+      [
+        "class Party {",
+        "  join(player) {",
+        "    return this.members.length >= this.definition.maxPlayers",
+        "      ? (this.members.push(player), true) : false;",
+        "  }",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(wrongPolarity.arenaAuthorityPaths?.some(
+      (path) => path.capacityAuthorityProven,
+    )).toBe(false);
+
+    const wrongConfig = parseScriptFile(
+      "different-config",
+      [
+        "class Party {",
+        "  join(player, other) {",
+        "    return this.members.length >= other.definition.maxPlayers",
+        "      ? false : (this.members.push(player), true);",
+        "  }",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(wrongConfig.arenaAuthorityPaths?.some(
+      (path) => path.capacityAuthorityProven,
+    )).toBe(false);
+  });
+
+  it("rejects an inverted capacity comparison even with the correct membership owner", () => {
+    const parsed = parseScriptFile(
+      "reversed-limit",
+      [
+        "class Party {",
+        "  join(player) {",
+        "    return this.members.length < this.definition.maxPlayers",
+        "      ? false : (this.members.push(player), true);",
+        "  }",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(parsed.arenaAuthorityPaths?.some(
+      (path) => path.capacityAuthorityProven,
+    )).toBe(false);
+  });
+
+  it("does not credit AND-guard fallthrough as capacity enforcement", () => {
+    const parsed = parseScriptFile(
+      "and-fallthrough",
+      [
+        "class Party {",
+        "  join(player, disabled) {",
+        "    return this.members.length >= this.definition.maxPlayers && disabled",
+        "      ? false : (this.members.push(player), true);",
+        "  }",
+        "}",
+      ].join("\n"),
+      source,
+    );
+    expect(parsed.arenaAuthorityPaths?.some(
+      (path) => path.capacityAuthorityProven,
+    )).toBe(false);
+  });
+
   it("proves start ownership only when owner acquisition and start-state commit share the same arena path", () => {
     const parsed = parseScriptFile(
       "arena",
