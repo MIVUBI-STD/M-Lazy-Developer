@@ -375,6 +375,103 @@ function callableSource(file: ts.SourceFile): ReadonlyMap<string, CallableSource
     .map(([name, versions]) => [name, versions[0]!]));
 }
 
+/**
+ * Source-only imported class member ownership. Compiled Bedrock chunks often
+ * declare `var Service = class { static method() {} }` and export the
+ * variable later. These are callable bodies, not proof of initialization.
+ *
+ * Retain an executable region only when the existing source region identity
+ * (function:<method>) identifies exactly one declaration in the target
+ * module. Otherwise a same-named method of another class could be silently
+ * mistaken for the intended target; keep that call unresolved.
+ */
+function staticClassCallables(file: ts.SourceFile): {
+  readonly classNames: ReadonlySet<string>;
+  readonly methods: ReadonlyMap<string, CallableSource>;
+} {
+  const classDeclarations = new Map<string, ts.ClassLikeDeclaration[]>();
+  const symbolDeclarations = new Map<string, number>();
+  const addSymbol = (name: string): void =>
+    symbolDeclarations.set(name, (symbolDeclarations.get(name) ?? 0) + 1);
+  const addClass = (name: string, declaration: ts.ClassLikeDeclaration): void =>
+    classDeclarations.set(name, [...(classDeclarations.get(name) ?? []), declaration]);
+  for (const statement of file.statements) {
+    if (ts.isClassDeclaration(statement) && statement.name) {
+      addSymbol(statement.name.text);
+      addClass(statement.name.text, statement);
+    }
+    if (ts.isFunctionDeclaration(statement) && statement.name) {
+      addSymbol(statement.name.text);
+    }
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name)) continue;
+        addSymbol(declaration.name.text);
+        if (declaration.initializer && ts.isClassExpression(declaration.initializer)) {
+          addClass(declaration.name.text, declaration.initializer);
+        }
+      }
+    }
+  }
+
+  const methodRegions = new Map<string, number>();
+  const writes = new Set<string>();
+  const nameOf = (node: ts.PropertyName | undefined): string | undefined =>
+    node && (ts.isIdentifier(node) || ts.isStringLiteralLike(node))
+      ? node.text : undefined;
+  const visit = (node: ts.Node): void => {
+    if (ts.isMethodDeclaration(node) || ts.isFunctionDeclaration(node)) {
+      const name = nameOf(node.name);
+      if (name) methodRegions.set(name, (methodRegions.get(name) ?? 0) + 1);
+    }
+    // Exported class expressions declared with var/let can be overwritten.
+    // An authored write to the class or its static property is a resolution gap.
+    if (ts.isBinaryExpression(node) &&
+        node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+        node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+      const left = node.left;
+      if (ts.isIdentifier(left)) writes.add(left.text);
+      if ((ts.isPropertyAccessExpression(left) || ts.isElementAccessExpression(left)) &&
+          ts.isIdentifier(left.expression)) writes.add(left.expression.text);
+    }
+    if (ts.isDeleteExpression(node) &&
+        (ts.isPropertyAccessExpression(node.expression) ||
+         ts.isElementAccessExpression(node.expression)) &&
+        ts.isIdentifier(node.expression.expression)) {
+      writes.add(node.expression.expression.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+
+  const classes = new Set<string>();
+  const methods = new Map<string, CallableSource>();
+  for (const [name, declarations] of classDeclarations) {
+    if (declarations.length !== 1 || symbolDeclarations.get(name) !== 1)
+      continue;
+    classes.add(name);
+    // The class syntax is still known; mutation invalidates only executable
+    // target certainty, not the existence of the authored member call.
+    if (writes.has(name)) continue;
+    const declaration = declarations[0]!;
+    for (const member of declaration.members) {
+      if (!ts.isMethodDeclaration(member) || !member.body ||
+          !hasModifier(member, ts.SyntaxKind.StaticKeyword)) continue;
+      const methodName = nameOf(member.name);
+      if (!methodName ||
+          methodRegions.get(methodName) !== 1 ||
+          declaration.members.filter(item => nameOf(item.name) === methodName).length !== 1)
+        continue;
+      methods.set(JSON.stringify([name, methodName]), {
+        region: "function:" + methodName,
+        parameters: member.parameters,
+        body: member.body,
+      });
+    }
+  }
+  return { classNames: classes, methods };
+}
+
 function enclosingCallable(node: ts.Node): CallableSource | undefined {
   let parent: ts.Node | undefined = node.parent;
   while (parent) {
@@ -681,6 +778,7 @@ export function deriveCrossFileCallEdges(
   const exportsByModule =
     new Map<string, ParsedModuleExports>();
   const callableByModule = new Map<string, ReadonlyMap<string, CallableSource>>();
+  const classCallablesByModule = new Map<string, ReturnType<typeof staticClassCallables>>();
 
   for (const [path, module] of normalizedModules) {
     const file = ts.createSourceFile(
@@ -693,6 +791,7 @@ export function deriveCrossFileCallEdges(
     parsedFiles.set(path, file);
     exportsByModule.set(path, moduleExports(file));
     callableByModule.set(path, callableSource(file));
+    classCallablesByModule.set(path, staticClassCallables(file));
   }
 
   const output: CrossFileCallEdge[] = [];
@@ -779,6 +878,7 @@ export function deriveCrossFileCallEdges(
         importedName: string;
         localName: string;
       },
+      staticMethodName?: string,
     ): void => {
       const importedModule = resolveRelative(
         modulePath,
@@ -800,7 +900,10 @@ export function deriveCrossFileCallEdges(
         targetSource.artifactId === module.source.artifactId &&
         packScope(modulePath) === packScope(target!.modulePath);
       const targetCallable = sameOwner && target
-        ? callableByModule.get(target.modulePath)?.get(target.exportName)
+        ? staticMethodName === undefined
+          ? callableByModule.get(target.modulePath)?.get(target.exportName)
+          : classCallablesByModule.get(target.modulePath)?.methods.get(
+              JSON.stringify([target.exportName, staticMethodName]))
         : undefined;
       const targetRegion = targetCallable?.region;
       const targetFile = target === undefined
@@ -865,6 +968,29 @@ export function deriveCrossFileCallEdges(
                 "." +
                 node.expression.name.text,
             });
+          } else {
+            const imported = directImports.get(namespace);
+            if (imported && !isShadowed(node.expression.expression)) {
+              const importedModule = resolveRelative(
+                modulePath, imported.moduleSpecifier, known);
+              const target = importedModule === undefined ? undefined
+                : resolveExportTarget(
+                    importedModule, imported.importedName, exportsByModule, known);
+              // A member call on an imported function/object is not
+              // evidence of a class static method.
+              const targetModule = target === undefined
+                ? undefined : normalizedModules.get(target.modulePath);
+              if (target && targetModule &&
+                  targetModule.source.artifactId === module.source.artifactId &&
+                  packScope(target.modulePath) === packScope(modulePath) &&
+                  classCallablesByModule.get(target.modulePath)?.classNames.has(
+                    target.exportName)) {
+                appendEdge(node, {
+                  ...imported,
+                  localName: namespace + "." + node.expression.name.text,
+                }, node.expression.name.text);
+              }
+            }
           }
         }
       }

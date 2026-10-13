@@ -340,6 +340,86 @@ describe("cross-file call resolution", () => {
 
 });
 
+
+  it("reconstructs unique exported static methods from authored class expressions", () => {
+    const edges = deriveCrossFileCallEdges([
+      { path: "behavior_packs/BP/scripts/chunks/service.js",
+        source: { artifactId: "current-map", relativePath: "behavior_packs/BP/scripts/chunks/service.js" },
+        text: "var Scheduler = class { static register(name) { return name; } }; export { Scheduler };" },
+      { path: "behavior_packs/BP/scripts/main.js",
+        source: { artifactId: "current-map", relativePath: "behavior_packs/BP/scripts/main.js" },
+        text: 'import { Scheduler } from "./chunks/service.js"; Scheduler.register("flush");' },
+    ]);
+    expect(edges).toEqual([expect.objectContaining({
+      localName: "Scheduler.register", targetExport: "Scheduler",
+      targetRegion: "function:register", status: "resolved",
+      targetModule: "behavior_packs/BP/scripts/chunks/service.js",
+    })]);
+    expect(edges[0]?.source.range?.columnStart).toBeGreaterThan(0);
+  });
+
+
+  it("handles a direct exported class without requiring a bundler wrapper", () => {
+    const edges = deriveCrossFileCallEdges([
+      { path: "scripts/service.js", source: { artifactId: "map", relativePath: "scripts/service.js" },
+        text: 'export class Gate { static unlock() {} }' },
+      { path: "scripts/main.js", source: { artifactId: "map", relativePath: "scripts/main.js" },
+        text: 'import { Gate } from "./service.js"; Gate.unlock();' },
+    ]);
+    expect(edges).toEqual([expect.objectContaining({
+      localName: "Gate.unlock", targetRegion: "function:unlock",
+      status: "resolved", targetExport: "Gate",
+    })]);
+  });
+
+  it("retains collisions as unresolved when two classes use the same method region", () => {
+    const edges = deriveCrossFileCallEdges([
+      { path: "scripts/service.js", source: { artifactId: "map", relativePath: "scripts/service.js" },
+        text: 'var A = class { static init() {} }; var B = class { static init() {} }; export { A, B };' },
+      { path: "scripts/main.js", source: { artifactId: "map", relativePath: "scripts/main.js" },
+        text: 'import { A } from "./service.js"; A.init();' },
+    ]);
+    expect(edges).toEqual([expect.objectContaining({
+      localName: "A.init", targetExport: "A", status: "unresolved",
+    })]);
+    expect(edges[0]?.targetRegion).toBeUndefined();
+  });
+
+  it("does not fabricate a class method for unrelated imported objects or mutated classes", () => {
+    const service = (text: string) => ({
+      path: "scripts/service.js", source: { artifactId: "map", relativePath: "scripts/service.js" }, text,
+    });
+    const main = (text: string) => ({
+      path: "scripts/main.js", source: { artifactId: "map", relativePath: "scripts/main.js" }, text,
+    });
+    expect(deriveCrossFileCallEdges([
+      service('export const Settings = { load() {} };'),
+      main('import { Settings } from "./service.js"; Settings.load();'),
+    ])).toEqual([]);
+    const mutated = deriveCrossFileCallEdges([
+      service('var Service = class { static start() {} }; Service.start = override; export { Service };'),
+      main('import { Service } from "./service.js"; Service.start();'),
+    ]);
+    expect(mutated).toEqual([expect.objectContaining({
+      localName: "Service.start", status: "unresolved",
+    })]);
+    expect(mutated[0]?.targetRegion).toBeUndefined();
+  });
+
+  it("does not resolve a same-name shadow or cross-artifact static method", () => {
+    const target = {
+      path: "scripts/service.js", source: { artifactId: "other-map", relativePath: "scripts/service.js" },
+      text: 'export class Gate { static open() {} }',
+    };
+    const shadow = {
+      path: "scripts/main.js", source: { artifactId: "map", relativePath: "scripts/main.js" },
+      text: 'import { Gate } from "./service.js"; function use(Gate) { Gate.open(); }',
+    };
+    expect(deriveCrossFileCallEdges([target, shadow])).toEqual([]);
+    const notShadow = { ...shadow,
+      text: 'import { Gate } from "./service.js"; Gate.open();' };
+    expect(deriveCrossFileCallEdges([target, notShadow])).toEqual([]);
+  });
 describe("exact ESM argument-to-parameter reference evidence", () => {
   const file = (name: string, text: string) => ({
     path: "behavior_packs/example/scripts/" + name, text,
