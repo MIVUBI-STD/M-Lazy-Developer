@@ -196,6 +196,24 @@ describe("arena concurrency capacity extraction", () => {
       item.relativePath==="scripts/main.js")).toBe(true);
   });
 
+  it("retains all equal constructor source declarations without borrowing inconsistent instances", () => {
+    const script = parseScriptFile("two-literal-instances", [
+      "class Party {",
+      "  constructor(definition) { this.definition = definition; this.members = []; }",
+      "  join(player) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(player), true); }",
+      "}",
+      "const alpha = new Party({maxPlayers:5});",
+      "const beta = new Party({maxPlayers:5});",
+      "alpha.join('one'); beta.join('two');",
+    ].join("\n"), { artifactId: "fixture", relativePath: "scripts/main.js" });
+    const result=extractArenaConcurrencyCapacity({tickingAreas:[],scripts:[script]});
+    expect(result.evidence.perArenaPlayerCapacity).toBe(5);
+    const evidence=result.evidence.perArenaPlayerCapacitySources ?? [];
+    expect(evidence).toHaveLength(6);
+    expect(evidence.map(item=>item.range?.lineStart)).toEqual([3,6,2,6,7,7]);
+  });
+
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {
     const script = {
       arenaAuthorityPaths: [{

@@ -756,7 +756,12 @@ function staticConstructorCapacity(
   return {
     value:first.value,
     source:first.source,
-    witnesses:[binding.source,...instances.map((item)=>item.call)],
+    witnesses: [
+      binding.source,
+      ...instances.flatMap((item, index) =>
+        index === 0 ? [item.call] : [item.source, item.call]
+      ),
+    ],
   };
 }
 
