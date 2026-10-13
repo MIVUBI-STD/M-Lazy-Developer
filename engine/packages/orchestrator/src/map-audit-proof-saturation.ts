@@ -2,8 +2,9 @@ import {
   classifyGameplayIssue,
   type GameplayIssueFailureDomain,
 } from "../../diagnostic-reasoning/src/index.js";
-import type {
-  GameplayDefectResolution,
+import {
+  blockingCounterProofFor,
+  type GameplayDefectResolution,
 } from "./inspection/gameplay-defect-resolution.js";
 import type {
   GameplayScenarioGraph,
@@ -331,11 +332,17 @@ export function assessReadyResolutionSaturation(
 
   const counterProofIds =
     resolution.counterProofSearch?.evidenceIds ?? [];
+  // The same source graph must agree with the supplied no-blocking
+  // conclusion. A proof receipt must not override a later/independent
+  // exact-target exclusion still present in the canonical Scenario Graph.
+  const graphBlockingProofIds =
+    link === undefined ? [] : blockingCounterProofFor(graph, link);
   const counterProofCleared =
     resolution.counterProofSearch?.conclusion ===
       "NO_BLOCKING_PROOF" &&
     resolution.counterProofSearch
-      .exhaustiveWithinScope === true;
+      .exhaustiveWithinScope === true &&
+    graphBlockingProofIds.length === 0;
 
   const universalCriteria:
     AuditProofSaturationCriterion[] = [

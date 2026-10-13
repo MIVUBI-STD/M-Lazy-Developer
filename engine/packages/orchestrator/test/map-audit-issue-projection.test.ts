@@ -3,6 +3,9 @@ import {
   projectReadyAuditIssues,
 } from "../src/map-audit-issue-projection.js";
 import {
+  assessGameplayDefectResolutionGate,
+} from "../src/inspection/gameplay-defect-resolution.js";
+import {
   projectAllNeedValidationAuditIssues,
 } from "../src/map-audit-validation-projection.js";
 import {
@@ -271,6 +274,108 @@ const gate: GameplayDefectResolutionGate = {
   counterProofSearchRequiredIds: [],
   issues: [],
 };
+
+describe("EVALUATE to PROVE to issue projection", () => {
+  const baseGraph: GameplayScenarioGraph = {
+    ...graph,
+    scenarios: [graph.scenarios[0]!],
+    causalLinks: [graph.causalLinks[0]!],
+  };
+  const submitted = {
+    ...gate.resolutions[0]!,
+    counterProofSearch: {
+      ...gate.resolutions[0]!.counterProofSearch!,
+      searchedDimensions: [
+        "owner", "guard", "generation", "scope", "cleanup", "exclusion",
+      ] as const,
+      dimensionReceipts: [
+        "owner", "guard", "generation", "scope", "cleanup", "exclusion",
+      ].map((dimension) => ({
+        dimension: dimension as
+          "owner" | "guard" | "generation" | "scope" | "cleanup" | "exclusion",
+        scopeIds: ["runtime:arena", "policy:arena"],
+        evidenceIds: ["world:arena-count", "capacity:safe-concurrency"],
+        exhaustiveWithinScope: true,
+      })),
+    },
+  };
+
+  it("preserves a grounded source contradiction through the actual PROVE gate into PROVEN output", () => {
+    const proof = assessGameplayDefectResolutionGate(baseGraph, [submitted]);
+    expect(proof.status).toBe("READY_FOR_PROPOSED_BUG_SET");
+    expect(proof.confirmedDefectReadyIds).toEqual(["link:capacity"]);
+    const output = projectReadyAuditIssues(baseGraph, proof);
+    expect(output).toHaveLength(1);
+    expect(output[0]).toMatchObject({
+      status: "PROVEN",
+      causalLinkId: "link:capacity",
+      scenarioId: "scenario:capacity",
+      expectedOutcome: "All visible arena capacity is playable.",
+      actualOutcome: "Only two arenas can run concurrently.",
+    });
+  });
+
+  it("rejects a false positive when a graph-owned exact-target guard blocks the contradiction", () => {
+    const excluded: GameplayScenarioGraph = {
+      ...baseGraph,
+      causalLinks: [
+        ...baseGraph.causalLinks,
+        {
+          ...baseGraph.causalLinks[0]!,
+          id: "link:capacity-exclusion",
+          intentEdgeKind: "excludes",
+          status: "PROVEN",
+          evidenceIds: ["source:exact-admission-guard"],
+        },
+      ],
+    };
+    const proof = assessGameplayDefectResolutionGate(excluded, [submitted]);
+    expect(proof.status).toBe("BLOCKED");
+    expect(proof.confirmedDefectReadyIds).toEqual([]);
+    expect(proof.blockingCounterProofIds).toEqual(["link:capacity"]);
+    expect(projectReadyAuditIssues(excluded, proof)).toEqual([]);
+  });
+
+  it("does not let a stale confirmation bypass a new exact-target guard at issue projection", () => {
+    const proof = assessGameplayDefectResolutionGate(baseGraph, [submitted]);
+    expect(projectReadyAuditIssues(baseGraph, proof)).toHaveLength(1);
+    const updatedGraph: GameplayScenarioGraph = {
+      ...baseGraph,
+      causalLinks: [
+        ...baseGraph.causalLinks,
+        {
+          ...baseGraph.causalLinks[0]!,
+          id: "link:late-exclusion",
+          intentEdgeKind: "excludes",
+          status: "PROVEN",
+          evidenceIds: ["source:late-exact-guard"],
+        },
+      ],
+    };
+    expect(projectReadyAuditIssues(updatedGraph, proof)).toEqual([]);
+  });
+
+  it("does not borrow a guard from an unrelated commit target", () => {
+    const unrelated: GameplayScenarioGraph = {
+      ...baseGraph,
+      causalLinks: [
+        ...baseGraph.causalLinks,
+        {
+          ...baseGraph.causalLinks[0]!,
+          id: "link:unrelated-exclusion",
+          intentEdgeKind: "excludes",
+          status: "PROVEN",
+          toComponentId: "policy:other",
+          evidenceIds: ["source:unrelated-guard"],
+        },
+      ],
+    };
+    const proof = assessGameplayDefectResolutionGate(unrelated, [submitted]);
+    expect(proof.blockingCounterProofIds).toEqual([]);
+    expect(projectReadyAuditIssues(unrelated, proof)
+      .map((item) => item.causalLinkId)).toEqual(["link:capacity"]);
+  });
+});
 
 describe("map audit issue projection", () => {
   it("projects unresolved material dependencies as NEED_VALIDATION instead of hiding them", async () => {
