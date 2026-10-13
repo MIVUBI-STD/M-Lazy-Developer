@@ -880,6 +880,38 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     record.sourcePath.trim().length === 0 ||
     record.cases.length === 0
   );
+  // Boundary Registry covers named, source-bound numerical values. A
+  // retry/round limit cannot stand in for a distinct, source-declared
+  // player or concurrent-arena capacity of the same numerical value.
+  // Requested arena count and derived total player slots are not separate
+  // explicit limits: the capacity extractor computes them from topology
+  // and per-arena source declarations, so do not demand fictional bindings.
+  const declaredCapacityBoundaries = [
+    {
+      label: "per-arena player capacity",
+      value: world.arenas.perArenaPlayerCapacity,
+      namePattern: /(?:player|party|member)/i,
+    },
+    {
+      label: "declared concurrent arena limit",
+      value: world.arenas.declaredConcurrentArenaLimit,
+      namePattern: /(?:concurren|parallel|(?:max|limit|cap).*arena|arena.*(?:max|limit|cap))/i,
+    },
+  ];
+  const missingDeclaredCapacityBounds = declaredCapacityBoundaries
+    .filter((bound) => {
+      const value = bound.value;
+      if (value === undefined) return false;
+      return !boundaries.records.some((record) =>
+        bound.namePattern.test(record.name) &&
+        record.value === value &&
+        record.sourcePath.trim().length > 0 &&
+        record.cases.includes(value)
+      );
+    })
+    .map((bound) =>
+      bound.label + "=" + String(bound.value)
+    );
   const boundaryFormalizationGaps = [
     ...(boundaries.unresolvedNames.length > 0
       ? ["unresolved boundary names: " +
@@ -887,6 +919,9 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     ...(ungroundedBoundaryRecords.length > 0
       ? ["boundary records have missing source paths or no edge cases: " +
           ungroundedBoundaryRecords.map((item) => item.id).join(", ")] : []),
+    ...(missingDeclaredCapacityBounds.length > 0
+      ? ["declared capacity bounds lack corresponding named source records: " +
+          missingDeclaredCapacityBounds.join(", ")] : []),
   ];
   checkpoint.push(receipt(
     "B5",
@@ -910,7 +945,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       : boundaryFormalizationGaps.length > 0
         ? "Boundary FORMALIZE is incomplete: " +
           boundaryFormalizationGaps.join("; ") + "."
-        : "Source-bound numeric boundary records and edge cases are available; gameplay boundary behavior is not yet evaluated.",
+        : "Named source-bound numeric thresholds, including applicable declared player and concurrent-arena limits, are accounted with edge cases; gameplay behavior is not yet evaluated.",
     boundaries.records.map((item) => item.id),
     ["BoundaryRegistry"],
   ));
