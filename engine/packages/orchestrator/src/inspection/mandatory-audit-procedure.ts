@@ -638,42 +638,49 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     },
   ));
 
-  // Multiplayer intent can exist without a detected arena. A missing
-  // arena cannot excuse an unexecuted player/session interleaving contract.
+  // A playerCount on a Scenario Graph node can be an injected audit
+  // scenario budget (including the default two-player preset), not a
+  // declaration that the selected map supports multiplayer. The synthetic
+  // mixed:* validation plan likewise cannot prove an authored player contract.
+  const authoredMultiplayerSignal =
+    /(?:^|[^a-z])(?:multiplayer|co-?op|cooperative|teams?|parties|party|roster|membership|participants|player-count|players)(?:$|[^a-z])/i;
+  const multiplayerSourceEvidenceIds = [
+    ...new Set(intent.nodes
+      .filter((node) =>
+        node.status !== "hypothesis" &&
+        (node.kind === "mechanic" ||
+          node.kind === "lifecycle" ||
+          node.kind === "policy" ||
+          node.kind === "state" ||
+          node.kind === "role" ||
+          node.kind === "resource") &&
+        authoredMultiplayerSignal.test(node.id + " " + node.label)
+      )
+      .flatMap((node) => node.evidenceIds)
+      .filter((id) => selectedEvidenceIds.has(id))),
+  ].sort();
+  const playerCapacityDemandsMultiplayer =
+    (world.arenas.perArenaPlayerCapacity ?? 0) > 1 ||
+    (world.arenas.declaredMaxConcurrentPlayers ?? 0) > 1 ||
+    (world.arenas.count ?? 0) > 1;
   const multiplayerKnowledgeRequired =
     demanded.has("multiplayer-interleaving") ||
     graph.knowledgeRequirements.some(
-      (item) => item.domain === "multiplayer-interleaving"
-    ) ||
-    graph.scenarios.some((scenario) =>
-      scenario.playerCounts.some((count) => count > 1)
+      (item) =>
+        item.domain === "multiplayer-interleaving" &&
+        !item.scenarioId.startsWith("preset:")
     );
   const multiplayerRequired =
-    multiplayer.applicable || multiplayerKnowledgeRequired;
+    multiplayerSourceEvidenceIds.length > 0 ||
+    playerCapacityDemandsMultiplayer ||
+    multiplayerKnowledgeRequired;
   const multiplayerAnalysisExecuted =
     world.analysisExecution.executedCapabilityIds.includes(
       "multiplayer-interleaving",
     );
-  // The state-validation plan contains hypothetical mixed-player tests;
-  // their mixed:* IDs are not Scenario Graph IDs or authored source proof.
-  const multiplayerSourceEvidenceIds = [
-    ...new Set(graph.scenarios
-      .filter((scenario) =>
-        scenario.playerCounts.some((count) => count > 1)
-      )
-      .flatMap((scenario) => scenario.sourceSubjectIds)
-      .flatMap((id) =>
-        intent.nodes.find((node) => node.id === id)?.evidenceIds ?? []
-      )
-      .filter((id) => selectedEvidenceIds.has(id))),
-  ].sort();
   const multiplayerFormalizationGaps = [
     ...(multiplayerSourceEvidenceIds.length === 0
-      ? ["mixed-player scenario lacks selected-artifact source grounding"] : []),
-    ...(!multiplayer.applicable
-      ? ["multiplayer source applicability has not been established"] : []),
-    ...(multiplayer.scenarios.length === 0
-      ? ["no applicable mixed-player scenario is compiled"] : []),
+      ? ["no selected-artifact actor/party/roster or shared-player source evidence grounds the multiplayer contract"] : []),
     ...(!multiplayerAnalysisExecuted
       ? ["multiplayer interleaving/isolation analysis has not executed"] : []),
   ];
@@ -690,28 +697,28 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         : "CLOSED",
     !multiplayerRequired
       ? discoverySupportsAbsence && !world.arenas.detected
-        ? "No selected-map multiplayer demand, actor/player-count scenario, or arena signal remains after complete discovery."
-        : "Multiplayer applicability is unresolved while discovery or arena ownership is incomplete."
+        ? "No selected-artifact shared-player source signal, declared multi-player capacity or source-bound multiplayer knowledge demand remains after complete discovery. Hypothetical two-player audit presets do not establish multiplayer design."
+        : "Multiplayer applicability remains unresolved while discovery or arena source ownership is incomplete."
       : multiplayerFormalizationGaps.length > 0
         ? "Multiplayer FORMALIZE is incomplete: " +
           multiplayerFormalizationGaps.join("; ") + "."
-        : "Applicable mixed-player scenarios and interleaving knowledge are accounted; this is not proof of multiplayer runtime delivery.",
+        : "Selected-source multiplayer ownership and interleaving analysis are accounted; a hypothetical stress scenario does not prove Minecraft runtime delivery.",
     multiplayerSourceEvidenceIds,
     ["MultiplayerContract"],
     {
       obligations: [
         obligation(
-          "multiplayer-scenarios-compiled",
+          "multiplayer-source-contract-grounded",
           multiplayerRequired,
-          multiplayer.applicable && multiplayer.scenarios.length > 0,
-          "Applicable multiplayer requires grounded mixed-player scenarios.",
-          multiplayer.scenarios.map((item) => item.id),
+          multiplayerSourceEvidenceIds.length > 0,
+          "An applicable multiplayer contract needs selected-artifact team/party/player-ownership source evidence; a generated player count or synthetic test plan is not that evidence.",
+          multiplayerSourceEvidenceIds,
         ),
         obligation(
           "multiplayer-knowledge-executed",
           multiplayerRequired,
           multiplayerAnalysisExecuted,
-          "Any required multiplayer, including shared player state without arenas, must execute interleaving/isolation analysis.",
+          "Required shared-player interaction, including non-arena multiplayer, must execute existing interleaving/isolation analysis.",
           multiplayerAnalysisExecuted
             ? ["analysis:multiplayer-interleaving"]
             : [],
@@ -719,7 +726,6 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       ],
     },
   ));
-
   const multiArena =
     world.arenas.detected && (world.arenas.count ?? 0) > 1;
   // Capacity/replica declarations are gameplay design demand even if
