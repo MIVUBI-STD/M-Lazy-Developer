@@ -911,22 +911,6 @@ export function formatSelectedMapAuditBrief(input: {
         : "See independently grounded win/lose conditions; runtime NOT proven."),
     "",
   ];
-  const crossSystemCoverage = report.auditObligations?.find(
-    (item) => item.id === "mandatory-checkpoint:C9",
-  );
-  if (crossSystemCoverage !== undefined) {
-    out.push(
-      "## Cross-System Coverage — EVALUATE / C9",
-      "**Unresolved audit obligation, not a gameplay defect.**",
-      "Reason: " + concise(crossSystemCoverage.reason),
-      "Missing proof: " + concise(crossSystemCoverage.missingProof),
-      "Next check: " + concise(crossSystemCoverage.validationTest),
-      ...(crossSystemCoverage.reason.length > 300
-        ? ["Additional scenario reasons are retained in the structured audit obligation."]
-        : []),
-      "",
-    );
-  }
   // Navigation over the EXISTING canonical Intent owns edges. This is
   // source-structure containment, never a chronological player journey.
   // Show the discovered shape first, before technical evidence inventories.
@@ -2059,13 +2043,56 @@ export function formatSelectedMapAuditBrief(input: {
   if (findings.length > 12) {
     out.push("Additional findings omitted: " + (findings.length - 12));
   }
+  if (report.control.status === "BLOCKED" && findings.length > 0) {
+    out.push(
+      "These are scoped audit findings, not an approved issue set. " +
+      "Overall map review and publication remain BLOCKED.",
+    );
+  }
+  // Use the canonical Audit Obligations rather than hiding them behind
+  // optional model tasks or reconstructing a separate report-state owner.
+  // Keep C9 prominent and leave every omitted entry in the full JSON output.
+  const auditObligations = [
+    ...(report.auditObligations ?? []).filter((item) =>
+      item.id === "mandatory-checkpoint:C9"
+    ),
+    ...(report.auditObligations ?? []).filter((item) =>
+      item.id !== "mandatory-checkpoint:C9"
+    ),
+  ];
   out.push(
     "",
     "## Next Investigations",
     "Unresolved material: " + report.unresolved.total +
       " / Gameplay closure: " + report.gameplayClosure.status,
   );
-  if (modelTaskPackets.length === 0 && unresolvedSurfaces.length === 0) {
+  if (auditObligations.length > 0) {
+    out.push(
+      "",
+      "### Audit Obligations (NOT BUG FINDINGS)",
+      "Unresolved proof work: " + auditObligations.length +
+        "; these are not approved findings.",
+    );
+    for (const obligation of auditObligations.slice(0, 10)) {
+      out.push(
+        "- [" + obligation.stage + "] " + concise(obligation.title) +
+          " (" + concise(obligation.id) + ")",
+        "  Reason: " + concise(obligation.reason),
+        "  Missing proof: " + concise(obligation.missingProof),
+        "  Next check: " + concise(obligation.validationTest),
+      );
+    }
+    if (auditObligations.length > 10) {
+      out.push(
+        "Additional audit obligations omitted from this brief: " +
+          (auditObligations.length - 10) +
+          ". All remain in the structured Map Audit output.",
+      );
+    }
+  }
+  if (modelTaskPackets.length === 0 &&
+      unresolvedSurfaces.length === 0 &&
+      auditObligations.length === 0) {
     out.push("No specific investigation task in the current audit view.");
   }
   for (const task of modelTaskPackets.slice(0, 8)) {

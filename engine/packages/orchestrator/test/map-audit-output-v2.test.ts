@@ -978,4 +978,80 @@ describe("Map Audit Output V2 projection", () => {
     expect(brief).toContain("No published finding");
   });
 
+  it("keeps proven findings visible alongside C9, runtime and detection obligations in a blocked brief", () => {
+    const report: any = {
+      mapVersion: "1.2.0",
+      evidenceScope: { selectedArtifact: "sample.mcworld" },
+      control: {
+        status: "BLOCKED",
+        currentStage: "EVALUATE",
+        allowedNextAction: "RESOLVE_BLOCKING_STAGE",
+      },
+      gameDesign: {
+        objective: "Complete each objective", objectiveGrounding: "authored",
+        winCondition: "UNKNOWN", winConditionGrounding: "unresolved",
+        loseCondition: "UNKNOWN", loseConditionGrounding: "unresolved",
+      },
+      gameplayClosure: {
+        status: "PARTIAL", surfaceInventory: [],
+        stateModelComplete: false,
+      },
+      multiArena: { isolationRules: [] },
+      stateTransitions: [],
+      bugs: [{
+        status: "PROVEN",
+        issueType: "BUG",
+        issue: "The objective cannot advance.",
+        playerImpact: "Progression is blocked.",
+        expected: "Advance after completion.",
+        actual: "The phase stays active.",
+        evidenceIds: ["source:objective"],
+      }],
+      designMismatches: [],
+      unresolved: { total: 3 },
+      auditObligations: [{
+        id: "mandatory-checkpoint:C9",
+        source: "scenario-coverage",
+        stage: "EVALUATE",
+        title: "Resolve cross-system source coverage",
+        reason: "Scenario dependency is unbound.",
+        missingProof: "Scenario-scoped causal source evidence.",
+        validationTest: "Trace the selected source dependency.",
+      }, {
+        id: "link:runtime",
+        source: "runtime-proof",
+        stage: "PROVE",
+        title: "Resolve runtime scheduling",
+        reason: "Gameplay scheduling is unresolved.",
+        missingProof: "One deciding runtime observation.",
+        validationTest: "Observe the bounded scheduling condition.",
+      }, {
+        id: "link:gap",
+        source: "detection-gap",
+        stage: "UNDERSTAND",
+        title: "Resolve source semantics",
+        reason: "Causal source relation is not established.",
+        missingProof: "Selected-source execution edge.",
+        validationTest: "Inspect the exact source relationship.",
+      }],
+    };
+    const brief = formatSelectedMapAuditBrief({
+      report,
+      intent: { evidence: [], nodes: [], edges: [], unknowns: [] } as any,
+      modelTaskPackets: [],
+    });
+    expect(brief).toContain("BLOCKED / EVALUATE");
+    expect(brief).toContain("[PROVEN] BUG: The objective cannot advance.");
+    expect(brief).toContain("not an approved issue set");
+    expect(brief).toContain("### Audit Obligations (NOT BUG FINDINGS)");
+    expect(brief).toContain("mandatory-checkpoint:C9");
+    expect(brief).toContain("link:runtime");
+    expect(brief).toContain("link:gap");
+    expect(brief).toContain("One deciding runtime observation.");
+    expect(brief).not.toContain("No specific investigation task");
+    expect(brief.indexOf("mandatory-checkpoint:C9")).toBeLessThan(
+      brief.indexOf("link:runtime"),
+    );
+  });
+
 });
