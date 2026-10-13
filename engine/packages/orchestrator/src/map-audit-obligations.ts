@@ -859,9 +859,9 @@ function mandatoryCrossSystemCoverageObligations(
     validationTest:
       "Reconcile every required preset against source-bound components, scenario-scoped causal links and its knowledge receipts; resolve missing identities and rerun the existing checkpoint. This is not proof of a bug or runtime success.",
     validationGroupKey: "mandatory:C9",
-    subjectIds: checkpoint.evidenceIds,
+    subjectIds: [],
     componentIds: [],
-    evidenceIds: [],
+    evidenceIds: checkpoint.evidenceIds,
   })];
 }
 
