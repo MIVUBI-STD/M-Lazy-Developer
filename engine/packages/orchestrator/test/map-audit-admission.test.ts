@@ -29,7 +29,7 @@ function procedure(
     },
     {
       id: "C1",
-      block: "STRESS" as const,
+      block: "EVALUATE" as const,
       label: "Cross-system gameplay checks",
     },
     {
@@ -140,7 +140,7 @@ describe("selected-map audit admission", () => {
     const stressAdmission = assessSelectedMapAuditAdmission({
       mandatoryAuditProcedure: beforeStress,
     });
-    expect(stressAdmission.firstBlockingStage).toBe("STRESS");
+    expect(stressAdmission.firstBlockingStage).toBe("EVALUATE");
     expect(canAdmitAuditIssueLanes(stressAdmission, beforeStress)).toBe(false);
 
     const proving = procedure(["D1"]);

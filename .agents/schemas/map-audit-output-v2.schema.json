@@ -1728,8 +1728,8 @@
             "TARGET",
             "DISCOVERY",
             "UNDERSTAND",
-            "MODEL",
-            "STRESS",
+            "FORMALIZE",
+            "EVALUATE",
             "PROVE",
             "REPORT",
             "COMPLETE"
@@ -1968,8 +1968,8 @@
             "enum": [
               "DISCOVERY",
               "UNDERSTAND",
-              "MODEL",
-              "STRESS",
+              "FORMALIZE",
+              "EVALUATE",
               "PROVE"
             ]
           },

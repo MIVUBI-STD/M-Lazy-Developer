@@ -44,9 +44,9 @@ export function workSessionStageFromAudit(
     case "DISCOVERY":
       return "new";
     case "UNDERSTAND":
-    case "MODEL":
+    case "FORMALIZE":
       return "understood";
-    case "STRESS":
+    case "EVALUATE":
       return "evidence-ready";
     case "PROVE":
       return "diagnosed";

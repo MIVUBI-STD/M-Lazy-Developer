@@ -94,22 +94,11 @@ Avoid parallel names such as `todo`, `next-to-do`, `current-work`, `misc`, `late
 
 ## Operator workflow vocabulary
 
-Use these terms in human-facing workflow:
+**Map Audit** has one canonical stage sequence, defined in [Map Audit Naming Contract](../analysis/map-audit-naming-contract.md) and owned programmatically by `map-audit-admission.ts`. Its user-facing result is the `Map Audit Report`, not an authorized repair. This document defines cross-workflow terms only; it does not own a second map-audit stage list.
 
-```text
-Selected Map Version
-→ Gameplay Contract
-→ Actual Behavior
-→ Confirmed Defect
-→ Approved Bug
-→ Repair Contract
-→ Authorized Repair
-→ Verification
-```
+`Selected Map Version` is the audit's current gameplay authority. `Gameplay Contract` is scoped expected behavior; `Actual Behavior` is selected-source/runtime evidence; `Confirmed Defect` is an evidence-backed causal conclusion rather than user approval. After REPORT, an explicitly requested **separate Repair workflow** may use an `Approved Bug`, `Repair Contract`, `Authorized Repair` and repair verification. Approval, map mutation, and packaging must never be implied by a map audit.
 
-Internal terms such as Gameplay Intent, `repair-eligible`, causal proof state, semantic keys, and evidence IDs stay internal unless technical detail is requested.
-
-Do not use `Confirmed Defect` and `Approved Bug` interchangeably.
+Internal terms such as Gameplay Intent, `repair-eligible`, causal proof state, semantic keys, and evidence IDs stay internal unless technical detail is requested. Do not use `Confirmed Defect` and `Approved Bug` interchangeably.
 
 ## Filesystem disambiguation
 

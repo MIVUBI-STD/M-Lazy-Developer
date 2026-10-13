@@ -35,14 +35,13 @@ The production flow itself remains linear and has one canonical order:
 TARGET
 → DISCOVERY
 → UNDERSTAND
-→ MODEL
-→ STRESS
-→ when a transaction consumes player value, reconcile debit → required references/materials → mutation/grant → rollback → feedback
-→ when reload/bootstrap behavior exists, run Active-Session Reload Recovery differential separately from player reconnect
-
+→ FORMALIZE
+→ EVALUATE
 → PROVE
 → REPORT
 ```
+
+Within EVALUATE, examine debit → material/reference → grant/mutation → rollback → feedback for value-consuming transactions, and check active-session reload/bootstrap separately from player reconnect where applicable. These are scoped checks, not workflow stages.
 
 TARGET and DISCOVERY are first-class ordered stages. They are not aliases of UNDERSTAND and they are not parallel workflows. No later stage may authorize a decision while an earlier stage is blocked. Runtime evidence, review, HTML, and other projections are continuations or presentations of this same flow, never alternate audit paths.
 
@@ -112,7 +111,7 @@ Absence of the inverse is not automatically a bug, but it is a mandatory contrad
 
 ## Flow-first execution rule
 
-The checkpoint owner remains TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT, but checks are executed and presented in player-flow order:
+The checkpoint owner remains TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT, but checks are executed and presented in player-flow order:
 
 ```text
 ENTRY / JOIN
@@ -194,7 +193,7 @@ Cross-system participation does not create extra findings. One root cause remain
 
 ## Full-map replica flow
 
-When repeated arenas/regions exist, full-map inspection must not audit each arena as an unrelated map. The canonical MODEL subflow is:
+When repeated arenas/regions exist, full-map inspection must not audit each arena as an unrelated map. The canonical FORMALIZE subflow is:
 
 ```text
 world DB / topology
@@ -207,7 +206,7 @@ world DB / topology
 → classify replica proof
 → reconcile world DB versus source/config
 → classify delta
-→ escalate only material/unresolved delta to STRESS/PROVE
+→ escalate only material/unresolved delta to EVALUATE/PROVE
 ```
 
 Replica classification semantics:
@@ -220,7 +219,7 @@ material divergence
 → continue to causal PROVE
 
 incomplete / no proof
-→ MODEL remains PARTIAL
+→ FORMALIZE remains PARTIAL
 ```
 
 A physical arena count is not proof of equivalent gameplay. Source/config equivalence is also not enough when world DB/topology differs. Full-map closure requires both replica integrity and runtime/source ownership reasoning.
@@ -748,11 +747,11 @@ A8 Cross-System Coverage
 A22 Applicable Check Router
 → bind every material surface to applicable checks
 
-MODEL
+FORMALIZE
 → derive structural invariants and transition graphs
 → validate material cross-content references
 
-STRESS
+EVALUATE
 → run lifecycle differentials, boundaries, repeated-run and partial-failure scenarios
 → derive bounded Multi-Scenario Simulation cases for applicable multiplayer/multi-arena systems
 → interrupt material lifecycle boundaries with disconnect/reconnect where applicable
@@ -804,7 +803,7 @@ A24    Duplicate Finding Consolidation
           ↓
 A25    Audit Coverage Summary
           ↓
-B. MODEL
+B. FORMALIZE
 ```
 
 Numbering identifies stable contract references; it does **not** mean every A-section runs sequentially.
@@ -815,7 +814,7 @@ Numbering identifies stable contract references; it does **not** mean every A-se
 
 ### Purpose
 
-Before MODEL, convert reconstructed gameplay into explicit contradiction searches so high-value defect families cannot disappear behind a generally complete player journey.
+Before FORMALIZE, convert reconstructed gameplay into explicit contradiction searches so high-value defect families cannot disappear behind a generally complete player journey.
 
 ### Required matrix
 
@@ -858,7 +857,7 @@ UNDERSTAND is not complete merely because each subsystem is understood independe
 
 Every applicable high-yield join must be:
 - proven safe by blocking evidence;
-- promoted to a contradiction for STRESS/PROVE;
+- promoted to a contradiction for EVALUATE/PROVE;
 - or explicitly recorded as unresolved residue.
 
 This matrix is not a tester checklist and must not be emitted as a parallel user-facing report.
@@ -970,7 +969,7 @@ SAFE
 → exact blocking guard/ownership/accounting proof
 
 CONTRADICTION
-→ send to STRESS / PROVE
+→ send to EVALUATE / PROVE
 
 UNRESOLVED
 → preserve the exact missing claim and proof route
@@ -1287,7 +1286,7 @@ Always challenge applicable joins:
 
 ### Closure
 
-These joins must resolve to SAFE, CONTRADICTION, or an exact irreducible missing claim before STRESS/PROVE closure.
+These joins must resolve to SAFE, CONTRADICTION, or an exact irreducible missing claim before EVALUATE/PROVE closure.
 
 ---
 
@@ -1612,7 +1611,7 @@ Do not deduplicate unrelated defects merely because they occur in the same subsy
 
 Preserve audit completeness internally without leaking a giant checklist into the user-facing report.
 
-At the end of UNDERSTAND / MODEL / STRESS, retain one compact receipt:
+At the end of UNDERSTAND / FORMALIZE / EVALUATE, retain one compact receipt:
 
 ```text
 applicable checks
@@ -1846,9 +1845,9 @@ Resolve each applicable join to SAFE, CONTRADICTION, or one exact unresolved cla
 
 ---
 
-# B. MODEL
+# B. FORMALIZE
 
-MODEL converts the reconstructed gameplay into compact structural records used by the routed integrity checks. It does not repeat those checks.
+FORMALIZE converts the reconstructed gameplay into compact structural records used by the routed integrity checks. It does not repeat those checks.
 
 ## B1. Actor & Entity Model
 
@@ -1937,15 +1936,15 @@ Use only relevant cases rather than a generic matrix.
 
 Typical boundaries include players, arenas, retries, waves/levels, lives, timers, score/reward thresholds, entities, and residency resources.
 
-### MODEL closure
+### FORMALIZE closure
 
-MODEL is closed when every applicable structural dependency required by routed checks has a grounded record or one exact unresolved claim.
+FORMALIZE is closed when every applicable structural dependency required by routed checks has a grounded record or one exact unresolved claim.
 
 ---
 
-# C. STRESS
+# C. EVALUATE
 
-STRESS does not redefine the integrity contracts selected in UNDERSTAND. It applies adversarial timing, boundary, interruption, and repeated-run scenarios to the applicable checks already routed by A22.
+EVALUATE does not redefine the integrity contracts selected in UNDERSTAND. It applies adversarial timing, boundary, interruption, and repeated-run scenarios to the applicable checks already routed by A22.
 
 ## C1. Stress Scenario Builder
 
@@ -2036,7 +2035,7 @@ For each activated scenario ask:
 
 ### Closure
 
-STRESS is closed when every activated scenario is:
+EVALUATE is closed when every activated scenario is:
 - blocked by exact safety proof;
 - translated into a contradiction for PROVE;
 - or preserved as one exact unresolved claim.
@@ -2240,7 +2239,7 @@ No duplicate Markdown/HTML/JSON issue authority is created.
 
 Before describing the selected map as fully understood, project the canonical audit through `vital-gameplay-knowledge-closure.md`.
 
-This projection does not add a checkpoint or alternate state machine. It reads the already-authorized finding lanes and Audit Obligations and must preserve the ordered TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT authority.
+This projection does not add a checkpoint or alternate state machine. It reads the already-authorized finding lanes and Audit Obligations and must preserve the ordered TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT authority.
 
 Closure rule:
 
@@ -2265,10 +2264,10 @@ UNDERSTAND
 - journey reconstructed
 - state/ownership/progression accounted
 
-MODEL
+FORMALIZE
 - applicable actor/spatial/multiplayer/multi-arena/boundary contracts closed
 
-STRESS
+EVALUATE
 - applicable lifecycle/recovery/cleanup/cross-system scenarios accounted
 
 PROVE
@@ -2310,8 +2309,8 @@ Canonical flow:
 ```text
 Selected Artifact
 → UNDERSTAND
-→ MODEL
-→ STRESS
+→ FORMALIZE
+→ EVALUATE
 → PROVE
 → BUG / DESIGN_MISMATCH closure
 → Developer Note Extraction from the same evidence ledger
@@ -2399,7 +2398,7 @@ The engine must maximize PROVEN through stronger evidence and proof, never throu
 
 Machine-readable scenario records must conform to `.agents/schemas/multi-scenario-check-ledger.schema.json`. This is the single schema authority for multi-scenario records.
 
-The STRESS lane must execute the canonical multi-scenario checks defined in `detection-coverage-assurance.md`.
+The EVALUATE lane must execute the canonical multi-scenario checks defined in `detection-coverage-assurance.md`.
 
 When applicable, use only these canonical check names:
 
@@ -2426,7 +2425,7 @@ Naming discipline:
 - report-facing names must remain plain and developer-readable;
 - machine IDs may remain stable for compatibility.
 
-Before STRESS closes:
+Before EVALUATE closes:
 
 ```text
 all material adjacent stage handoffs
@@ -2461,7 +2460,7 @@ Unsupported PROVEN = 0
 
 ## High-yield state and geometry checks
 
-The MODEL/STRESS lanes must route the following checks whenever their trigger exists:
+The FORMALIZE/EVALUATE lanes must route the following checks whenever their trigger exists:
 
 ```text
 State Snapshot Differential

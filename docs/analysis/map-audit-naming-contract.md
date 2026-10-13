@@ -55,11 +55,17 @@ Use these stage names exactly:
 TARGET
 DISCOVERY
 UNDERSTAND
-MODEL
-STRESS
+FORMALIZE
+EVALUATE
 PROVE
 REPORT
 ```
+
+- `FORMALIZE` means make evidence-backed gameplay state, actor, ownership, spatial constraints and expected/actual contracts explicit. It does not create a parallel model owner or new game-design specification.
+- `EVALUATE` means investigate the applicable contracts across ordinary and adverse conditions to find possible contradictions. Stress testing is a method inside EVALUATE, never a separate canonical stage.
+- `PROVE` decides whether a candidate survives reachability, consequence and counter-proof checks before entering the published issue lanes.
+
+Source identifier `MODEL` or `STRESS` may appear in historical commits or in genuinely unrelated domain data, but must not remain as an active `SelectedMapAuditStage` value or alternate name. No silent stage alias or stage-value fallback is authorized.
 
 Player-flow names:
 
@@ -121,7 +127,7 @@ Use:
 - `replicaResults[]` — per-replica comparison result.
 - `replicaId` — stable identifier for one compared replica.
 - `replicaStatus` — `EQUIVALENT | BOUNDED_EQUIVALENCE | DIVERGENCE_REQUIRES_CLASSIFICATION | INCOMPLETE_PROOF`.
-- `replicaDivergenceIds[]` — only deltas that must continue to STRESS/PROVE.
+- `replicaDivergenceIds[]` — only deltas that must continue to EVALUATE/PROVE.
 - `baselineReusableForAllReplicas` — true only when every replica has complete proof and is `EQUIVALENT`; bounded equivalence never authorizes global baseline reuse.
 
 Do not use `copy`, `clone`, `same arena`, or `different arena` as canonical machine terms.

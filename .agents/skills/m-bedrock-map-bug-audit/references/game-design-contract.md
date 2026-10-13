@@ -35,7 +35,7 @@ Do not classify implementation anomalies as bugs before this contract exists.
 
 ## REA-derived investigation
 
-Apply these questions inside the existing UNDERSTAND/MODEL work, not as a second
+Apply these questions inside the existing UNDERSTAND/FORMALIZE work, not as a second
 map audit, graph, proof ledger, or report. REA is an external investigation
 reference/provider; Minecraft semantics remain owned by our existing analyzers,
 Semantic IR, Gameplay Intent, Scenario Graph and proof gate.
@@ -129,7 +129,7 @@ Reviewed REA revision: `f611d8ce722cd36345e9ff83b9669ef2e7fe57a9`.
 **Execution authority:** This is a procedure for ChatGPT using tools **actually
 available in the current conversation**, not an installed REA server or a
 separate audit engine. Follow the selected-map Pre-Audit confirmation and the
-same TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT flow.
+same TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT flow.
 Use the selected `.mcworld` (not a prior map or an extracted historical sample)
 as the only current gameplay authority.
 

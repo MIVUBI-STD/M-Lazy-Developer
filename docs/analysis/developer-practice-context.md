@@ -87,8 +87,8 @@ No new audit stage or engine authority is introduced.
 | TARGET | Identify edition, version, map/mode/arena scope from selected artifact | Adopt versions or preferences from ZIP |
 | DISCOVERY | Parse selected source and collect exact call/command/effect IDs | Treat a reference pattern as proof a mechanic exists |
 | UNDERSTAND | **Only if source evidence raises a relevant semantic question**, retrieve up to a few matching records and formulate alternative explanations | Fill missing objectives, phase order, win/loss or recovery from the ZIP |
-| MODEL | Trace the candidate relation against IR, state owner, lifecycle, actual code and design signals | Turn a matched API name or broad trace into causal ownership |
-| STRESS / PROVE | Use negative controls to challenge false assumptions; require the usual selected-map contract and proof for any bug | Promote a team's engineering preference into BUG or DESIGN_MISMATCH |
+| FORMALIZE | Trace the candidate relation against IR, state owner, lifecycle, actual code and design signals | Turn a matched API name or broad trace into causal ownership |
+| EVALUATE / PROVE | Use negative controls to challenge false assumptions; require the usual selected-map contract and proof for any bug | Promote a team's engineering preference into BUG or DESIGN_MISMATCH |
 | REPORT | Attribute the exact ZIP-origin hint if useful for unresolved investigation, and distinguish it from current-map evidence | Count advisory reference citations as verified code or runtime proof |
 
 A short **conditional** retrieval pattern:

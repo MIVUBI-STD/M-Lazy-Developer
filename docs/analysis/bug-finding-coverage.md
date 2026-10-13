@@ -16,7 +16,7 @@ This is the canonical coverage owner for selected-map bug finding.
 The production flow remains:
 
 ```text
-TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT
+TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT
 ```
 
 This document ensures material gameplay surfaces, reusable knowledge, detectors, reliability evidence, boundary checks, and unresolved residue cannot silently disappear from the audit.
@@ -539,7 +539,7 @@ Mutation Footprint
 
 Classify residuals by later gameplay consequence.
 
-For repeated arenas/regions, normalize to a baseline, compare topology/geometry/native evidence, reuse proof only for equivalent replicas, and route divergent replicas back into MODEL/STRESS/PROVE.
+For repeated arenas/regions, normalize to a baseline, compare topology/geometry/native evidence, reuse proof only for equivalent replicas, and route divergent replicas back into FORMALIZE/EVALUATE/PROVE.
 
 ## Knowledge and reliability consumption
 

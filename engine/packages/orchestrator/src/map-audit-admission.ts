@@ -6,8 +6,8 @@ export type SelectedMapAuditStage =
   | "TARGET"
   | "DISCOVERY"
   | "UNDERSTAND"
-  | "MODEL"
-  | "STRESS"
+  | "FORMALIZE"
+  | "EVALUATE"
   | "PROVE"
   | "REPORT";
 
@@ -36,8 +36,8 @@ export const SELECTED_MAP_AUDIT_STAGE_ORDER:
     "TARGET",
     "DISCOVERY",
     "UNDERSTAND",
-    "MODEL",
-    "STRESS",
+    "FORMALIZE",
+    "EVALUATE",
     "PROVE",
     "REPORT",
   ];
@@ -48,8 +48,8 @@ export function selectedMapAuditStageForCheckpoint(
   if (checkpointId === "A1") return "TARGET";
   if (checkpointId === "A2") return "DISCOVERY";
   if (checkpointId.startsWith("A")) return "UNDERSTAND";
-  if (checkpointId.startsWith("B")) return "MODEL";
-  if (checkpointId.startsWith("C")) return "STRESS";
+  if (checkpointId.startsWith("B")) return "FORMALIZE";
+  if (checkpointId.startsWith("C")) return "EVALUATE";
   if (checkpointId.startsWith("D")) return "PROVE";
   return "REPORT";
 }

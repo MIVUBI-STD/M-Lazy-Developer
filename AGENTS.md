@@ -165,8 +165,8 @@ audit <selected.mcworld>
 → TARGET
 → DISCOVERY
 → UNDERSTAND
-→ MODEL
-→ STRESS
+→ FORMALIZE
+→ EVALUATE
 → PROVE
 → REPORT
 ```

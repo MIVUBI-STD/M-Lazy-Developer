@@ -57,8 +57,8 @@ export interface AuditObligation {
   readonly stage:
     | "DISCOVERY"
     | "UNDERSTAND"
-    | "MODEL"
-    | "STRESS"
+    | "FORMALIZE"
+    | "EVALUATE"
     | "PROVE";
   readonly title: string;
   readonly reason: string;
@@ -740,7 +740,7 @@ function closureObligations(
     items.push(normalize({
       id: "closure-gap:boundaries",
       source: "gameplay-closure",
-      stage: "MODEL",
+      stage: "FORMALIZE",
       title: "Complete material gameplay boundaries",
       reason:
         "Gameplay Model Closure reports boundariesExtracted=false.",
@@ -833,7 +833,7 @@ export function deriveAuditObligations(input: {
     items.push(normalize({
       id: signal.id,
       source: "negative-space",
-      stage: "STRESS",
+      stage: "EVALUATE",
       title: "Resolve lifecycle asymmetry for " + signal.subjectId,
       reason: signal.reason,
       missingProof:
@@ -862,7 +862,7 @@ export function deriveAuditObligations(input: {
     items.push(normalize({
       id,
       source: "temporal-risk",
-      stage: "STRESS",
+      stage: "EVALUATE",
       title:
         "Resolve temporal interaction " +
         risk.leftSystem +
@@ -920,7 +920,7 @@ export function deriveAuditObligations(input: {
     items.push(normalize({
       id: signal.id,
       source: "shared-resource",
-      stage: "STRESS",
+      stage: "EVALUATE",
       title:
         "Resolve shared-resource ownership for " +
         signal.surfaceId,
@@ -941,7 +941,7 @@ export function deriveAuditObligations(input: {
     items.push(normalize({
       id: signal.id,
       source: "compound-boundary",
-      stage: "STRESS",
+      stage: "EVALUATE",
       title:
         "Resolve compound boundary " +
         signal.dimensions.join(" × "),
@@ -961,7 +961,7 @@ export function deriveAuditObligations(input: {
     items.push(normalize({
       id: signal.id,
       source: "accumulation-growth",
-      stage: "STRESS",
+      stage: "EVALUATE",
       title:
         "Resolve repeated-run growth for " +
         signal.subjectId,
@@ -990,7 +990,7 @@ export function deriveAuditObligations(input: {
     items.push(normalize({
       id,
       source: "shared-resource",
-      stage: "STRESS",
+      stage: "EVALUATE",
       title:
         "Prove arena isolation for " +
         observation.key,
@@ -1031,7 +1031,7 @@ export function deriveAuditObligations(input: {
         "replica-proof-incomplete:" +
         replica.arenaId,
       source: "detection-gap",
-      stage: "MODEL",
+      stage: "FORMALIZE",
       title:
         "Complete replica proof for " +
         replica.arenaId,
@@ -1112,7 +1112,7 @@ export function deriveAuditObligations(input: {
     items.push(normalize({
       id,
       source: "replica-divergence",
-      stage: "MODEL",
+      stage: "FORMALIZE",
       title: "Classify replica divergence " + id,
       reason:
         "A world/topology difference exists but its gameplay significance is not yet classified.",

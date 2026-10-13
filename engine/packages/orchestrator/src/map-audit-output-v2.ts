@@ -100,8 +100,8 @@ export interface MapAuditOutputControl {
     | "TARGET"
     | "DISCOVERY"
     | "UNDERSTAND"
-    | "MODEL"
-    | "STRESS"
+    | "FORMALIZE"
+    | "EVALUATE"
     | "PROVE"
     | "REPORT"
     | "COMPLETE";

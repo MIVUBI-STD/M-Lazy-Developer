@@ -39,8 +39,8 @@ Selected .mcworld
 → TARGET
 → DISCOVERY
 → UNDERSTAND
-→ MODEL
-→ STRESS
+→ FORMALIZE
+→ EVALUATE
 → PROVE
 → REPORT
 ```
@@ -67,8 +67,8 @@ map-audit-pipeline
 | TARGET | Which exact artifact/version is current truth? |
 | DISCOVERY | Are all gameplay-sensitive sources accounted and semantically owned? |
 | UNDERSTAND | Is the player journey, state, ownership, progression and intent understood? |
-| MODEL | Are material actors, spatial rules, multiplayer, boundaries and capability delivery modeled? |
-| STRESS | Have recovery, concurrency, terminal, cleanup, second-run and required cross-system scenarios been challenged? |
+| FORMALIZE | Are the evidenced actors, states, ownership, boundaries and gameplay contracts made explicit without inventing intended behavior? |
+| EVALUATE | Have applicable normal behavior, boundaries, recovery, concurrency and cross-system conditions been evaluated for contradictions? |
 | PROVE | Does each contradiction survive scoped counter-proof, or become runtime residue/detection gap? |
 | REPORT | Is each confirmed root cause classified exactly once as `BUG` or `DESIGN_MISMATCH`? |
 
@@ -126,10 +126,10 @@ source accounted but semantics missing
 → Detection Gap
 
 semantic model incomplete
-→ block UNDERSTAND/MODEL
+→ block UNDERSTAND/FORMALIZE
 
 cross-system scenario missing
-→ block STRESS
+→ block EVALUATE
 
 counter-proof incomplete
 → block PROVE

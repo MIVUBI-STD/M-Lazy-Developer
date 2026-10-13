@@ -73,7 +73,7 @@ The root folders have distinct responsibilities: `apps/` stores possible interfa
 | Intended task | First route | Authoritative destination |
 |---|---|---|
 | Improve the system | `AGENTS.md` → development skill | `docs/system/implementation-map.md` → owning source |
-| Audit a selected map | `AGENTS.md` → map audit skill | `runSelectedMapAudit()`; TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT |
+| Audit a selected map | `AGENTS.md` → map audit skill | `runSelectedMapAudit()`; TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT |
 | Repair an approved defect | Target Repair skill | Authorized repair owner and preservation contract |
 | Change a report or presentation | Report contract and projection owner | One current report authority; HTML/JSON are derived |
 | Learn a Minecraft behavior | Knowledge router and `engine/knowledge/ownership.json` | One canonical catalog claim or executable domain owner |
@@ -122,8 +122,8 @@ Architecture and ownership:
 
 ```text
 Selected Minecraft artifact
-→ ChatGPT: TARGET → DISCOVERY → UNDERSTAND → MODEL
-→ ChatGPT: STRESS → PROVE → evidence-scoped REPORT
+→ ChatGPT: TARGET → DISCOVERY → UNDERSTAND → FORMALIZE
+→ ChatGPT: EVALUATE → PROVE → evidence-scoped REPORT
 ```
 
 The repository also defines `runSelectedMapAudit()` and a TypeScript CLI as an **optional programmatic implementation contract**. Only if the exact code is actually executed can its `SelectedMapAuditRun`, `MapAuditOutputV2`, audit revision, or generated handoff be claimed as observed. A manual ChatGPT audit follows equivalent evidence/uncertainty principles but **must not fabricate those engine-produced receipts**.

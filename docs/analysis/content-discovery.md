@@ -21,7 +21,7 @@ or `unsupported`. These records are reconciled with the complete physical
 inventory before A2 source recognition may close.
 
 A parsed/indexed source is *not* proof that its mechanic purpose, activation,
-execution or game outcome is understood. UNDERSTAND and MODEL consume the
+execution or game outcome is understood. UNDERSTAND and FORMALIZE consume the
 same source evidence later within one Game Reconstruction operator workflow.
 No content may be treated as absent solely because a specialized parser or
 semantic consumer is missing.

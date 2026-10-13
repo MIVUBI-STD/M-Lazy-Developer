@@ -23,8 +23,8 @@ CLI: audit <selected.mcworld>
 → TARGET
 → DISCOVERY
 → UNDERSTAND
-→ MODEL
-→ STRESS
+→ FORMALIZE
+→ EVALUATE
 → PROVE
 → REPORT
 ```
@@ -33,7 +33,7 @@ CLI: audit <selected.mcworld>
 
 **Executable checkpoint contract:** [Mandatory Gameplay Audit Procedure](./mandatory-audit-procedure.md)
 
-**Version-change invariant:** selecting a newer map version always restarts the complete TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT audit. Historical finding revalidation is only one input and cannot close the audit. The detailed rule is owned by the Master Selected-Map Audit Workflow; coverage reset semantics are owned by the Bug-Finding Coverage System.
+**Version-change invariant:** selecting a newer map version always restarts the complete TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT audit. Historical finding revalidation is only one input and cannot close the audit. The detailed rule is owned by the Master Selected-Map Audit Workflow; coverage reset semantics are owned by the Bug-Finding Coverage System.
 
 
 The master workflow defines the complete human/AI work order. The Mandatory Gameplay Audit Procedure remains the executable checkpoint authority. All other gameplay-audit documents in this directory are supporting contracts loaded by that flow. They must not be interpreted as alternate workflows, alternate closure authorities, or alternate report routes.

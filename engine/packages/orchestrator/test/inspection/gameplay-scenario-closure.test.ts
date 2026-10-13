@@ -341,7 +341,7 @@ describe("gameplay scenario closure", () => {
       scenarios: [{
         id: "scenario:knowledge",
         label: "knowledge",
-        gameplayStage: "MODEL",
+        gameplayStage: "FORMALIZE",
         purpose: "Resolve required knowledge.",
         sourceSubjectIds: [],
         componentIds: [],

@@ -169,8 +169,8 @@ new selected .mcworld
 → TARGET
 → DISCOVERY
 → UNDERSTAND
-→ MODEL
-→ STRESS
+→ FORMALIZE
+→ EVALUATE
 → PROVE
 → REPORT
 ```
@@ -201,7 +201,7 @@ revalidation
 = check whether a known historical finding still applies
 
 full recheck / full audit
-= complete TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT
+= complete TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT
   against the newly selected artifact
 ```
 
@@ -284,13 +284,13 @@ If identity is ambiguous, stop publication.
 
 ## Detection coverage authority
 
-`bug-finding-coverage.md` owns coverage accounting across DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE. It consolidates surface accounting, blind-spot pressure, cross-system interaction, proof conservation, and the anti-suppression gate. Historical regression data remains search pressure only and never current-artifact proof.
+`bug-finding-coverage.md` owns coverage accounting across DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE. It consolidates surface accounting, blind-spot pressure, cross-system interaction, proof conservation, and the anti-suppression gate. Historical regression data remains search pressure only and never current-artifact proof.
 
 This is part of the same canonical audit flow, not a second workflow.
 
 ---
 
-## Architecture-first reconstruction (DISCOVERY → UNDERSTAND → MODEL)
+## Architecture-first reconstruction (DISCOVERY → UNDERSTAND → FORMALIZE)
 
 The selected current `.mcworld` remains the sole source of current gameplay implementation. Before treating an anomaly as an issue, reconstruct **one evidence-backed gameplay architecture**. This is a single logical graph, not an additional database, parallel workflow, or independently maintained diagram.
 
@@ -306,9 +306,9 @@ UNDERSTAND: one whole-map GameplayScenarioGraph
   ├─ causal links and shared dependencies
   └─ unknown, unsupported, unplaced, and unresolved evidence
   ↓
-MODEL: reconcile architecture coverage, system ownership and contracts
+FORMALIZE: reconcile architecture coverage, system ownership and contracts
   ↓
-STRESS → PROVE: investigate contradictions arising from that architecture
+EVALUATE → PROVE: investigate contradictions arising from that architecture
   ↓
 REPORT: only findings admitted by existing proof/review rules
 ```
@@ -319,7 +319,7 @@ Architecture assembly must be **map-first, not tag-first**. The official Map Cat
 
 A whole-map chart is complete **only as far as evidence supports it**. Preserve unknown/unplaced components, broken references, unsupported sources, and uncertainty instead of silently dropping them or inventing links. Reconcile both directions: every material extracted source/operation needs a trace or explicit gap; every asserted gameplay component/link needs supporting selected-artifact evidence or an explicitly unresolved design question. One component may participate in multiple stages, areas and systems without duplicate identities.
 
-Diagnostic candidates may be computed by analyzers while reconstruction proceeds, but must **not be promoted to proven bugs/design mismatches** because they appear in the chart or match historical knowledge. Ordered stage admission, counter-evidence and proof rules still decide whether STRESS/PROVE/REPORT can advance. Gameplay expected behavior may require an authoritative approved design or targeted user clarification; implementation alone does not establish design intent.
+Diagnostic candidates may be computed by analyzers while reconstruction proceeds, but must **not be promoted to proven bugs/design mismatches** because they appear in the chart or match historical knowledge. Ordered stage admission, counter-evidence and proof rules still decide whether EVALUATE/PROVE/REPORT can advance. Gameplay expected behavior may require an authoritative approved design or targeted user clarification; implementation alone does not establish design intent.
 
 This section defines one required output and its proof boundary, not an extra stage, status, second model authority, or new persistence store.
 
@@ -482,7 +482,7 @@ UNDERSTAND is closed only when journey, state, ownership, and progression are gr
 
 ---
 
-# 4. MODEL — build complete gameplay contracts
+# 4. FORMALIZE — make gameplay contracts explicit
 
 ## Goal
 Model the systems that must be correct before stress/proof.
@@ -535,10 +535,10 @@ EQUIVALENT
 
 DIVERGENCE_REQUIRES_CLASSIFICATION
 → classify semantic/gameplay relevance
-→ send only grounded material consequence to STRESS / PROVE
+→ send only grounded material consequence to EVALUATE / PROVE
 
 incomplete / no proof
-→ MODEL remains PARTIAL
+→ FORMALIZE remains PARTIAL
 ~~~
 
 Never:
@@ -657,7 +657,7 @@ For multi-arena maps, MULTI_ARENA closure requires more than capacity and select
 
 Project the complete material player journey through every playable arena, including arena-local dependencies such as shop/NPC access, kit/loadout delivery, inventory/economy state, objectives, death/respawn, retry/progression, terminal settlement, cleanup, and reconnect.
 
-Use replica normalization to avoid duplicated reasoning, but separately prove every coordinate-bearing or arena-bound dependency is correctly shared or offset. Any divergent dependency returns only that subsystem/replica to STRESS/PROVE.
+Use replica normalization to avoid duplicated reasoning, but separately prove every coordinate-bearing or arena-bound dependency is correctly shared or offset. Any divergent dependency returns only that subsystem/replica to EVALUATE/PROVE.
 
 For inventory/economy-heavy maps, complete the writer inventory defined by the Bug-Finding Coverage System before declaring gameplay parity closed.
 
@@ -750,12 +750,12 @@ What counter-proof closes the suspected failure?
 
 If only implementation intent/configuration is proven, describe exactly that implementation fact instead of claiming delivered gameplay behavior.
 
-# 5. STRESS — attack lifecycle and cross-system failure paths
+# 5. EVALUATE — examine gameplay contracts and failure paths
 
 ## Goal
-Find failures that do not appear in the happy path.
+Find supported discrepancies in both ordinary gameplay and difficult lifecycle, boundary and cross-system conditions.
 
-Stress only applicable systems.
+Evaluate only applicable systems. Stress scenarios are one technique within this stage.
 
 ## Required families
 - combat lifecycle
@@ -772,7 +772,7 @@ Stress only applicable systems.
 
 ## Adversarial gameplay QA
 
-For applicable player-controlled surfaces, STRESS also asks how ordinary reachable actions can intentionally pressure or violate the authored gameplay contract.
+For applicable player-controlled surfaces, EVALUATE also asks how ordinary reachable actions can intentionally pressure or violate the authored gameplay contract.
 
 Use the Adversarial Player Abuse Model from `bug-finding-coverage.md`.
 
@@ -1182,9 +1182,9 @@ A selected-map audit is complete only when:
 - TARGET closed
 - DISCOVERY complete
 - UNDERSTAND closed
-- MODEL closed
+- FORMALIZE closed
 - full-map replica proof complete/bounded or divergence explicitly carried
-- STRESS applicable checks accounted
+- EVALUATE applicable checks accounted
 - PROVE accounted: every causal finding is PROVEN or confirmation-ready NEED_VALIDATION, while unresolved non-finding residue remains explicit in Audit Obligations
 - honesty PASS
 - REPORT handoff preserves all visible unresolved work

@@ -6,8 +6,8 @@ export type MandatoryAuditBlock =
   | "TARGET"
   | "DISCOVERY"
   | "UNDERSTAND"
-  | "MODEL"
-  | "STRESS"
+  | "FORMALIZE"
+  | "EVALUATE"
   | "PROVE"
   | "REPORT";
 

@@ -472,7 +472,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
 
   checkpoint.push(receipt(
     "B1",
-    "MODEL",
+    "FORMALIZE",
     "Actor / Entity Contract",
     world.entities.definitions === 0
       ? positiveNotApplicable(
@@ -501,7 +501,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     world.chunks.leases.length > 0;
   checkpoint.push(receipt(
     "B2",
-    "MODEL",
+    "FORMALIZE",
     "Spatial & Simulation Contract",
     !spatialApplicable
       ? discoverySupportsAbsence
@@ -551,7 +551,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
 
   checkpoint.push(receipt(
     "B3",
-    "MODEL",
+    "FORMALIZE",
     "Multiplayer Contract",
     !multiplayer.applicable
       ? (
@@ -603,7 +603,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     world.arenas.replicaIntegrity.bounded > 0;
   checkpoint.push(receipt(
     "B4",
-    "MODEL",
+    "FORMALIZE",
     "Multi-Arena Contract",
     !multiArena
       ? (
@@ -625,7 +625,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         ? "Complete discovery supports a single/no-arena model."
         : "Multi-arena applicability cannot close while discovery is incomplete or arena count is unresolved."
       : replicaProofIncomplete
-        ? "Multi-arena world/topology replica proof is incomplete or unavailable. MODEL cannot inherit baseline behavior into unproven replicas."
+        ? "Multi-arena world/topology replica proof is incomplete or unavailable. FORMALIZE cannot inherit baseline behavior into unproven replicas."
         : world.arenas.count !== undefined &&
             world.arenas.safeConcurrentArenas !== undefined &&
             world.arenas.safeConcurrentArenas !== null &&
@@ -679,7 +679,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
               world.arenas.replicaIntegrity.bounded > 0 ||
               world.arenas.replicaIntegrity.diverged > 0
             ),
-          "Multi-arena full-map audit requires normalized world/topology replica proof. Divergence may continue to PROVE, but incomplete/no-proof replicas cannot close MODEL.",
+          "Multi-arena full-map audit requires normalized world/topology replica proof. Divergence may continue to PROVE, but incomplete/no-proof replicas cannot close FORMALIZE.",
           ["analysis:arena-replica-integrity"],
         ),
       ],
@@ -688,7 +688,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
 
   checkpoint.push(receipt(
     "B5",
-    "MODEL",
+    "FORMALIZE",
     "Boundary Registry",
     boundaries.records.length === 0 &&
       boundaries.unresolvedNames.length === 0
@@ -708,7 +708,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
 
   checkpoint.push(receipt(
     "B6",
-    "MODEL",
+    "FORMALIZE",
     "Gameplay Capability Delivery",
     capabilityDeliveryUnproven.length > 0
       ? "PARTIAL"
@@ -747,7 +747,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     world.combat.damageApplications > 0;
   checkpoint.push(receipt(
     "C1",
-    "STRESS",
+    "EVALUATE",
     "Combat Lifecycle",
     combatApplicable
       ? "CLOSED"
@@ -796,7 +796,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     world.inventory.dropRegions > 0;
   checkpoint.push(receipt(
     "C2",
-    "STRESS",
+    "EVALUATE",
     "Inventory Lifecycle",
     inventoryApplicable
       ? "CLOSED"
@@ -841,7 +841,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   const economyApplicable = world.economy.sourceKinds.length > 0;
   checkpoint.push(receipt(
     "C3",
-    "STRESS",
+    "EVALUATE",
     "Reward / Economy Contract",
     economyApplicable
       ? "CLOSED"
@@ -888,7 +888,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   const persistenceApplicable = (world.persistence?.properties ?? 0) > 0;
   checkpoint.push(receipt(
     "C4",
-    "STRESS",
+    "EVALUATE",
     "Persistence Matrix",
     persistenceApplicable
       ? (world.persistence?.unknownScope ?? 0) > 0 ||
@@ -910,7 +910,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
 
   checkpoint.push(receipt(
     "C5",
-    "STRESS",
+    "EVALUATE",
     "Deferred Work Registry",
     deferredRelations.length > 0
       ? "CLOSED"
@@ -954,7 +954,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     intent.nodes.filter((node) => node.kind === "outcome").length > 1;
   checkpoint.push(receipt(
     "C6",
-    "STRESS",
+    "EVALUATE",
     "Terminal Ownership",
     terminalScenario
       ? "CLOSED"
@@ -984,7 +984,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     world.chunks.tickingAreaAcquires > 0;
   checkpoint.push(receipt(
     "C7",
-    "STRESS",
+    "EVALUATE",
     "Cleanup Ledger",
     !cleanupApplicable
       ? discoverySupportsAbsence && !cleanupDemand
@@ -1027,7 +1027,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     );
   checkpoint.push(receipt(
     "C8",
-    "STRESS",
+    "EVALUATE",
     "Second-Run Equivalence",
     repeated
       ? "CLOSED"
@@ -1195,7 +1195,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
 
   checkpoint.push(receipt(
     "C9",
-    "STRESS",
+    "EVALUATE",
     "Cross-System Activation",
     missingCrossSystemLabels.length === 0
       ? requiredCrossSystemScenarioLabels.size > 0
@@ -1386,7 +1386,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   ));
 
   const blocks = (
-    ["TARGET", "DISCOVERY", "UNDERSTAND", "MODEL", "STRESS", "PROVE", "REPORT"] as const
+    ["TARGET", "DISCOVERY", "UNDERSTAND", "FORMALIZE", "EVALUATE", "PROVE", "REPORT"] as const
   ).map((block) => blockClosure(block, checkpoint));
 
   const status =

@@ -9,7 +9,7 @@ lifecycle: ACTIVE
 
 # Gameplay Model Closure Contract
 
-> **Supporting contract only.** This document defines UNDERSTAND/MODEL closure semantics inside the Mandatory Gameplay Audit Procedure. It does not own audit order, continuation, PASS, or report publication.
+> **Supporting contract only.** This document defines UNDERSTAND/FORMALIZE closure semantics inside the Mandatory Gameplay Audit Procedure. It does not own audit order, continuation, PASS, or report publication.
 
 ## Purpose
 
@@ -199,7 +199,7 @@ Three independently inspected, read-only real artifact controls (ChatGPT local Z
 ## Discovery independence rule
 
 Game Reconstruction is one operator process with the ordered internal responsibilities
-**RECOGNIZE → UNDERSTAND → MODEL**. First record the entire physical selected-map
+**RECOGNIZE → UNDERSTAND → FORMALIZE**. First record the entire physical selected-map
 inventory and one outcome for every gameplay-relevant source, before admitting
 any gameplay-purpose claim. Non-source or unfamiliar assets remain in the full
 physical inventory; parser failures and unsupported source types remain visible.
@@ -212,7 +212,7 @@ has been established: that uncertainty belongs to A7, not an assertion that
 the map is empty. Likewise, an inferred game model cannot close A2 when
 source files are unaccounted.
 
-UNDERSTAND assigns evidence-grounded meaning or a specific unknown. MODEL
+UNDERSTAND assigns evidence-grounded meaning or a specific unknown. FORMALIZE
 composes state and causal/scenario relationships without promoting source
 execution candidates into observed player actions. The inventory remains
 the source of truth for *what was present* throughout the process.
@@ -595,7 +595,7 @@ Runtime-only residue belongs to Gameplay Scenario Closure, not Gameplay Model Cl
 
 ## Game-design closure checklist
 
-Before MODEL/STRESS may rely on the reconstructed gameplay contract, the selected artifact must account for:
+Before FORMALIZE/EVALUATE may rely on the reconstructed gameplay contract, the selected artifact must account for:
 
 - gameplay surfaces;
 - objective;

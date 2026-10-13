@@ -496,8 +496,8 @@ function checkpointPackets(
         (stage === "TARGET" && checkpoint.id === "A1") ||
         (stage === "DISCOVERY" && checkpoint.id === "A2") ||
         (stage === "UNDERSTAND" && checkpoint.id.startsWith("A") && checkpoint.id !== "A1" && checkpoint.id !== "A2") ||
-        (stage === "MODEL" && checkpoint.id.startsWith("B")) ||
-        (stage === "STRESS" && checkpoint.id.startsWith("C")) ||
+        (stage === "FORMALIZE" && checkpoint.id.startsWith("B")) ||
+        (stage === "EVALUATE" && checkpoint.id.startsWith("C")) ||
         (stage === "REPORT" && checkpoint.id.startsWith("E"))
       )
     )
