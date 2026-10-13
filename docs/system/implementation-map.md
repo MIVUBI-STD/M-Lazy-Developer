@@ -116,7 +116,7 @@ A workflow stage is a navigation label, not a second implementation owner. Start
 | TARGET | `engine/packages/orchestrator/src/map-audit-pipeline.ts` and `map-audit-user-intent.ts` | Selected artifact identity and project-model; current selected artifact is the authority |
 | DISCOVERY | `engine/packages/orchestrator/src/inspection/inspect.ts` under the production pipeline | `engine/analyzers/discovery/` plus format-specific adapters and analyzers |
 | UNDERSTAND | Production pipeline composes inspection and gameplay evidence | `engine/packages/gameplay-intent/` and relevant authored-source analyzers |
-| FORMALIZE | Production pipeline consumes evidence-backed models | `engine/packages/behavior-model/`, `semantic-ir/`, and `graph/` within their distinct contracts |
+| FORMALIZE | `gameplay-world-model.ts`, `gameplay-scenario-model.ts` and `mandatory-audit-procedure.ts` derive scoped contracts/checkpoint evidence from the same inspection result | `gameplay-intent/` owns inferred purpose; `semantic-ir/` owns source state/execution; `behavior-model/` owns structural transitions; Scenario Graph and Gameplay World Model are derived compositions, never independent source truth |
 | EVALUATE | Production pipeline coordinates cross-domain checks | Existing analyzer, diagnosis, and reliability owners according to the specific invariant |
 | PROVE | `map-audit-admission.ts`, the audit proof/honesty projections | Canonical evidence and diagnostic owners; no static-to-runtime promotion |
 | REPORT | `map-audit-output-v2.ts` and `reporting/report-defect-collector.ts` | `engine/packages/bug-report/` for separately approved bugs |

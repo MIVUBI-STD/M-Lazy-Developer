@@ -12,7 +12,7 @@
 
 **REA-informed practice:** Use morluto/rea source-investigation principles — forward/backward trace, exact evidence, realistic counterexamples, missing-route accounting and honest UNKNOWNs — through normal GitHub source tools. This naming/architecture pass is not execution of REA CLI/MCP, repository TypeScript/Vitest, selected-map audit or Minecraft runtime.
 
-**Next bounded source work:** Inspect the actual FORMALIZE-to-EVALUATE ownership/consumer path, locate the first concrete duplicate decision or missing evidence handoff, correct that canonical owner, and then review EVALUATE-to-PROVE and PROVE-to-REPORT. Keep Repair a separately authorized workflow; return to Game Design enhancement only by explicit reprioritization or a demonstrated blocking contract error.
+**Next bounded source work:** FORMALIZE has an initial source-backed checkpoint correction: B6 no longer closes vacuously when capability assessments are absent, and its message no longer promotes model classification into runtime delivery. Continue by tracing whether classified capabilities and material unknowns reach EVALUATE/PROVE without duplicate disposition or suppressed evidence. Keep Repair separately authorized; return to Game Design enhancement only by explicit reprioritization or a demonstrated blocking contract error. This architecture source correction has not been validated by executing the canonical TypeScript audit.
 
 ---
 

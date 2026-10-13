@@ -706,22 +706,31 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     ["BoundaryRegistry"],
   ));
 
+  // This is FORMALIZE's source-backed assessment coverage, not proof
+  // Minecraft delivered a capability. Zero assessments cannot satisfy
+  // classification vacuously (nor prove that no capability exists).
+  const hasCapabilityAssessments =
+    hidden.capabilityDelivery.length > 0;
   checkpoint.push(receipt(
     "B6",
     "FORMALIZE",
     "Gameplay Capability Delivery",
-    capabilityDeliveryUnproven.length > 0
-      ? "PARTIAL"
-      : "CLOSED",
-    capabilityDeliveryUnproven.length > 0
-      ? "Some player-visible/design capability delivery remains unproven: " +
-        capabilityDeliveryUnproven
-          .map((item) => item.subjectId)
-          .join(", ") +
-        "."
-      : capabilityDeliveryFailures.length > 0
-        ? "Capability delivery failures are understood and must continue to PROVE; technical constraints explain root cause but do not erase player-visible design failure."
-        : "Known player-visible gameplay capabilities are delivered by the selected artifact.",
+    !hasCapabilityAssessments
+      ? "OPEN"
+      : capabilityDeliveryUnproven.length > 0
+        ? "PARTIAL"
+        : "CLOSED",
+    !hasCapabilityAssessments
+      ? "No selected-artifact capability assessments are available. Missing assessments cannot establish capability absence or successful delivery."
+      : capabilityDeliveryUnproven.length > 0
+        ? "Some player-visible/design capability assessments remain unproven: " +
+          capabilityDeliveryUnproven
+            .map((item) => item.subjectId)
+            .join(", ") +
+          "."
+        : capabilityDeliveryFailures.length > 0
+          ? "Assessed capability degradation or absence must continue to PROVE; this structural checkpoint does not establish runtime behavior."
+          : "All currently assessed capabilities have a source/model classification; runtime delivery remains unproven without independent observation.",
     hidden.capabilityDelivery.flatMap(
       (item) => item.evidenceIds,
     ),
@@ -730,9 +739,10 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       obligations: [
         obligation(
           "capability-delivery-classified",
-          hidden.capabilityDelivery.length > 0,
-          capabilityDeliveryUnproven.length === 0,
-          "Every grounded player-visible gameplay capability must be classified as delivered, degraded, or missing before proof.",
+          true,
+          hasCapabilityAssessments &&
+            capabilityDeliveryUnproven.length === 0,
+          "At least one selected-artifact capability assessment is required, and every assessed capability must have a classified source/model disposition; no classification proves live runtime delivery.",
           hidden.capabilityDelivery.flatMap(
             (item) => item.evidenceIds,
           ),
