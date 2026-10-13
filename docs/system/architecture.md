@@ -47,11 +47,34 @@ repair + preservation verification
 orchestrator
 ```
 
+## Development sequencing — reusable Game Design boundary and downstream work
+
+Game Design feature expansion is **PAUSED as a development priority**, not disabled, deleted or certified complete. Retain existing `gameplay-intent`, `semantic-ir`, `game-design-spec`, authored-source analyzers and the scoped `GameplayContract` API. Additional mechanics/evidence can later be represented through their existing semantic owner with downstream consumer review; no frozen claim of universal meaning, runtime reachability or contract immutability is implied.
+
+The downstream architecture must consume only the existing evidence-bounded handoff:
+
+```text
+selected artifact identity + exact source/evidence references
+→ scoped Gameplay Intent / Gameplay Contract (readiness + material UNKNOWNs)
+→ existing diagnostic reasoning / counterproof / proof requirements
+→ existing issue classification and human approval boundary
+→ authorized Repair Contract: Must Change + Must Preserve
+→ existing validation + preservation proof
+→ archive/package transport + single report projection
+```
+
+- **Partial input is not a closed audit:** Architecture work may advance when some game mechanics remain unresolved. The selected-map audit still enforces UNDERSTAND/MODEL/STRESS/PROVE as applicable; missing understanding cannot become a confirmed BUG, approved repair, zero-findings PASS or runtime success.
+- **Single owner per decision:** `gameplay-intent` owns authored purpose and unknowns; `diagnostic-reasoning` owns alternative explanations and source-grounded intent disposition; `diagnosis-pipeline` owns only its declared planned execution/reuse; existing orchestrator defect resolution/admission owns selected-audit disposition; `bug-report` owns approved BUG state. These are composed rather than replicated.
+- **Change-safe extensibility:** Future Game Design enrichment updates the existing producer and verified consumer contracts. No downstream stage may parse raw labels or guess missing intent as a fallback. Preserve selected-artifact identity, evidence locators, scope, uncertainty and compatibility applicability across every handoff; fail closed if they are absent.
+- **REA-style falsification:** For each architectural source route, trace caller → decision → output and backward from the claimed output → exact evidence; challenge missing activation, alternate ownership, wrong version/arena, guarded exit and counter-evidence. This applies REA investigation principles through direct GitHub source review, **not** an executed REA MCP/CLI assessment. A source-verified contract is not executable/runtime proof.
+
+Next implementation work should investigate one real generic UNDERSTAND→DIAGNOSE/PROVE consumer route before modifying code, then follow the existing repair/validation/package/report owners. Avoid a second workflow, engine, registry or generic interface invented solely for this deferral.
+
 ### Literal JavaScript `import()` requests versus executable gameplay
 
 The canonical source parser `engine/analyzers/scripts/src/parser/parse.ts` now records literal `import("./chunk.js")` requests in the **existing `ScriptImport` inventory** with `importSyntax=dynamic-literal`, owning SourceRef and execution region. Nonliteral `import(variable)` becomes `dynamic-expression`, `unresolved`, and can never be assigned a fabricated file path. The original `resolveScriptImports()` checks same-artifact and same-pack source ownership and uniqueness; `populateInspectionScriptImportGraph()` projects the dependency through the **existing semantic graph**, preserving `importSyntax` and the actual import call site.
 
-These are **module-lookup/dependency edges**, not Semantic IR execution edges. A `resolved` target means the selected source file is present; it does not establish the importing function ran, its branch condition was satisfied, the JavaScript engine loaded the module, any exported code ran, or any Minecraft gameplay happened. Dynamic imports must not be fed into cross-file ESM function-call ownership by spelling alone. Compiler-produced `.js` specifiers may match a unique corresponding `.ts` source; ambiguous competing targets, foreign artifacts, cross-pack traversal and computed expressions stay unresolved. No special rules or map identifiers are used.
+These are **source-level module-lookup/dependency edges**, not proof of executed gameplay. The existing `buildInspectionSemanticIr()` also projects authored `import()` requests into **deferred source-handoff candidates** in the canonical Semantic IR, retaining resolution, source site, lexical/precedence guards and same-block authored order when known. A `resolved` target means the selected source file is present; neither this IR edge nor a candidate trace establishes that the importing function ran, its guards were satisfied, the JavaScript engine loaded/initialized the module, or Minecraft gameplay occurred. Dynamic imports must not be fed into cross-file ESM function-call ownership by spelling alone. Compiler-produced `.js` specifiers may match a unique corresponding `.ts` source; ambiguous competing targets, foreign artifacts, cross-pack traversal and computed expressions stay unresolved. No special rules or map identifiers are used.
 
 ## Game-centric Discovery production spine
 
