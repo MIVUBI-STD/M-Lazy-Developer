@@ -1046,6 +1046,37 @@ function mappedConstructorCapacity(
   visitWrites(file);
   if (!valid) return undefined;
 
+  // A const-bound direct instance has to remain locally owned. Tracking
+  // its configuration writes is insufficient when the entire instance can
+  // escape through a call, return, assignment or an unknown method.
+  const classMethods = new Set(
+    cls.members.filter(ts.isMethodDeclaration)
+      .map((member) => declarationMemberName(member.name))
+      .filter((name): name is string => name !== undefined),
+  );
+  for (const name of directInstanceNames) {
+    if (seenBindings.get(name) !== 1) valid = false;
+  }
+  const scanDirectInstances = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && directInstanceNames.has(node.text)) {
+      const parent = node.parent;
+      if (ts.isVariableDeclaration(parent) && parent.name === node) {
+        // The original const owner: const party = new Party(configs[0]).
+      } else if (ts.isPropertyAccessExpression(parent) &&
+                 parent.expression === node &&
+                 classMethods.has(parent.name.text) &&
+                 ts.isCallExpression(parent.parent) &&
+                 parent.parent.expression === parent) {
+        // Invocation of an inspected method does not expose the instance.
+      } else {
+        valid = false;
+      }
+    }
+    ts.forEachChild(node, scanDirectInstances);
+  };
+  scanDirectInstances(file);
+  if (!valid) return undefined;
+
   // The generated collection may be inspected by map/some/for-of, but its
   // elements must never escape or be reassigned through those readers.
   const readOnlyAlias = (scope: ts.Node, name: string): boolean => {

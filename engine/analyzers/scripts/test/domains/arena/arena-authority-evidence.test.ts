@@ -345,6 +345,10 @@ describe("arena authority evidence", () => {
       "party[key] = { maxPlayers: 9 };",
       "Object.assign(party.definition, { maxPlayers: 9 });",
       "const alias = party.definition;",
+      "leak(party);",
+      "const otherParty = party;",
+      "party.runUninspectedMethod();",
+      "function leakFromClosure() { return party; }",
     ]) {
       const parsed = parseScriptFile(
         "mapped-rebound-direct", [...base, mutation].join("\n"), source,
