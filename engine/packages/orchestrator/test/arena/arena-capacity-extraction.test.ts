@@ -226,6 +226,48 @@ describe("arena concurrency capacity extraction", () => {
     }
   });
 
+  it("rejects numeric capacity carrying foreign or imprecise value witnesses", () => {
+    const parsed = parseScriptFile("local-cap", [
+      "const config = { max_member: 5 };",
+      "function join(arena, player) {",
+      "  if (arena.members.length >= config.max_member) return;",
+      "  arena.members.push(player);",
+      "}",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/main.js",
+    });
+    const proven = parsed.arenaAuthorityPaths?.find((path) =>
+      path.capacityAuthorityProven &&
+      path.capacityCheck?.resolvedCapacityValue === 5
+    );
+    expect(proven?.capacityCheck).toBeDefined();
+    if (!proven?.capacityCheck) throw new Error("missing control capacity");
+    for (const witness of [
+      { artifactId: "foreign", relativePath: "scripts/main.js",
+        range: { lineStart: 1, columnStart: 1 } },
+      { artifactId: "fixture", relativePath: "scripts/other.js",
+        range: { lineStart: 1, columnStart: 1 } },
+      { artifactId: "fixture", relativePath: "scripts/main.js" },
+    ]) {
+      const altered: ParsedScriptFile = {
+        ...parsed,
+        arenaAuthorityPaths: [{
+          ...proven,
+          capacityCheck: {
+            ...proven.capacityCheck,
+            resolvedCapacityWitnesses: [witness],
+          },
+        }],
+      };
+      const result = extractArenaConcurrencyCapacity({
+        tickingAreas: [], scripts: [altered],
+      });
+      expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+      expect(result.evidence.unresolvedRosterCapacityPaths).toBe(1);
+      expect(result.evidence.perArenaPlayerCapacitySources).toBeUndefined();
+    }
+  });
+
   it("retains both guard and immutable declaration provenance for source-owned capacity", () => {
     const script = parseScriptFile(
       "module-capacity",

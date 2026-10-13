@@ -647,6 +647,10 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
   // membership-capacity guard is demonstrated in the selected script.
   const playerCapacitySources =
     world.arenas.perArenaPlayerCapacitySources ?? [];
+  // An unresolved roster admission source prevents proving absence of a
+  // multiplayer contract, but it does not establish multiplayer itself.
+  const rosterAdmissionUnresolved =
+    (world.arenas.unresolvedRosterCapacityPaths ?? 0) > 0;
   const multiplayerCapacitySourceGrounded =
     (world.arenas.perArenaPlayerCapacity ?? 0) > 1 &&
     playerCapacitySources.some((source) =>
@@ -702,16 +706,20 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     "FORMALIZE",
     "Multiplayer Contract",
     !multiplayerRequired
-      ? discoverySupportsAbsence && !world.arenas.detected
+      ? discoverySupportsAbsence && !world.arenas.detected &&
+          !rosterAdmissionUnresolved
         ? "NOT_APPLICABLE"
         : "OPEN"
       : multiplayerFormalizationGaps.length > 0
         ? "PARTIAL"
         : "CLOSED",
     !multiplayerRequired
-      ? discoverySupportsAbsence && !world.arenas.detected
+      ? discoverySupportsAbsence && !world.arenas.detected &&
+          !rosterAdmissionUnresolved
         ? "No selected-artifact shared-player source signal, declared multi-player capacity or source-bound multiplayer knowledge demand remains after complete discovery. Hypothetical two-player audit presets do not establish multiplayer design."
-        : "Multiplayer applicability remains unresolved while discovery or arena source ownership is incomplete."
+        : rosterAdmissionUnresolved
+          ? "Roster admission source is present, but its capacity and multiplayer applicability remain unresolved; absence cannot be proven from an unclassified membership write."
+          : "Multiplayer applicability remains unresolved while discovery or arena source ownership is incomplete."
       : multiplayerFormalizationGaps.length > 0
         ? "Multiplayer FORMALIZE is incomplete: " +
           multiplayerFormalizationGaps.join("; ") + "."

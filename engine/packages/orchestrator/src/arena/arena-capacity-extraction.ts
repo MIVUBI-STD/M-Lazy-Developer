@@ -286,8 +286,14 @@ export function extractArenaConcurrencyCapacity(
             Number.isSafeInteger(literalValue) && literalValue > 0
               ? literalValue : undefined;
           const bound =
-            check.resolvedCapacitySource?.artifactId === check.source.artifactId &&
-            check.resolvedCapacitySource.relativePath === check.source.relativePath &&
+            sameSourceArtifact(check.source, check.resolvedCapacitySource) &&
+            check.resolvedCapacitySource?.range?.lineStart !== undefined &&
+            check.resolvedCapacitySource.range.columnStart !== undefined &&
+            (check.resolvedCapacityWitnesses ?? []).every((witness) =>
+              sameSourceArtifact(check.source, witness) &&
+              witness.range?.lineStart !== undefined &&
+              witness.range.columnStart !== undefined
+            ) &&
             Number.isSafeInteger(check.resolvedCapacityValue ?? NaN) &&
             (check.resolvedCapacityValue ?? 0) > 0
               ? check.resolvedCapacityValue : undefined;
