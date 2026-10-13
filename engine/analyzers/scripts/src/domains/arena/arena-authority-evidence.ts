@@ -88,15 +88,20 @@ function localExecutionRegionId(
   let current: ts.Node | undefined = node.parent;
   while (current) {
     if (ts.isFunctionDeclaration(current)) {
-      return current.name
-        ? "function:" + current.name.text
-        : "anonymous-function";
+      // Source position distinguishes same-named lexical declarations.
+      return "function:" + (current.name?.text ?? "anonymous") +
+        "@" + current.getStart(file);
     }
     if (ts.isMethodDeclaration(current)) {
-      const name = declarationMemberName(
-        current.name,
-      );
-      if (name) return "function:" + name;
+      const name = declarationMemberName(current.name);
+      if (name) {
+        const parent = current.parent;
+        const owner =
+          ts.isClassDeclaration(parent) || ts.isClassExpression(parent)
+            ? parent.name?.text ?? "anonymous-class" : "object";
+        return "method:" + owner + "." + name +
+          "@" + current.getStart(file);
+      }
     }
     if (
       ts.isArrowFunction(current) ||
@@ -563,7 +568,7 @@ function capacityCheckEvidence(
     commit.arenaExpression !== check.arenaExpression ||
     commit.membershipExpression !== check.membershipExpression
   ) return undefined;
-  return check;
+  return { ...check, guardedCommitSource: commit.source };
 }
 
 /**
@@ -625,7 +630,6 @@ function returnTernaryCapacityEvidence(
       !ts.isBinaryExpression(expr) ||
       ![
         ts.SyntaxKind.GreaterThanEqualsToken,
-        ts.SyntaxKind.GreaterThanToken,
       ].includes(expr.operatorToken.kind) ||
       membershipCount(expr.left, file) === undefined
     ) return [];
@@ -665,13 +669,17 @@ function returnTernaryCapacityEvidence(
     }];
   };
   const commits = committed(node.whenFalse);
+  // Multiple successful writes may exceed the guarded capacity.
+  if (commits.length !== 1) return [];
   // Emit only a matched comparison and commit for exactly the same arena
   // membership collection. Never merge two different session owners.
   const supported = checks.flatMap((check) =>
     commits.filter((commit) =>
       commit.arenaExpression === check.arenaExpression &&
       commit.membershipExpression === check.membershipExpression
-    ).flatMap((commit) => [check, commit])
+    ).flatMap((commit) => [
+      { ...check, guardedCommitSource: commit.source }, commit,
+    ])
   );
   return supported;
 }
@@ -1465,37 +1473,61 @@ export function deriveScriptArenaAuthorityEvidence(
   );
 }
 
+function sameCommitSource(expected: SourceRef | undefined, actual: SourceRef): boolean {
+  const a = expected?.range, b = actual.range;
+  return a?.lineStart !== undefined && a.columnStart !== undefined &&
+    a.lineEnd !== undefined && a.columnEnd !== undefined &&
+    b !== undefined && expected?.artifactId === actual.artifactId &&
+    expected.relativePath === actual.relativePath &&
+    a.lineStart === b.lineStart && a.columnStart === b.columnStart &&
+    a.lineEnd === b.lineEnd && a.columnEnd === b.columnEnd;
+}
+
 export function correlateScriptArenaAuthorityPaths(
   evidence:
     readonly ScriptArenaAuthorityEvidence[],
 ): ScriptArenaAuthorityPath[] {
   const grouped = new Map<
     string,
-    ScriptArenaAuthorityEvidence[]
+    { arenaExpression: string; executionRegion: string; items: ScriptArenaAuthorityEvidence[] }
   >();
-
   for (const item of evidence) {
-    const key =
-      item.arenaExpression +
-      "|" +
-      item.executionRegion;
-    const list = grouped.get(key) ?? [];
-    list.push(item);
-    grouped.set(key, list);
+    const key = JSON.stringify([item.arenaExpression, item.executionRegion]);
+    const group = grouped.get(key) ?? {
+      arenaExpression: item.arenaExpression,
+      executionRegion: item.executionRegion,
+      items: [],
+    };
+    group.items.push(item);
+    grouped.set(key, group);
   }
 
-  return [...grouped.entries()]
-    .map(([key, items]) => {
-      const [
-        arenaExpression,
-        executionRegion,
-      ] = key.split("|");
-
-      const membershipCommit = items.find(
-        (item) =>
-          item.kind ===
-            "membership-commit",
+  return [...grouped.values()]
+    .map(({ arenaExpression, executionRegion, items }) => {
+      // An exact guard-to-write witness, not co-location, establishes authority.
+      const pairs = items.flatMap((check) =>
+        check.kind === "capacity-check" && check.guardedCommitSource
+          ? items.filter((commit) =>
+              commit.kind === "membership-commit" &&
+              check.arenaExpression === commit.arenaExpression &&
+              check.membershipExpression === commit.membershipExpression &&
+              sameCommitSource(check.guardedCommitSource, commit.source)
+            ).map((commit) => ({ check, commit }))
+          : [],
       );
+      const first = pairs[0];
+      const bound = first !== undefined &&
+        pairs.every(({ check }) =>
+          check.capacityExpression === first.check.capacityExpression &&
+          check.membershipExpression === first.check.membershipExpression
+        ) &&
+        items.filter((item) =>
+          item.kind === "membership-commit" &&
+          item.membershipExpression === first.commit.membershipExpression
+        ).length === pairs.length
+          ? first : undefined;
+      const membershipCommit = bound?.commit ??
+        items.find((item) => item.kind === "membership-commit");
       const membershipRelease = items.find(
         (item) =>
           item.kind ===
@@ -1506,11 +1538,8 @@ export function correlateScriptArenaAuthorityPaths(
           item.kind ===
             "capacity-operand",
       );
-      const capacityCheck = items.find(
-        (item) =>
-          item.kind ===
-            "capacity-check",
-      );
+      const capacityCheck = bound?.check ??
+        items.find((item) => item.kind === "capacity-check");
       const generationOperand = items.find(
         (item) =>
           item.kind ===
@@ -1564,9 +1593,7 @@ export function correlateScriptArenaAuthorityPaths(
         );
 
       const capacityAuthorityProven =
-        membershipCommit !== undefined &&
-        capacityCheck !== undefined &&
-        capacityMatchesOperand;
+        bound !== undefined && capacityMatchesOperand;
 
       const startAuthorityProven =
         startOwnerAcquire !== undefined &&

@@ -90,7 +90,7 @@ describe("arena authority evidence", () => {
     expect(parsed.arenaAuthorityPaths).toEqual([
       expect.objectContaining({
         arenaExpression: "arena",
-        executionRegion: "function:join",
+        executionRegion: expect.stringMatching(/^function:join@\d+$/),
         capacityAuthorityProven: true,
         startAuthorityProven: false,
         membershipCommit: expect.objectContaining({
@@ -259,14 +259,14 @@ describe("arena authority evidence", () => {
       capacityAuthorityProven: true,
       capacityCheck: expect.objectContaining({
         membershipExpression: "this.members",
-        executionRegion: "method:join",
+        executionRegion: expect.stringMatching(/^method:Party\.join@\d+$/),
         source: expect.objectContaining({
           range: expect.objectContaining({ lineStart: 4 }),
         }),
       }),
       membershipCommit: expect.objectContaining({
         membershipExpression: "this.members",
-        executionRegion: "method:join",
+        executionRegion: expect.stringMatching(/^method:Party\.join@\d+$/),
       }),
     });
   });
@@ -355,6 +355,67 @@ describe("arena authority evidence", () => {
     expect(parsed.arenaAuthorityPaths?.some(
       (path) => path.capacityAuthorityProven,
     )).toBe(false);
+  });
+
+  it("rejects greater-than guards that permit over-capacity joins", () => {
+    const parsed = parseScriptFile("unsafe-greater-than", [
+      "class Party {",
+      "  join(player) {",
+      "    return this.members.length > 5 ? false : (this.members.push(player), true);",
+      "  }",
+      "}",
+    ].join("\n"), source);
+    expect(parsed.arenaAuthorityPaths?.some((path) => path.capacityAuthorityProven)).toBe(false);
+  });
+
+  it("keeps same-named class methods in separate authority regions", () => {
+    const parsed = parseScriptFile("class-scopes", [
+      "class Limited {",
+      "  join(player) {",
+      "    if (this.members.length >= 5) return;",
+      "    this.members.push(player);",
+      "  }",
+      "}",
+      "class Open {",
+      "  join(player) {",
+      "    this.members.push(player);",
+      "  }",
+      "}",
+    ].join("\n"), source);
+    const paths = parsed.arenaAuthorityPaths ?? [];
+    expect(paths).toHaveLength(2);
+    expect(paths.filter((path) => path.capacityAuthorityProven)).toHaveLength(1);
+    expect(paths.find((path) => path.executionRegion.startsWith("method:Limited.join@"))?.capacityAuthorityProven).toBe(true);
+    expect(paths.find((path) => path.executionRegion.startsWith("method:Open.join@"))?.capacityAuthorityProven).toBe(false);
+  });
+
+  it("does not close capacity when a second unguarded roster write follows", () => {
+    const parsed = parseScriptFile("double-commit", [
+      "function join(arena, player) {",
+      "  if (arena.members.length >= 5) return;",
+      "  arena.members.push(player);",
+      "  arena.members.push(player);",
+      "}",
+    ].join("\n"), source);
+    expect(parsed.arenaAuthorityPaths?.some((path) => path.capacityAuthorityProven)).toBe(false);
+  });
+
+  it("distinguishes same-named nested and top-level join functions", () => {
+    const parsed = parseScriptFile("two-functions", [
+      "function join(arena, player) {",
+      "  if (arena.members.length >= 5) return;",
+      "  arena.members.push(player);",
+      "}",
+      "function outer() {",
+      "  function join(arena, player) {",
+      "    if (arena.members.length >= 9) return;",
+      "    arena.members.push(player);",
+      "  }",
+      "}",
+    ].join("\n"), source);
+    const paths = (parsed.arenaAuthorityPaths ?? []).filter((path) => path.capacityAuthorityProven);
+    expect(paths).toHaveLength(2);
+    expect(new Set(paths.map((path) => path.executionRegion)).size).toBe(2);
   });
 
   it("proves start ownership only when owner acquisition and start-state commit share the same arena path", () => {

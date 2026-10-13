@@ -540,6 +540,8 @@ export interface ScriptArenaAuthorityEvidence {
   subjectExpression?: string;
   membershipExpression?: string;
   capacityExpression?: string;
+  /** Exact source span of the roster write enforced by this guard. */
+  guardedCommitSource?: SourceRef;
   ownerExpression?: string;
   generationExpression?: string;
   stateExpression?: string;
