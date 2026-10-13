@@ -755,13 +755,19 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
     world.arenas.replicaIntegrity.noProof > 0 ||
     world.arenas.replicaIntegrity.bounded > 0 ||
     replicaCoverageIncomplete;
+  // The canonical layout reconciler distinguishes script-only,
+  // topology-only, unavailable, conflict and consistent. Presence of one
+  // layout source is not proof that script and physical layouts agree.
+  const arenaLayoutReconciled =
+    world.arenas.layoutStatus === "consistent";
   const multiArenaFormalizationGaps = [
     ...(!multiArena
       ? ["multi-arena design is demanded but source/topology count is not established"] : []),
     ...(multiArena && world.arenas.safeConcurrentArenas == null
       ? ["playable concurrency is unresolved"] : []),
-    ...(multiArena && world.arenas.layoutStatus === "conflict"
-      ? ["script and topology arena layouts conflict"] : []),
+    ...(multiArena && !arenaLayoutReconciled
+      ? ["script/topology arena layout reconciliation is not established (" +
+          (world.arenas.layoutStatus ?? "unavailable") + ")"] : []),
     ...(multiArena && world.arenas.isolation.unknown > 0
       ? ["arena state ownership remains unknown"] : []),
     ...(multiArena && world.arenas.isolation.partitionProofRequired > 0
@@ -855,11 +861,9 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
         obligation(
           "arena-layout-reconciled",
           multiArenaRequired,
-          multiArena && world.arenas.layoutStatus !== "conflict",
-          "An unresolved script/topology arena layout conflict cannot close the multi-arena contract.",
-          world.arenas.layoutStatus === "conflict"
-            ? []
-            : ["analysis:arena-lifecycle"],
+          multiArena && arenaLayoutReconciled,
+          "B4 layout reconciliation closes only with consistent script and topology arena evidence; absent, script-only, topology-only, or conflicting layouts remain unproven.",
+          [],
         ),
       ],
     },
