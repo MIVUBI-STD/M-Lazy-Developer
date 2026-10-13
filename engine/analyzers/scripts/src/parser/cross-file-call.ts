@@ -380,7 +380,11 @@ function callableSource(file: ts.SourceFile): ReadonlyMap<string, CallableSource
 interface TopLevelSourceClass {
   readonly name: string;
   readonly declaration: ts.ClassDeclaration | ts.ClassExpression;
+  /** Cross-module ownership is not stable after a visible class rebinding. */
   readonly exported: boolean;
+  readonly bindingStable: boolean;
+  readonly overwrittenMembers: ReadonlySet<string>;
+  readonly unknownMemberWrite: boolean;
 }
 
 /**
@@ -421,11 +425,93 @@ function topLevelSourceClasses(file: ts.SourceFile): readonly TopLevelSourceClas
     }
   }
   const exportedLocals = new Set(moduleExports(file).localExports.values());
+  const rebound = new Set<string>();
+  const overwritten = new Map<string, Set<string>>();
+  const unknownMembers = new Set<string>();
+  const overwrite = (name: string, member?: string): void => {
+    if (member === undefined) {
+      unknownMembers.add(name);
+      return;
+    }
+    const names = overwritten.get(name) ?? new Set<string>();
+    names.add(member);
+    overwritten.set(name, names);
+  };
+  const markWrite = (node: ts.Node): void => {
+    if (ts.isParenthesizedExpression(node)) {
+      markWrite(node.expression);
+    } else if (ts.isIdentifier(node)) {
+      rebound.add(node.text);
+    } else if (ts.isPropertyAccessExpression(node)) {
+      if (ts.isIdentifier(node.expression)) {
+        overwrite(node.expression.text, node.name.text);
+      } else {
+        markWrite(node.expression);
+      }
+    } else if (ts.isElementAccessExpression(node)) {
+      if (ts.isIdentifier(node.expression)) {
+        const key = node.argumentExpression;
+        overwrite(node.expression.text,
+          key && ts.isStringLiteralLike(key) ? key.text : undefined);
+      } else {
+        markWrite(node.expression);
+      }
+    } else if (ts.isObjectLiteralExpression(node)) {
+      for (const prop of node.properties) {
+        if (ts.isShorthandPropertyAssignment(prop)) rebound.add(prop.name.text);
+        else if (ts.isPropertyAssignment(prop)) markWrite(prop.initializer);
+        else if (ts.isSpreadAssignment(prop)) markWrite(prop.expression);
+      }
+    } else if (ts.isArrayLiteralExpression(node)) {
+      for (const element of node.elements) {
+        if (!ts.isOmittedExpression(element)) markWrite(element);
+      }
+    }
+  };
+  const visitWrites = (node: ts.Node): void => {
+    if (ts.isBinaryExpression(node) &&
+        node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+        node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+      markWrite(node.left);
+    } else if (ts.isDeleteExpression(node)) {
+      markWrite(node.expression);
+    } else if ((ts.isPrefixUnaryExpression(node) ||
+                ts.isPostfixUnaryExpression(node)) &&
+               (node.operator === ts.SyntaxKind.PlusPlusToken ||
+                node.operator === ts.SyntaxKind.MinusMinusToken)) {
+      markWrite(node.operand);
+    } else if (ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        ts.isIdentifier(node.expression.expression) &&
+        node.arguments[0] && ts.isIdentifier(node.arguments[0])) {
+      const owner = node.arguments[0].text;
+      const root = node.expression.expression.text;
+      const method = node.expression.name.text;
+      if ((root === "Object" && method === "assign") ||
+          (root === "Reflect" && method === "set")) {
+        overwrite(owner);
+      } else if (root === "Object" && method === "defineProperty") {
+        const key = node.arguments[1];
+        overwrite(owner,
+          key && ts.isStringLiteralLike(key) ? key.text : undefined);
+      }
+    }
+    ts.forEachChild(node, visitWrites);
+  };
+  visitWrites(file);
   return candidates.filter(item => bindings.get(item.name) === 1)
-    .map(item => ({
-      ...item,
-      exported: exportedLocals.has(item.name),
-    }));
+    .map(item => {
+      const bindingStable = !rebound.has(item.name);
+      const unknownMemberWrite = unknownMembers.has(item.name);
+      return {
+        ...item,
+        bindingStable,
+        overwrittenMembers: overwritten.get(item.name) ?? new Set<string>(),
+        unknownMemberWrite,
+        exported: bindingStable && !unknownMemberWrite &&
+          exportedLocals.has(item.name),
+      };
+    });
 }
 
 /**
@@ -443,43 +529,24 @@ function staticClassCallables(file: ts.SourceFile): {
 } {
   const sourceClasses = topLevelSourceClasses(file);
 
-  const writes = new Set<string>();
   const nameOf = (node: ts.PropertyName | undefined): string | undefined =>
     node && (ts.isIdentifier(node) || ts.isStringLiteralLike(node))
       ? node.text : undefined;
-  const visit = (node: ts.Node): void => {
-    // Exported class expressions declared with var/let can be overwritten.
-    // An authored write to the class or its static property is a resolution gap.
-    if (ts.isBinaryExpression(node) &&
-        node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
-        node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
-      const left = node.left;
-      if (ts.isIdentifier(left)) writes.add(left.text);
-      if ((ts.isPropertyAccessExpression(left) || ts.isElementAccessExpression(left)) &&
-          ts.isIdentifier(left.expression)) writes.add(left.expression.text);
-    }
-    if (ts.isDeleteExpression(node) &&
-        (ts.isPropertyAccessExpression(node.expression) ||
-         ts.isElementAccessExpression(node.expression)) &&
-        ts.isIdentifier(node.expression.expression)) {
-      writes.add(node.expression.expression.text);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(file);
 
   const classes = new Set<string>();
   const methods = new Map<string, CallableSource>();
-  for (const { name, declaration } of sourceClasses) {
+  for (const { name, declaration, bindingStable,
+               overwrittenMembers, unknownMemberWrite } of sourceClasses) {
     classes.add(name);
-    // The class syntax is still known; mutation invalidates only executable
-    // target certainty, not the existence of the authored member call.
-    if (writes.has(name)) continue;
+    // Changing an unrelated static field does not replace every method.
+    // Rebinding the class or an unknown computed static member still blocks
+    // callable resolution; an explicit method replacement blocks that method.
+    if (!bindingStable || unknownMemberWrite) continue;
     for (const member of declaration.members) {
       if (!ts.isMethodDeclaration(member) || !member.body ||
           !hasModifier(member, ts.SyntaxKind.StaticKeyword)) continue;
       const methodName = nameOf(member.name);
-      if (!methodName ||
+      if (!methodName || overwrittenMembers.has(methodName) ||
           declaration.members.filter(item => nameOf(item.name) === methodName).length !== 1)
         continue;
       methods.set(JSON.stringify([name, methodName]), {
@@ -1061,8 +1128,8 @@ export function extractScriptClassWiring(
       }]);
     }
   }
-  for (const { name: className, declaration: cls, exported } of
-    topLevelSourceClasses(file)) {
+  for (const { name: className, declaration: cls, exported,
+               overwrittenMembers } of topLevelSourceClasses(file)) {
     const methodList = cls.members.filter(
       (member): member is ts.MethodDeclaration =>
         ts.isMethodDeclaration(member) &&
@@ -1102,7 +1169,8 @@ export function extractScriptClassWiring(
       });
       methods.push({
         className, methodName, parameterNames: params,
-        stableParameterIndices:stable,exported,
+        stableParameterIndices:stable,
+        exported: exported && !overwrittenMembers.has(methodName),
         source:nodeSource(file,method,owner),
       });
     }

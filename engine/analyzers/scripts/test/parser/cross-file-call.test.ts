@@ -406,6 +406,72 @@ describe("cross-file call resolution", () => {
     expect(mutated[0]?.targetRegion).toBeUndefined();
   });
 
+  it("keeps a unique imported method when an unrelated static field changes", () => {
+    const artifactId = "real-world-source-shape";
+    const source = {
+      artifactId,
+      relativePath: "behavior_packs/BP/scripts/chunks/database.js",
+    };
+    const service = {
+      path: source.relativePath,
+      source,
+      text: [
+        "var DatabaseService = class {",
+        "  static init() { return true; }",
+        "  static get() { return 1; }",
+        "};",
+        "DatabaseService._runtimeResetCallbacks = [];",
+        "export { DatabaseService };",
+      ].join("\n"),
+    };
+    const main = {
+      path: "behavior_packs/BP/scripts/main.js",
+      source: { artifactId, relativePath: "behavior_packs/BP/scripts/main.js" },
+      text: 'import { DatabaseService } from "./chunks/database.js"; DatabaseService.init();',
+    };
+    const calls = deriveCrossFileCallEdges([main, service]);
+    expect(calls).toEqual([expect.objectContaining({
+      status: "resolved",
+      localName: "DatabaseService.init",
+      targetRegion: expect.stringMatching(/^function:DatabaseService\\.init@/),
+    })]);
+    const parsed = parseScriptFile(service.path, service.text, source);
+    expect(parsed.sourceClassMethods).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        className: "DatabaseService", methodName: "init", exported: true,
+      }),
+    ]));
+  });
+
+  it("refuses overwritten exported members and rebound imported class bindings", () => {
+    const source = {
+      artifactId: "same-selected-map", relativePath: "scripts/service.js",
+    };
+    const main = {
+      path: "scripts/main.js",
+      source: { artifactId: source.artifactId, relativePath: "scripts/main.js" },
+      text: 'import { Service } from "./service.js"; Service.init();',
+    };
+    const cases = [
+      'var Service = class { static init() {} }; Service.init = replacement; export { Service };',
+      'var Service = class { static init() {} }; Service = Replacement; export { Service };',
+      'var Service = class { static init() {} }; Object.defineProperty(Service, "init", {value: replacement}); export { Service };',
+      'var Service = class { static init() {} }; Service[unknownProperty] = replacement; export { Service };',
+    ];
+    for (const text of cases) {
+      const service = { path: source.relativePath, source, text };
+      const calls = deriveCrossFileCallEdges([main, service]);
+      expect(calls[0]).toMatchObject({
+        localName: "Service.init", status: "unresolved",
+      });
+      expect(calls[0]?.targetRegion).toBeUndefined();
+      const parsed = parseScriptFile(service.path, service.text, source);
+      expect(parsed.sourceClassMethods?.find(item =>
+        item.className === "Service" && item.methodName === "init")?.exported
+      ).toBe(false);
+    }
+  });
+
   it("does not resolve a same-name shadow or cross-artifact static method", () => {
     const target = {
       path: "scripts/service.js", source: { artifactId: "other-map", relativePath: "scripts/service.js" },
