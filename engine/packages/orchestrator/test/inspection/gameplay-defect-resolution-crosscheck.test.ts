@@ -297,3 +297,61 @@ describe("gameplay defect resolution crosscheck depth", () => {
     ]);
   });
 });
+
+describe("non-finding PROVE resolution conservation", () => {
+  const gapGraph: GameplayScenarioGraph = {
+    ...graph,
+    causalLinks: graph.causalLinks.map((link) => ({
+      ...link,
+      status: "DETECTION_GAP" as const,
+    })),
+  };
+
+  it("keeps source detection gaps as valid non-finding obligations without fabricating a defect", () => {
+    const result = assessGameplayDefectResolutionGate(gapGraph);
+    expect(result.status).toBe("READY_FOR_PROPOSED_BUG_SET");
+    expect(result.detectionGapIds).toEqual(["link:arena-capacity"]);
+    expect(result.confirmedDefectReadyIds).toEqual([]);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("keeps a typed runtime question as an unresolved non-finding resolution", () => {
+    const runtimeGraph: GameplayScenarioGraph = {
+      ...graph,
+      causalLinks: graph.causalLinks.map((link) => ({
+        ...link,
+        status: "RUNTIME_BLOCKED" as const,
+        runtimeNativeReason: "engine-scheduling" as const,
+      })),
+    };
+    const result = assessGameplayDefectResolutionGate(runtimeGraph);
+    expect(result.status).toBe("READY_FOR_PROPOSED_BUG_SET");
+    expect(result.runtimeProofRequiredIds).toEqual(["link:arena-capacity"]);
+    expect(result.confirmedDefectReadyIds).toEqual([]);
+    expect(result.resolutions[0]?.narrowRuntimeQuestion).toBeTruthy();
+  });
+
+  it("rejects attempts to turn an unproven causal gap into a gameplay finding", () => {
+    const result = assessGameplayDefectResolutionGate(gapGraph, [{
+      causalLinkId: "link:arena-capacity",
+      scenarioId: "preset:arena-capacity",
+      disposition: "CONFIRMED_DEFECT_READY",
+    }]);
+    expect(result.status).toBe("BLOCKED");
+    expect(result.confirmedDefectReadyIds).toEqual([]);
+    expect(result.detectionGapIds).toEqual(["link:arena-capacity"]);
+    expect(result.issues.join(" ")).toMatch(/DETECTION_GAP cannot be promoted/);
+  });
+
+  it("rejects a supplied resolution assigned to another scenario", () => {
+    const result = assessGameplayDefectResolutionGate(gapGraph, [{
+      causalLinkId: "link:arena-capacity",
+      scenarioId: "preset:other",
+      disposition: "DETECTION_GAP",
+      detectionGapReason: "Unresolved source causality.",
+      missingCapability: "Selected-artifact causal evidence.",
+    }]);
+    expect(result.status).toBe("BLOCKED");
+    expect(result.issues.join(" ")).toMatch(/scenarioId does not match/);
+  });
+});

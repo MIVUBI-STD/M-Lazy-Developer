@@ -836,22 +836,33 @@ export function assessGameplayDefectResolutionGate(
       (link) => link.id === resolution.causalLinkId,
     );
     if (
-      sourceLink?.status === "DETECTION_GAP" &&
-      resolution.disposition === "RUNTIME_PROOF_REQUIRED"
+      resolution.scenarioId !== undefined &&
+      resolution.scenarioId !== sourceLink?.scenarioId
     ) {
       issues.push(
         resolution.causalLinkId +
-          ": DETECTION_GAP cannot be converted into runtime validation; resolve the missing analysis capability/evidence first.",
+          ": supplied resolution scenarioId does not match the causal-link owner.",
+      );
+      continue;
+    }
+    if (
+      sourceLink?.status === "DETECTION_GAP" &&
+      resolution.disposition !== "DETECTION_GAP"
+    ) {
+      issues.push(
+        resolution.causalLinkId +
+          ": DETECTION_GAP cannot be promoted or converted into runtime validation; resolve selected-source causal evidence first.",
       );
       continue;
     }
     if (
       sourceLink?.status === "RUNTIME_BLOCKED" &&
-      resolution.disposition === "CONFIRMED_DEFECT_READY"
+      resolution.disposition !== "RUNTIME_PROOF_REQUIRED" &&
+      resolution.disposition !== "DETECTION_GAP"
     ) {
       issues.push(
         resolution.causalLinkId +
-          ": RUNTIME_BLOCKED cannot become CONFIRMED_DEFECT_READY without a runtime-backed causal-link refresh.",
+          ": RUNTIME_BLOCKED cannot become a gameplay finding or safe counter-proof without a runtime-backed causal-link refresh.",
       );
       continue;
     }
@@ -1121,11 +1132,30 @@ export function assessGameplayDefectResolutionGate(
     );
   }
 
+  // The resolution inventory includes non-finding runtime and detection-gap
+  // obligations. Validate each against its own causal-link owner, not against
+  // the CONTRADICTED subset (which would reject every valid gap/runtime item).
   const malformedFinalResolution = resolutions.some((resolution) => {
-    const link = contradicted.find(
+    const link = graph.causalLinks.find(
       (candidate) => candidate.id === resolution.causalLinkId,
     );
-    if (!link) return true;
+    if (
+      link === undefined ||
+      link.status === "PROVEN" ||
+      (
+        resolution.scenarioId !== undefined &&
+        resolution.scenarioId !== link.scenarioId
+      )
+    ) return true;
+    if (
+      link.status === "DETECTION_GAP" &&
+      resolution.disposition !== "DETECTION_GAP"
+    ) return true;
+    if (
+      link.status === "RUNTIME_BLOCKED" &&
+      resolution.disposition !== "RUNTIME_PROOF_REQUIRED" &&
+      resolution.disposition !== "DETECTION_GAP"
+    ) return true;
     const scenario = graph.scenarios.find(
       (item) => item.id === link.scenarioId,
     );
@@ -1137,15 +1167,13 @@ export function assessGameplayDefectResolutionGate(
     ).length > 0;
   });
 
+  // READY means the typed resolution inventory is coherent. It is not
+  // proof that separate scenario-closure or publication gates have closed.
   const status =
     gameplayTranslationRequiredIds.length === 0 &&
     counterProofSearchRequiredIds.length === 0 &&
     !malformedFinalResolution &&
-    issues.every(
-      (issue) =>
-        !issue.startsWith("Duplicate defect resolution") &&
-        !issue.startsWith("Resolution references"),
-    )
+    issues.length === 0
       ? "READY_FOR_PROPOSED_BUG_SET" as const
       : "BLOCKED" as const;
 
