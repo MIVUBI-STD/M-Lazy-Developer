@@ -376,6 +376,58 @@ function callableSource(file: ts.SourceFile): ReadonlyMap<string, CallableSource
     .map(([name, versions]) => [name, versions[0]!]));
 }
 
+
+interface TopLevelSourceClass {
+  readonly name: string;
+  readonly declaration: ts.ClassDeclaration | ts.ClassExpression;
+  readonly exported: boolean;
+}
+
+/**
+ * The same top-level class-owner inventory feeds static import targets,
+ * Gameplay Intent class methods, and authored class Map storage.
+ * A `var Name = class {}` is a declaration of Name, not a live instance.
+ * Duplicated top-level bindings and shadowing declarations are not unique.
+ */
+function topLevelSourceClasses(file: ts.SourceFile): readonly TopLevelSourceClass[] {
+  const bindings = new Map<string, number>();
+  const candidates: { name: string; declaration: TopLevelSourceClass["declaration"] }[] = [];
+  const add = (name: string): void =>
+    bindings.set(name, (bindings.get(name) ?? 0) + 1);
+  for (const statement of file.statements) {
+    if ((ts.isFunctionDeclaration(statement) ||
+         ts.isClassDeclaration(statement)) && statement.name) {
+      add(statement.name.text);
+      if (ts.isClassDeclaration(statement)) {
+        candidates.push({name: statement.name.text, declaration: statement});
+      }
+    } else if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name)) continue;
+        const name = declaration.name.text;
+        add(name);
+        if (declaration.initializer && ts.isClassExpression(declaration.initializer)) {
+          candidates.push({name, declaration: declaration.initializer});
+        }
+      }
+    } else if (ts.isImportDeclaration(statement) && statement.importClause) {
+      const clause = statement.importClause;
+      if (clause.name) add(clause.name.text);
+      if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) {
+        add(clause.namedBindings.name.text);
+      } else if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+        for (const named of clause.namedBindings.elements) add(named.name.text);
+      }
+    }
+  }
+  const exportedLocals = new Set(moduleExports(file).localExports.values());
+  return candidates.filter(item => bindings.get(item.name) === 1)
+    .map(item => ({
+      ...item,
+      exported: exportedLocals.has(item.name),
+    }));
+}
+
 /**
  * Source-only imported class member ownership. Compiled Bedrock chunks often
  * declare `var Service = class { static method() {} }` and export the
@@ -389,30 +441,7 @@ function staticClassCallables(file: ts.SourceFile): {
   readonly classNames: ReadonlySet<string>;
   readonly methods: ReadonlyMap<string, CallableSource>;
 } {
-  const classDeclarations = new Map<string, ts.ClassLikeDeclaration[]>();
-  const symbolDeclarations = new Map<string, number>();
-  const addSymbol = (name: string): void =>
-    symbolDeclarations.set(name, (symbolDeclarations.get(name) ?? 0) + 1);
-  const addClass = (name: string, declaration: ts.ClassLikeDeclaration): void =>
-    classDeclarations.set(name, [...(classDeclarations.get(name) ?? []), declaration]);
-  for (const statement of file.statements) {
-    if (ts.isClassDeclaration(statement) && statement.name) {
-      addSymbol(statement.name.text);
-      addClass(statement.name.text, statement);
-    }
-    if (ts.isFunctionDeclaration(statement) && statement.name) {
-      addSymbol(statement.name.text);
-    }
-    if (ts.isVariableStatement(statement)) {
-      for (const declaration of statement.declarationList.declarations) {
-        if (!ts.isIdentifier(declaration.name)) continue;
-        addSymbol(declaration.name.text);
-        if (declaration.initializer && ts.isClassExpression(declaration.initializer)) {
-          addClass(declaration.name.text, declaration.initializer);
-        }
-      }
-    }
-  }
+  const sourceClasses = topLevelSourceClasses(file);
 
   const writes = new Set<string>();
   const nameOf = (node: ts.PropertyName | undefined): string | undefined =>
@@ -441,14 +470,11 @@ function staticClassCallables(file: ts.SourceFile): {
 
   const classes = new Set<string>();
   const methods = new Map<string, CallableSource>();
-  for (const [name, declarations] of classDeclarations) {
-    if (declarations.length !== 1 || symbolDeclarations.get(name) !== 1)
-      continue;
+  for (const { name, declaration } of sourceClasses) {
     classes.add(name);
     // The class syntax is still known; mutation invalidates only executable
     // target certainty, not the existence of the authored member call.
     if (writes.has(name)) continue;
-    const declaration = declarations[0]!;
     for (const member of declaration.members) {
       if (!ts.isMethodDeclaration(member) || !member.body ||
           !hasModifier(member, ts.SyntaxKind.StaticKeyword)) continue;
@@ -1035,17 +1061,8 @@ export function extractScriptClassWiring(
       }]);
     }
   }
-  const classes = file.statements.filter(
-    (statement): statement is ts.ClassDeclaration =>
-      ts.isClassDeclaration(statement) && statement.name !== undefined);
-  const names = new Map<string, number>();
-  for (const item of classes) names.set(item.name!.text,
-    (names.get(item.name!.text) ?? 0) + 1);
-  for (const cls of classes) {
-    const className = cls.name!.text;
-    if (names.get(className) !== 1) continue;
-    const exported = cls.modifiers?.some(m =>
-      m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+  for (const { name: className, declaration: cls, exported } of
+    topLevelSourceClasses(file)) {
     const methodList = cls.members.filter(
       (member): member is ts.MethodDeclaration =>
         ts.isMethodDeclaration(member) &&
@@ -1289,13 +1306,8 @@ export function extractScriptClassMapSites(file: ts.SourceFile, owner: SourceRef
         ts.isIdentifier(decl.name) && decl.name.text === "Map")));
   if (shadowedMap) return {sourceClassMaps:[],sourceClassMapAccesses:[]};
 
-  const classes = file.statements.filter((s):s is ts.ClassDeclaration =>
-    ts.isClassDeclaration(s) && s.name !== undefined);
-  const classCounts = new Map<string,number>();
-  for (const cls of classes) classCounts.set(cls.name!.text,
-    (classCounts.get(cls.name!.text) ?? 0) + 1);
-  for (const cls of classes) {
-    if (classCounts.get(cls.name!.text) !== 1) continue;
+  for (const { name: className, declaration: cls } of
+    topLevelSourceClasses(file)) {
     const ctor = cls.members.filter(ts.isConstructorDeclaration);
     if (ctor.length !== 1 || !ctor[0]!.body) continue;
     if (ctor[0]!.parameters.some(p =>
@@ -1350,7 +1362,7 @@ export function extractScriptClassMapSites(file: ts.SourceFile, owner: SourceRef
       if(decl.count!==1 || writes.get(key)!==1)continue;
       confirmed.add(key);
       collections.push({source:decl.source,
-        className:cls.name!.text,fieldName:key});
+        className:className,fieldName:key});
     }
     if(confirmed.size===0)continue;
     const methods=cls.members.filter((m):m is ts.MethodDeclaration=>
@@ -1424,7 +1436,7 @@ export function extractScriptClassMapSites(file: ts.SourceFile, owner: SourceRef
             }
             accesses.push({
               source:nodeSource(file,node,owner),
-              className:cls.name!.text,
+              className:className,
               executionRegion:sourceMethodRegion(method, file),
               fieldName:field,operation,keyExpression:keyExpr,
               ...(value===undefined?{}:{valueExpression:value.getText(file).slice(0,200)}),

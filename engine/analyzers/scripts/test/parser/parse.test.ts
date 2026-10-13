@@ -1516,4 +1516,75 @@ const arenas = joins.map((entry, index) => {
     expect(parsed.sourceClassMapAccesses).toEqual([]);
   });
 
+  it("retains bundled top-level class expressions as class-owned source methods", () => {
+    const src = {artifactId: "selected", relativePath: "behavior_packs/demo/scripts/chunks/logic.js"};
+    const parsed = parseScriptFile("logic", [
+      'var PartyService = class {',
+      '  static init() { return true; }',
+      '  static reset() { return false; }',
+      '};',
+      'var DatabaseService = class {',
+      '  static init() { return 1; }',
+      '};',
+      'export { PartyService };',
+    ].join("\n"), src);
+    const methods = parsed.sourceClassMethods ?? [];
+    expect(methods).toEqual(expect.arrayContaining([
+      expect.objectContaining({className: "PartyService", methodName: "init", exported: true}),
+      expect.objectContaining({className: "PartyService", methodName: "reset", exported: true}),
+      expect.objectContaining({className: "DatabaseService", methodName: "init", exported: false}),
+    ]));
+    const regions = (parsed.controlFlowRegions ?? []).map(item => item.region);
+    expect(regions).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^function:PartyService\.init@/),
+      expect.stringMatching(/^function:DatabaseService\.init@/),
+    ]));
+    expect(new Set(regions).size).toBe(regions.length);
+    for (const method of methods) {
+      const start = method.source.range;
+      expect(start?.columnStart).toBeGreaterThan(0);
+      const expected = "function:" + method.className + "." + method.methodName +
+        "@" + start!.lineStart + ":" + start!.columnStart;
+      expect(regions).toContain(expected);
+    }
+  });
+
+  it("recognizes a bundled class Map owner without equating the keys or instance identities", () => {
+    const parsed = parseScriptFile("sessions", [
+      'var Sessions = class {',
+      '  constructor() { this.parties = new Map(); }',
+      '  store(id, party) { this.parties.set(id, party); }',
+      '  find(id) { return this.parties.get(id); }',
+      '};',
+      'export { Sessions };',
+    ].join("\n"), {
+      artifactId: "selected",
+      relativePath: "behavior_packs/demo/scripts/chunks/sessions.js",
+    });
+    expect(parsed.sourceClassMaps).toEqual([
+      expect.objectContaining({className: "Sessions", fieldName: "parties"}),
+    ]);
+    expect(parsed.sourceClassMapAccesses).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operation: "set", className: "Sessions",
+        executionRegion: expect.stringMatching(/^function:Sessions\.store@/),
+      }),
+      expect.objectContaining({
+        operation: "get", className: "Sessions",
+        executionRegion: expect.stringMatching(/^function:Sessions\.find@/),
+      }),
+    ]));
+  });
+
+  it("rejects duplicated top-level class bindings as unique class owners", () => {
+    const parsed = parseScriptFile("duplicates", [
+      'var Service = class { static init() {} };',
+      'var Service = class { static init() {} };',
+      'export { Service };',
+    ].join("\n"), {
+      artifactId: "selected", relativePath: "behavior_packs/demo/scripts/duplicate.js",
+    });
+    expect(parsed.sourceClassMethods?.filter(item => item.className === "Service")).toEqual([]);
+  });
+
 });
