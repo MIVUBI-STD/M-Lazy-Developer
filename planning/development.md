@@ -1,3 +1,15 @@
+## FORMALIZE class-field mapped-session ownership — conservative admission (2026-10-14)
+
+**Observation:** `class Sessions { parties = configs.map(item => new Party(item)); }` was accepted by `mappedConstructorCapacity()` even though the engine did not track uses of the resulting class field. A real JS/TS 5.8.3 reproduction confirmed `owner.parties[0].definition.maxPlayers` can change from 5 to 9 after constructing the owner.
+
+**Correction:** Removed the unproven `PropertyDeclaration` shortcut from the existing mapped constructor producer. Class-field results (including exports, leaks and mutations) now leave numeric capacity **UNKNOWN**; same-file `const`-owned mapped collections retain their existing bounded method-use and index evidence. This trades uncertain positive coverage for prevention of unsupported global `perArenaPlayerCapacity` claims. No new parser/manager, map-specific conditions or secondary source authority.
+
+**Tests:** Moved legacy positive class-field fixtures to the equivalent `const`-owned form; added source parser and B3/B5 extractor negatives for unowned class-field cases, plus a `const` positive control. Test cases are **AUTHORED, NOT YET RUN THROUGH REPOSITORY VITEST**. Executed an independent Node.js + TypeScript AST classification check and a JS runtime mutation counterexample. Full `mappedConstructorCapacity()`, `parseScriptFile()`, extractor integration, typecheck, archived-world acceptance and Minecraft runtime remain **NOT EXECUTED**. FORMALIZE B3/B5 is still BLOCKED.
+
+**Next:** Establish a safe source/dependency handoff into ChatGPT and execute original parser → extractor on SHA-pinned maps. Restoring class-field positive coverage requires exact owner-instance/field-consumer provenance, not permissive fallback heuristics.
+
+---
+
 ## FORMALIZE mapped collection identity — executable fragment proof (2026-10-14)
 
 **Exact source:** After commit `dd40260b6c04`, GitHub blob `acf2db0d01cc`, I executed the unchanged 1515-character `scanMappedInstanceCollections`/unique-binding fragment using Node 22.16 and TypeScript 5.8.3. FNV1a32 `8952651d` and SHA-256 `88de1ab49cc1...` verified the selected source. **13/13 `node:test` cases passed, 0 failures**, including direct methods, mutation, index bounds, escapes and aliasing. Full metadata and harness/TAP checksums are stored in `engine/reliability/history/audit-runs/learning/chatgpt-mapped-collection-ownership-fragment-2026-10-14.json`.

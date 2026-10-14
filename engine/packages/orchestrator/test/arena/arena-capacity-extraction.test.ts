@@ -413,7 +413,7 @@ describe("arena concurrency capacity extraction", () => {
       "      ? false : (this.members.push(player), true);",
       "  }",
       "};",
-      "class SessionManager { sessions = configs.map((cfg) => new Party(cfg)); }",
+      "const sessions = configs.map((cfg) => new Party(cfg));",
     ].join("\n"), {
       artifactId: "fixture", relativePath: "scripts/generated-sessions.js",
     });
@@ -562,7 +562,7 @@ describe("arena concurrency capacity extraction", () => {
         "  join(player) { return this.members.length >= this.definition.maxPlayers",
         "    ? false : (this.members.push(player), true); }",
         "};",
-        `class Sessions { parties = configs.map(${asyncStage === "allocator" ? "async " : ""}(cfg) => new Party(cfg)); }`,
+        `const parties = configs.map(${asyncStage === "allocator" ? "async " : ""}(cfg) => new Party(cfg));`,
       ].join("\n"), {
         artifactId: "fixture", relativePath: "scripts/async-config.js",
       });
@@ -593,6 +593,38 @@ describe("arena concurrency capacity extraction", () => {
     });
     expect(output.evidence.perArenaPlayerCapacity).toBeUndefined();
     expect(output.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+  });
+
+  it("does not project class-field-held mapped sessions into B3/B5 capacity", () => {
+    const common = [
+      "const configs = [0, 1].map(id => ({ maxPlayers: 5, id }));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+    ];
+    const variants = [
+      ["class Sessions { parties = configs.map(item => new Party(item)); }"],
+      ["class Sessions { parties = configs.map(item => new Party(item)); }",
+       "const owner = new Sessions(); owner.parties[0].definition.maxPlayers = 9;"],
+      ["class Sessions { parties = configs.map(item => new Party(item)); }",
+       "const owner = new Sessions(); leak(owner.parties);"],
+    ];
+    for (const extra of variants) {
+      const script = parseScriptFile("class-field-capacity-unproven", [
+        ...common, ...extra,
+      ].join("\n"), {
+        artifactId: "fixture",
+        relativePath: "scripts/class-field-sessions.js",
+      });
+      const result = extractArenaConcurrencyCapacity({
+        tickingAreas: [], scripts: [script], declaredArenaCount: 2,
+      });
+      expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+      expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    }
   });
 
   it("keeps B3/B5 UNKNOWN when a const-owned mapped instance collection escapes", () => {

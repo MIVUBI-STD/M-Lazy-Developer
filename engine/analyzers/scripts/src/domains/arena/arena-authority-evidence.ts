@@ -1022,10 +1022,13 @@ function mappedConstructorCapacity(
               modifier.kind === ts.SyntaxKind.ExportKeyword ||
               modifier.kind === ts.SyntaxKind.DefaultKeyword)) {
           mappedInstanceCollections.add(receiver.name.text);
-        } else if (!ts.isPropertyDeclaration(receiver) ||
-                   receiver.initializer !== mapCall) {
-          // Returning, forwarding or exposing the unowned mapped result
-          // loses the original class-instance identity proof.
+        } else {
+          // A class-field initializer does not prove who owns the resulting
+          // instances. Even an unexported class can later expose, mutate or
+          // replace this.field[i].definition through a class instance.
+          // Do not borrow numeric authority until field-owner provenance
+          // and all consumers are traced with the same strictness as const.
+          // Unknown consumers and forwarded map results fail closed too.
           valid = false;
         }
       } else {

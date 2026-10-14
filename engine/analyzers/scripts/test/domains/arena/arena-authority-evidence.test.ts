@@ -306,7 +306,7 @@ describe("arena authority evidence", () => {
       "      ? false : (this.members.push(player), true);",
       "  }",
       "};",
-      "class Sessions { parties = definitions.map((item) => new Party(item)); }",
+      "const parties = definitions.map((item) => new Party(item));",
     ].join("\n"), source);
     const check = parsed.arenaAuthorityPaths?.find((item) =>
       item.capacityAuthorityProven
@@ -372,7 +372,7 @@ describe("arena authority evidence", () => {
       "      ? false : (this.members.push(player), true);",
       "  }",
       "};",
-      "class Sessions { parties = definitions.map((item) => new Party(item)); }",
+      "const parties = definitions.map((item) => new Party(item));",
     ];
     const invalid = [
       (rows: string[]) => rows.map((line) =>
@@ -491,7 +491,7 @@ describe("arena authority evidence", () => {
       "  join(player) { return this.members.length >= this.definition.maxPlayers",
       "    ? false : (this.members.push(player), true); }",
       "};",
-      `class Sessions { parties = configs.map(${asyncAllocation ? "async " : ""}(cfg) => new Party(cfg)); }`,
+      `const parties = configs.map(${asyncAllocation ? "async " : ""}(cfg) => new Party(cfg));`,
     ].join("\n");
     const synchronous = parseScriptFile("sync-alloc", build(false), source);
     expect(synchronous.arenaAuthorityPaths?.find((path) =>
@@ -594,6 +594,42 @@ describe("arena authority evidence", () => {
         )).toBe(false);
       }
     }
+  });
+
+  it("keeps class-property-held mapped instances numerically UNKNOWN", () => {
+    const common = [
+      "const configs = [0, 1].map(id => ({ maxPlayers: 5, id }));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+    ];
+    const fieldCases = [
+      ["class Sessions { parties = configs.map(item => new Party(item)); }"],
+      ["class Sessions { parties = configs.map(item => new Party(item)); }",
+       "const owner = new Sessions(); owner.parties[0].definition.maxPlayers = 9;"],
+      ["class Sessions { parties = configs.map(item => new Party(item)); }",
+       "const owner = new Sessions(); leak(owner.parties);"],
+      ["export class Sessions { parties = configs.map(item => new Party(item)); }"],
+    ];
+    for (const statements of fieldCases) {
+      const parsed = parseScriptFile("class-field-owner-unknown", [
+        ...common, ...statements,
+      ].join("\n"), source);
+      expect(parsed.arenaAuthorityPaths?.some((path) =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+    const local = parseScriptFile("const-owned-sessions", [
+      ...common,
+      "const parties = configs.map(item => new Party(item));",
+      "parties[0].join('one');",
+    ].join("\n"), source);
+    expect(local.arenaAuthorityPaths?.find((path) =>
+      path.capacityAuthorityProven
+    )?.capacityCheck?.resolvedCapacityValue).toBe(5);
   });
 
   it("binds a const-owned mapped instance collection only through inspected methods", () => {
