@@ -184,6 +184,29 @@ const requiredNodeMajor = String(toolchain?.node?.major ?? "");
 const requiredNodeVersion = String(toolchain?.node?.version ?? "");
 const requiredNpmVersion = String(toolchain?.npm?.version ?? "");
 
+const nodeTypesSpec = String(pkg.devDependencies?.["@types/node"] ?? "");
+const nodeTypesLocked = lock?.packages?.["node_modules/@types/node"];
+if (!nodeTypesSpec.startsWith(requiredNodeMajor + ".") ||
+    nodeTypesLocked?.version !== nodeTypesSpec ||
+    !nodeTypesLocked?.integrity ||
+    !nodeTypesLocked?.resolved?.endsWith("/node-" + nodeTypesSpec + ".tgz")) {
+  console.error("Node typings must be exact-pinned to the toolchain major in package.json and package-lock.json.");
+  process.exit(1);
+}
+
+if (requiredNpmVersion.startsWith("10.") && pkg.allowScripts !== undefined) {
+  console.error("npm 10 does not enforce package.json#allowScripts: remove the misleading policy and disable scripts on install.");
+  process.exit(1);
+}
+for (const workflow of [".github/workflows/verify.yml", ".github/workflows/package-source.yml"]) {
+  const source = readFileSync(workflow, "utf8");
+  if (!source.includes("npm ci --ignore-scripts --no-audit --no-fund")) {
+    console.error(workflow + " must install with --ignore-scripts; preserve optional esbuild platform binaries.");
+    process.exit(1);
+  }
+}
+
+
 if (!requiredNodeMajor || !requiredNodeVersion || nodeVersion !== requiredNodeVersion) {
   console.error(
     `Node authority mismatch: toolchain.json=${requiredNodeVersion}, .node-version=${nodeVersion}`,

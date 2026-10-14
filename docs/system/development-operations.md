@@ -48,7 +48,7 @@ These commands are not ChatGPT workflow authority and never gate remote GitHub c
 
 ## Toolchain authority
 
-`toolchain.json` describes optional developer/build compatibility. It pins Node `22.16.0` and npm `10.9.2` as the **ChatGPT-container-compatible baseline**, not for ChatGPT's built-in checking capabilities; no running application is presently established. `package.json#engines` supports Node 22.12+ and Node 24, while the source minimum for TypeScript is 5.8.3. The exact lockfile still installs TypeScript 5.9.3 and Node 24 typings; version compatibility does not imply that package installation, TypeScript compilation, native addons or Minecraft gameplay has executed. If source-declared build tasks are genuinely executed, use the installed dependency versions and disclose the actual Node/toolchain proof.
+`toolchain.json` describes optional developer/build compatibility. It pins Node `22.16.0` and npm `10.9.2` as the **ChatGPT-container-compatible baseline**, not for ChatGPT's built-in checking capabilities; no running application is presently established. `package.json#engines` supports Node 22.12+ and Node 24, while the source minimum for TypeScript is 5.8.3. The exact lockfile still installs TypeScript 5.9.3 but now pins Node 22 typings (`@types/node@22.15.30`); version compatibility does not imply that package installation, TypeScript compilation, native addons or Minecraft gameplay has executed. If source-declared build tasks are genuinely executed, use the installed dependency versions and disclose the actual Node/toolchain proof.
 
 Do not require global TypeScript/Vitest/build tools when package-managed versions are sufficient.
 
@@ -64,7 +64,7 @@ The canonical Bedrock LevelDB adapter keeps `openBedrockLevelDbSnapshot()` as it
 
 A requested native DB scan still requires the addon, and an unavailable/incompatible binding returns the existing `WorldDbNativeSummary.status = "failed"` with `actorContentComplete = false`. `inspectArtifact()` propagates failed scan into `nativeWorldScanIncomplete`/discovery closure; callers must not report world/chunk/actor coverage as scanned or claim FORMALIZE/EVALUATE closure from source-only evidence. Absence of the `db/` directory is separately `not-present`, not a successful scan.
 
-**Remaining environment gap:** GitHub connector file reads are authenticated evidence, but they are not a mounted exact-commit repository tree. A source/lockfile-compatible Node version cannot provide missing source files, `node_modules`, `vitest`, `tsx` or `@zip.js/zip.js`; no full repository test may be reported as executed until those exact inputs are genuinely present. The lock currently still carries `@types/node` 24 and TypeScript 5.9.3: align Node typings only with a verified lockfile update, not an untested lockfile rewrite.
+**Remaining environment gap:** GitHub connector file reads are authenticated evidence, but they are not a mounted exact-commit repository tree. A source/lockfile-compatible Node version cannot provide missing source files, `node_modules`, `vitest`, `tsx` or `@zip.js/zip.js`; no full repository test may be reported as executed until those exact inputs are genuinely present. The lockfile now pins `@types/node@22.15.30` and `undici-types@6.21.0`, using published package integrity metadata, while retaining TypeScript 5.9.3. This is a source/lockfile alignment, **not** evidence of successful `npm ci`, `tsc` or Vitest execution.
 
 ### ChatGPT Chat: exact-source isolated module execution
 
@@ -130,7 +130,7 @@ This is an optional stronger-proof path. It does not define whether ChatGPT remo
 
 Production source may import external packages declared in `dependencies` or `optionalDependencies`; a package in `optionalDependencies` must be loaded at the point of use and unavailable-package errors must produce explicit UNKNOWN/failed coverage, never successful evidence. Test/build-only packages belong in `devDependencies`.
 
-Install scripts are deny-by-default under npm's script policy and approved explicitly by exact locked version in `package.json#allowScripts`. The current approved native/build hooks are `@8crafter/leveldb-zlib@1.6.0` and `esbuild@0.28.2`.
+npm 10.9.2 does **not** enforce `package.json#allowScripts`; it cannot be cited as install-script protection. For both manual GitHub verification workflows and the portable source package, use `npm ci --ignore-scripts --no-audit --no-fund`. Do **not** also omit optional dependencies: esbuild relies on an optional platform binary, while the optional native LevelDB reader remains unavailable until a separate deliberately authorized installation actually succeeds. This safe-install policy is a source contract; package installation, esbuild boot, typecheck, Vitest and native LevelDB have not been executed at this exact commit. Running a native installation with lifecycle scripts requires separate review and cannot silently convert failed native coverage into success.
 
 ## Public API surface audit
 

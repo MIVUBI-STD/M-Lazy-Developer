@@ -42,8 +42,8 @@
     ],
     "version": "10.9.2",
     "pinPolicy": "npm 10.9.2 available in ChatGPT; lockfile v3 retained",
-    "installMode": "npm ci",
-    "installScripts": "explicit allowlist in package.json#allowScripts"
+    "installMode": "npm ci --ignore-scripts --no-audit --no-fund",
+    "installScripts": "disabled for verification: npm 10 requires --ignore-scripts; optional native LevelDB is not automatically executable"
   },
   "typescript": {
     "source": "package-lock.json",

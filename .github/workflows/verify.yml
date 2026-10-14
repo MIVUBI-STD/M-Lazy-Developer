@@ -26,7 +26,7 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm ci --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Repository policy
         run: npm run verify:repository
