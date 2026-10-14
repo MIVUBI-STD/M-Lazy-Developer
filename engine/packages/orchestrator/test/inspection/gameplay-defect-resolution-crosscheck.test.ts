@@ -40,6 +40,10 @@ const graph: GameplayScenarioGraph = {
       "policy:arena-capacity",
       "runtime:arena",
     ],
+    knowledgeRequirementIds: [],
+    impactPathComponentIds: [],
+    impactPathEvidenceIds: [],
+    dimensionEvidence: {},
     status: "CONTRADICTED",
     reason: "Six arenas are visible but only two are concurrently playable.",
   }],
@@ -86,6 +90,7 @@ function resolution(
           "world:arena-count",
           "capacity:safe-concurrency",
         ],
+        exhaustiveWithinScope: true,
       })),
       scopeIds: ["runtime:arena", "policy:arena-capacity"],
       evidenceIds: [
@@ -111,7 +116,9 @@ describe("gameplay defect resolution crosscheck depth", () => {
       result.resolutions[0]?.counterProofSearch?.searchedDimensions,
     ).toEqual([
       "exclusion",
+      "generation",
       "guard",
+      "owner",
       "scope",
     ]);
   });
@@ -134,6 +141,7 @@ describe("gameplay defect resolution crosscheck depth", () => {
       causalLinks: [
         ...graph.causalLinks,
         {
+          ...graph.causalLinks[0]!,
           id: "link:unrelated-guard",
           scenarioId: "preset:arena-capacity",
           fromComponentId: "runtime:arena",
@@ -166,6 +174,7 @@ describe("gameplay defect resolution crosscheck depth", () => {
       causalLinks: [
         ...graph.causalLinks,
         {
+          ...graph.causalLinks[0]!,
           id: "link:exact-guard",
           scenarioId: "preset:arena-capacity",
           fromComponentId: "runtime:arena",
@@ -280,9 +289,9 @@ describe("gameplay defect resolution crosscheck depth", () => {
         },
       ],
     };
-    const result = assessGameplayDefectResolutionGate(withGuard, resolution([
+    const result = assessGameplayDefectResolutionGate(withGuard, [resolution([
       "owner", "guard", "generation", "scope", "cleanup", "exclusion",
-    ]));
+    ])]);
     expect(result.status).toBe("BLOCKED");
     expect(result.issues.join(" ")).toMatch(/cannot override source-proven blocking counter-proof/i);
     expect(result.confirmedDefectReadyIds).toEqual([]);
