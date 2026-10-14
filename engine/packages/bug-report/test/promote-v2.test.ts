@@ -4,8 +4,11 @@ import {
   it,
 } from "vitest";
 import {
+  BUG_REPORT_V2_SCHEMA,
+  parseBugReportV2Json,
   promoteConfirmedBugsToV2,
   reviewConfirmedBugInputs,
+  type BugReportV2,
 } from "../src/index.js";
 
 const map = {
@@ -15,6 +18,16 @@ const map = {
   baseVersion: "1.26.20",
   testedVersion: "1.26.32",
 };
+
+/** Minimal valid canonical report for parser rejection tests. */
+function report(): BugReportV2 {
+  return {
+    schema: BUG_REPORT_V2_SCHEMA,
+    map,
+    repairBy: "developer",
+    bugs: [],
+  };
+}
 
 describe("confirmed bug promotion", () => {
   it("promotes only confirmed defects into canonical V2", () => {
