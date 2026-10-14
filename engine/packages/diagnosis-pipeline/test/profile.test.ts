@@ -42,10 +42,10 @@ describe("diagnosis analysis capability profile", () => {
     ).toBe("diagnosis.source-index");
   });
 
-  it("selects authored intent grounding rather than treating inferred intent as sufficient", () => {
+  it("reuses already-grounded intent without redundant analysis", () => {
     const plan =
       planMinimumSufficientAnalysis({
-        goal: "authored-intent",
+        goal: "intent-classification",
         relevantTags: ["session"],
         context: "LOCAL_ARTIFACT",
         availableEvidence: [{
@@ -63,9 +63,7 @@ describe("diagnosis analysis capability profile", () => {
             .capabilities,
       });
 
-    expect(
-      plan.steps[0]?.capabilityId,
-    ).toBe("diagnosis.authored-intent");
+    expect(plan.steps).toEqual([]);
   });
 
   it("binds executor ids to explicit owners", () => {

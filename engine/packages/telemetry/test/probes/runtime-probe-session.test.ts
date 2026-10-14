@@ -10,6 +10,10 @@ const backend = {
   entityResolvable: () => ({ status: "value", value: true } as const),
   tagPresent: () => ({ status: "value", value: true } as const),
   scoreboardValue: () => ({ status: "value", value: 1 } as const),
+  // Queries not supported by this test backend remain UNKNOWN, not observed.
+  entityLocation: () => ({ status: "unknown" } as const),
+  dimensionHeightRange: () => ({ status: "unknown" } as const),
+  commandResult: () => ({ status: "unknown" } as const),
 };
 
 function request(id: string) {

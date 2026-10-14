@@ -11,10 +11,8 @@ describe("engineering analysis projection", () => {
       subjectIds: ["arena"],
       foundBy: "ai",
       confirmation: {
-        foundBy: "ai",
-        expectedBehaviorAuthority: "selected-artifact",
-        runtimeMismatchObserved: true,
-        evidence: "evidence",
+        basis: "authored-contract-violation",
+        evidence: "Selected source contradicts the stated design contract.",
       },
       impact: {
         progression: "degraded",
