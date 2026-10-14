@@ -121,7 +121,7 @@ function visibleRuntimeFinding(): AuditIssueProjection {
 }
 
 describe("map audit honesty gate", () => {
-  it("accepts runtime-blocked residue as an audit obligation instead of a bug finding", () => {
+  it("retains runtime-blocked residue but refuses PASS while capability delivery is unassessed", () => {
     const result = assessAuditHonesty({
       graph,
       gate,
@@ -137,17 +137,17 @@ describe("map audit honesty gate", () => {
       visibleObligationIds: ["link:wave"],
     });
 
-    expect(result.status).toBe("PASS");
+    expect(result.status).toBe("VIOLATION");
     expect(result.visibleNeedValidationIds).toEqual([]);
     expect(result.visibleObligationIds).toEqual([
       "link:wave",
     ]);
     expect(
       result.missingVisibleResidueIds,
-    ).toEqual([]);
+    ).toEqual(["capability-delivery:unassessed"]);
   });
 
-  it("treats unsaturated confirmed resolution as visible residue, not PROVEN debt", () => {
+  it("keeps unsaturated resolution as residue and blocks unassessed delivery", () => {
     const contradictedGraph: GameplayScenarioGraph = {
       ...graph,
       causalLinks: [{
@@ -185,24 +185,24 @@ describe("map audit honesty gate", () => {
             dimension: "guard",
             scopeIds: ["objective:wave"],
             evidenceIds: ["e:entity"],
-            exhaustiveWithinScope: true,
+            exhaustiveWithinScope: false,
           },
           {
             dimension: "scope",
             scopeIds: ["objective:wave"],
             evidenceIds: ["e:entity"],
-            exhaustiveWithinScope: true,
+            exhaustiveWithinScope: false,
           },
           {
             dimension: "exclusion",
             scopeIds: ["objective:wave"],
             evidenceIds: ["e:entity"],
-            exhaustiveWithinScope: true,
+            exhaustiveWithinScope: false,
           }
         ],
         scopeIds: ["objective:wave"],
           evidenceIds: ["e:entity"],
-          exhaustiveWithinScope: true,
+          exhaustiveWithinScope: false,
           conclusion: "NO_BLOCKING_PROOF",
         },
       }],
@@ -229,7 +229,7 @@ describe("map audit honesty gate", () => {
       visibleIssues: [visible],
     });
 
-    expect(result.status).toBe("PASS");
+    expect(result.status).toBe("VIOLATION");
     expect(result.expectedProvenIds).toEqual([]);
     expect(result.expectedVisibleResidueIds).toContain(
       "link:wave",
@@ -254,6 +254,6 @@ describe("map audit honesty gate", () => {
     expect(result.status).toBe("VIOLATION");
     expect(
       result.missingVisibleResidueIds,
-    ).toEqual(["link:wave"]);
+    ).toEqual(["capability-delivery:unassessed", "link:wave"]);
   });
 });
