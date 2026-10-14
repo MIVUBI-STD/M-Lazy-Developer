@@ -1,7 +1,7 @@
 import { basename, resolve } from "node:path";
-import { compareArtifacts } from "../../../engine/packages/orchestrator/src/index.js";
+import { compareArtifacts } from "../../../engine/packages/orchestrator/src/inspection/compare-artifacts.js";
 import { proveNoopPackageRoundtrip } from "../../../engine/packages/orchestrator/src/index.js";
-import { compareArtifactsForUpdate } from "../../../engine/packages/orchestrator/src/index.js";
+import { compareArtifactsForUpdate } from "../../../engine/packages/orchestrator/src/inspection/version-aware-comparison.js";
 import {
   runSelectedMapAudit,
   type SelectedMapAuditRuntimeTarget,
@@ -12,14 +12,14 @@ import type {
 import { inspectArtifact } from "../../../engine/packages/orchestrator/src/inspection/inspect-artifact.js";
 import { buildEngineeringReviewProjection } from "../../../engine/packages/orchestrator/src/index.js";
 import { buildArenaEngineeringProjection } from "../../../engine/packages/orchestrator/src/index.js";
-import { buildMapEngineeringWorkflow } from "../../../engine/packages/orchestrator/src/index.js";
+import { buildMapEngineeringWorkflow } from "../../../engine/packages/orchestrator/src/inspection/map-engineering-workflow.js";
 import { planRepositoryTasks } from "../../../engine/packages/orchestrator/src/index.js";
 import { verifyPostRepairOutcome } from "../../../engine/packages/orchestrator/src/index.js";
 import { buildArenaGoldenBaselineCandidate } from "../../../engine/packages/orchestrator/src/index.js";
 import { buildArenaRuntimeAdapterScaffold } from "../../../engine/packages/orchestrator/src/index.js";
 import { inspectArenaGoldenCorpusStatusFromFile } from "../../../engine/packages/orchestrator/src/index.js";
 import { loadKnowledgeDirectory } from "../../../engine/packages/knowledge/src/index.js";
-import { aggregateScriptApiUsage } from "../../../engine/packages/orchestrator/src/index.js";
+import { aggregateScriptApiUsage } from "../../../engine/packages/orchestrator/src/inspection/script-api-usage.js";
 import { parseCliTargetOptions } from "./target-options.js";
 import { loadTelemetryFile } from "../../../engine/packages/orchestrator/src/index.js";
 import { loadRuntimeProbeTranscript, assertRuntimeProbeTranscriptArtifact } from "../../../engine/packages/orchestrator/src/index.js";
@@ -28,10 +28,10 @@ import { prepareRuntimeProbeBundle } from "../../../engine/packages/orchestrator
 import { replayRuntimeProbeTranscript } from "../../../engine/packages/orchestrator/src/index.js";
 import { compileRuntimeProbeRequests } from "../../../engine/packages/orchestrator/src/index.js";
 import {
-  calibrateGameplayCorpusFromFile,
   loadArenaRegionContractsFile,
   runArenaGoldenCorpusFromFile,
 } from "../../../engine/packages/orchestrator/src/index.js";
+import { calibrateGameplayCorpusFromFile } from "../../../engine/packages/orchestrator/src/inspection/gameplay-calibration-corpus.js";
 
 function selectedMapAuditRuntimeTarget(
   target: InspectTargetProfile,
