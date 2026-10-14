@@ -82,7 +82,7 @@ REJECT          conflicts with repository direction or adds unjustified complexi
 | authored vs inferred intent | ALREADY OWNED | `packages/gameplay-intent/` | Current model already caps diagnosis strength by intent evidence strength. |
 | explicit unknown intent | ALREADY OWNED | `packages/gameplay-intent/` | Unknowns already block diagnosis rather than being guessed through. |
 | first wrong owner | ALREADY OWNED | `AGENTS.md`, `GITHUB_RULES.md`, system docs | Current Local already routes by semantic cause rather than implementation convenience. |
-| proof ceilings | ALREADY OWNED | `docs/05-validation/`, runtime/reliability | STATIC/PACKAGE/LOCAL GAME/LIVE GAME/UNKNOWN already exists. |
+| proof ceilings | ALREADY OWNED | `docs/validation/`, runtime/reliability | STATIC/PACKAGE/LOCAL GAME/LIVE GAME/UNKNOWN already exists. |
 | behavior/material conservation after transformation | ALREADY OWNED | `packages/preservation/` | Preservation contracts and semantic trace comparison are stronger than a new duplicated conservation framework. |
 | revision/provenance continuity through runtime experiments | ALREADY OWNED | runtime-lab, diagnostic reasoning, repair proof bundles | Current Local already carries experiment revision, profile, fixture, predicates, factors, and successor compatibility. |
 | source authority/provenance inventory | ADAPT | gameplay-intent + project-model/knowledge boundary | Intent evidence exists, but human-facing source authority needs a clearer projection when multiple sources conflict. |

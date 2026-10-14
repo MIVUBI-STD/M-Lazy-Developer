@@ -6,11 +6,11 @@
     "branch": "Local",
     "references": [
       "README.md",
-      "workspace/reports/README.md",
+      "workspace/README.md",
       "engine/packages/bug-report/PREVIEW.md",
       "engine/packages/bug-report/COPY.md",
-      "docs/03-analysis/master-selected-map-audit-workflow.md",
-      "docs/03-analysis/mandatory-audit-procedure.md"
+      "docs/analysis/master-selected-map-audit-workflow.md",
+      "docs/analysis/mandatory-audit-procedure.md"
     ]
   },
   "summary": {

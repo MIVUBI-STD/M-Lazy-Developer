@@ -1,5 +1,5 @@
 /**
- * Generated from docs/06-system/contract-registry.json.
+ * Generated from engine/contracts/contract-registry.json.
  *
  * tooling/repository/verify-contract-registry.mjs verifies this value against
  * the canonical registry and fails closed when the registry changes.

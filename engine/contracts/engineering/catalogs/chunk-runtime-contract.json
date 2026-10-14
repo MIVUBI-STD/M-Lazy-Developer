@@ -4,7 +4,7 @@
     {
       "id": "mivubi-chunk-runtime-contract-v1",
       "title": "MIVUBI Chunk Runtime Loading Policy",
-      "url": "https://github.com/MIVUBI-STD/M-Bedrock-Dev/blob/Local/docs/03-analysis/chunk-runtime-loading.md",
+      "url": "https://github.com/MIVUBI-STD/M-Lazy-Developer/blob/Local/docs/analysis/chunk-runtime-loading.md",
       "authority": "engineering-contract",
       "confidence": "designed",
       "retrievedDate": "2026-09-23"

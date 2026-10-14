@@ -66,4 +66,4 @@ Generic save/reconcile/import cannot set a bug fixed.
 
 V1 is import-only. New reports use V2.
 
-Workflow terminology is owned by `docs/01-product/flow.md`. Storage/publication ownership is defined in `docs/06-system/bug-report-ownership.md`.
+Workflow terminology is owned by `docs/product/flow.md`. Storage/publication ownership is defined in `docs/system/bug-report-ownership.md`.
