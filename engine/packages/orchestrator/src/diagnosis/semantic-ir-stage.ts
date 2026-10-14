@@ -228,6 +228,19 @@ export function buildInspectionSemanticIr(
       source: guard.source,
     })) : undefined;
 
+  /** Convert once, then omit absent guards instead of emitting undefined. */
+  const irGuardEvidence = (
+    lexical?: Parameters<typeof irGuards>[0],
+    precedence?: Parameters<typeof irGuards>[0],
+  ) => {
+    const lexicalGuards = irGuards(lexical);
+    const precedenceGuards = irGuards(precedence);
+    return {
+      ...(lexicalGuards === undefined ? {} : { lexicalGuards }),
+      ...(precedenceGuards === undefined ? {} : { precedenceGuards }),
+    };
+  };
+
   const addStateOperation = (
     executionRegionId: string,
     ref: StateSurfaceRef,
@@ -446,12 +459,7 @@ export function buildInspectionSemanticIr(
         source: call.source,
         ...(call.controlFlow === undefined ? {} : { controlFlow: call.controlFlow }),
         ...(call.sourceSequence === undefined ? {} : { sourceSequence: call.sourceSequence }),
-        ...(irGuards(call.lexicalGuards) === undefined ? {} : {
-          lexicalGuards: irGuards(call.lexicalGuards),
-        }),
-        ...(irGuards(call.precedenceGuards) === undefined ? {} : {
-          precedenceGuards: irGuards(call.precedenceGuards),
-        }),
+        ...irGuardEvidence(call.lexicalGuards, call.precedenceGuards),
       });
     }
 
@@ -586,12 +594,7 @@ export function buildInspectionSemanticIr(
         source: call.source,
         mechanism: "script-api",
         precision: call.inference === "direct" ? "typed-method" : "bounded-method",
-        ...(irGuards(call.lexicalGuards) === undefined ? {} : {
-          lexicalGuards: irGuards(call.lexicalGuards),
-        }),
-        ...(irGuards(call.precedenceGuards) === undefined ? {} : {
-          precedenceGuards: irGuards(call.precedenceGuards),
-        }),
+        ...irGuardEvidence(call.lexicalGuards, call.precedenceGuards),
       });
     }
     // Reuse the existing spatial AST analysis rather than generic method names.
@@ -605,12 +608,7 @@ export function buildInspectionSemanticIr(
         source: mutation.source, mechanism: "script-spatial",
         precision: mutation.status === "resolved"
           ? "resolved-spatial" : "unresolved-spatial",
-        ...(irGuards(mutation.lexicalGuards) === undefined ? {} : {
-          lexicalGuards: irGuards(mutation.lexicalGuards),
-        }),
-        ...(irGuards(mutation.precedenceGuards) === undefined ? {} : {
-          precedenceGuards: irGuards(mutation.precedenceGuards),
-        }),
+        ...irGuardEvidence(mutation.lexicalGuards, mutation.precedenceGuards),
       });
     }
     for (const trigger of parsed.entityEventTriggers) {
@@ -622,12 +620,7 @@ export function buildInspectionSemanticIr(
         ),
         source: trigger.source, mechanism: "script-api",
         precision: "typed-method",
-        ...(irGuards(trigger.lexicalGuards) === undefined ? {} : {
-          lexicalGuards: irGuards(trigger.lexicalGuards),
-        }),
-        ...(irGuards(trigger.precedenceGuards) === undefined ? {} : {
-          precedenceGuards: irGuards(trigger.precedenceGuards),
-        }),
+        ...irGuardEvidence(trigger.lexicalGuards, trigger.precedenceGuards),
       });
     }
 
@@ -728,12 +721,7 @@ export function buildInspectionSemanticIr(
         propertyName: outcome.propertyName,
         value: outcome.value,
         source: outcome.source,
-        ...(irGuards(outcome.lexicalGuards) === undefined ? {} : {
-          lexicalGuards: irGuards(outcome.lexicalGuards),
-        }),
-        ...(irGuards(outcome.precedenceGuards) === undefined ? {} : {
-          precedenceGuards: irGuards(outcome.precedenceGuards),
-        }),
+        ...irGuardEvidence(outcome.lexicalGuards, outcome.precedenceGuards),
       });
     }
 
@@ -755,12 +743,7 @@ export function buildInspectionSemanticIr(
         key: resource.key,
         precision: resource.precision,
         source: resource.source,
-        ...(irGuards(resource.lexicalGuards) === undefined ? {} : {
-          lexicalGuards: irGuards(resource.lexicalGuards),
-        }),
-        ...(irGuards(resource.precedenceGuards) === undefined ? {} : {
-          precedenceGuards: irGuards(resource.precedenceGuards),
-        }),
+        ...irGuardEvidence(resource.lexicalGuards, resource.precedenceGuards),
       });
     }
 
@@ -886,12 +869,7 @@ export function buildInspectionSemanticIr(
       ...(resolution.sourceSequence === undefined ? {} : {
         sourceSequence: resolution.sourceSequence,
       }),
-      ...(irGuards(resolution.lexicalGuards) === undefined ? {} : {
-        lexicalGuards: irGuards(resolution.lexicalGuards),
-      }),
-      ...(irGuards(resolution.precedenceGuards) === undefined ? {} : {
-        precedenceGuards: irGuards(resolution.precedenceGuards),
-      }),
+      ...irGuardEvidence(resolution.lexicalGuards, resolution.precedenceGuards),
     });
   }
 
@@ -937,12 +915,7 @@ export function buildInspectionSemanticIr(
       resolution: to === undefined ? "unresolved" : "resolved",
       controlFlow: call.controlFlow,
       source: call.source,
-      ...(irGuards(callGuards?.lexicalGuards) === undefined ? {} : {
-        lexicalGuards: irGuards(callGuards?.lexicalGuards),
-      }),
-      ...(irGuards(callGuards?.precedenceGuards) === undefined ? {} : {
-        precedenceGuards: irGuards(callGuards?.precedenceGuards),
-      }),
+      ...irGuardEvidence(callGuards?.lexicalGuards, callGuards?.precedenceGuards),
     });
   }
 
