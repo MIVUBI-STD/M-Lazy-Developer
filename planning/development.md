@@ -1,3 +1,17 @@
+## FORMALIZE async mapped capacity is not synchronous numeric authority (2026-10-14)
+
+**Observed counterexample:** The source-level same-file `.map()` generator and `new Party(config)` allocation analysis accepted `async` arrow callbacks. Actual JavaScript returns `Promise<config>` for an async generator and `Promise<Party>` for an async allocator, so an observed syntactic `maxPlayers:5` cannot safely be projected as a directly available synchronous arena cap.
+
+**Executed:** ChatGPT Node 22.16.0/TypeScript 5.8.3 AST reproduction observed the former source predicates accepting async generator-object and async allocator-constructor shapes. Native JavaScript evaluation confirmed generator output lacked `maxPlayers` until await and class allocation output was not a `Party` instance until await (six targeted checks passed). This is not the complete original `parseScriptFile`/Vitest run.
+
+**Change:** The canonical `mappedConstructorCapacity()` now rejects `async` generators and `async` constructor-allocation callbacks. Its map/some reference verification rejects async reads that cannot guarantee synchronous collection ownership. Added sync positive + async negative parser tests and B3/B5 extractor negative regressions in the existing owners. No new detector/parser or map-specific case.
+
+**Proof ceiling:** Source diff verified at exact Git commit. Full repository TypeScript/Vitest, `parseScriptFile` → `extractArenaConcurrencyCapacity()` integration execution, `runSelectedMapAudit()`, and Minecraft runtime **NOT EXECUTED**. Numeric B3/B5 acceptance remains BLOCKED; safe UNKNOWN is preserved when asynchronous ownership cannot be proven.
+
+**Next:** Try authenticated exact-source original function slice execution and then full pipeline upon supported source/dependency transport. Do not claim original production parser acceptance from standalone AST probes.
+
+---
+
 ## FORMALIZE exported map-configuration ownership (2026-10-14)
 
 **Finding:** The same-file `mappedConstructorCapacity()` generator collected `export const/var configs = [..].map(...)` as if `configs` could not be changed outside the selected source. An importing module may mutate `configs[0].maxPlayers`. The source can therefore establish an authored literal but **cannot** safely establish closed-world numeric arena authority.

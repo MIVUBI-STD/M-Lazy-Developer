@@ -552,6 +552,28 @@ describe("arena concurrency capacity extraction", () => {
     }
   });
 
+  it("does not project Promise-based mapped configs or sessions into B3/B5", () => {
+    for (const asyncStage of ["generator", "allocator"] as const) {
+      const script = parseScriptFile("async-config-stage", [
+        `const configs = [0, 1].map(${asyncStage === "generator" ? "async " : ""}(id) => ({maxPlayers:5, id}));`,
+        "var Party = class {",
+        "  constructor(definition) { this.definition = definition; }",
+        "  members = [];",
+        "  join(player) { return this.members.length >= this.definition.maxPlayers",
+        "    ? false : (this.members.push(player), true); }",
+        "};",
+        `class Sessions { parties = configs.map(${asyncStage === "allocator" ? "async " : ""}(cfg) => new Party(cfg)); }`,
+      ].join("\n"), {
+        artifactId: "fixture", relativePath: "scripts/async-config.js",
+      });
+      const result = extractArenaConcurrencyCapacity({
+        tickingAreas: [], scripts: [script], declaredArenaCount: 2,
+      });
+      expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+      expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    }
+  });
+
   it("does not promote externally mutable exported map configuration into B3/B5", () => {
     const script = parseScriptFile("exported-config", [
       "export const configs = [0, 1].map((id) => ({maxPlayers:5, id}));",

@@ -460,6 +460,49 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("does not prove mapped capacity from an async configuration producer", () => {
+    const build = (asyncProducer: boolean) => [
+      `const configs = [0, 1].map(${asyncProducer ? "async " : ""}(id) => ({maxPlayers:5, id}));`,
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(player), true); }",
+      "};",
+      "const party = new Party(configs[0]);",
+      "party.join('one');",
+    ].join("\n");
+    const synchronous = parseScriptFile("sync-config", build(false), source);
+    expect(synchronous.arenaAuthorityPaths?.find((path) =>
+      path.capacityAuthorityProven
+    )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+    const asynchronous = parseScriptFile("async-config", build(true), source);
+    expect(asynchronous.arenaAuthorityPaths?.some((path) =>
+      path.capacityCheck?.resolvedCapacityValue !== undefined
+    )).toBe(false);
+  });
+
+  it("does not prove mapped capacity from asynchronous class allocations", () => {
+    const build = (asyncAllocation: boolean) => [
+      "const configs = [0, 1].map(id => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(player), true); }",
+      "};",
+      `class Sessions { parties = configs.map(${asyncAllocation ? "async " : ""}(cfg) => new Party(cfg)); }`,
+    ].join("\n");
+    const synchronous = parseScriptFile("sync-alloc", build(false), source);
+    expect(synchronous.arenaAuthorityPaths?.find((path) =>
+      path.capacityAuthorityProven
+    )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+    const asynchronous = parseScriptFile("async-alloc", build(true), source);
+    expect(asynchronous.arenaAuthorityPaths?.some((path) =>
+      path.capacityCheck?.resolvedCapacityValue !== undefined
+    )).toBe(false);
+  });
+
   it("does not prove numeric capacity from an exported map config collection", () => {
     const build = (prefix: string) => [
       prefix + " configs = [0, 1].map((id) => ({maxPlayers:5, id}));",

@@ -898,7 +898,11 @@ function mappedConstructorCapacity(
           d.initializer.expression.name.text !== "map" ||
           !ts.isArrayLiteralExpression(d.initializer.expression.expression)) continue;
       const cb = d.initializer.arguments[0];
-      if (!cb || !ts.isArrowFunction(cb)) continue;
+      if (!cb || !ts.isArrowFunction(cb) ||
+          // Async callbacks return Promise<config>, never the object
+          // consumed synchronously by new Class(configs[index]).
+          cb.modifiers?.some((modifier) =>
+            modifier.kind === ts.SyntaxKind.AsyncKeyword)) continue;
       // A single top-level return is not enough: nested if/switch/try
       // branches can return a different config or throw before it.
       // Until full path-sensitive return proof exists, only a callback
@@ -989,6 +993,10 @@ function mappedConstructorCapacity(
       if (!argument) { valid = false; return; }
       let sourceName: string | undefined;
       if (ts.isArrowFunction(node.parent) &&
+          // Async allocation returns Promise<instance>, not an
+          // immediately owned class instance in the mapped collection.
+          !node.parent.modifiers?.some((modifier) =>
+            modifier.kind === ts.SyntaxKind.AsyncKeyword) &&
           ts.isCallExpression(node.parent.parent) &&
           ts.isPropertyAccessExpression(node.parent.parent.expression) &&
           node.parent.parent.expression.name.text === "map" &&
@@ -1146,6 +1154,8 @@ function mappedConstructorCapacity(
         (p.name.text === "map" || p.name.text === "some")) {
       const cb = p.parent.arguments[0];
       if (!cb || !ts.isArrowFunction(cb) ||
+          cb.modifiers?.some((modifier) =>
+            modifier.kind === ts.SyntaxKind.AsyncKeyword) ||
           cb.parameters.length < 1 || !ts.isIdentifier(cb.parameters[0]!.name))
         valid = false;
       else if (p.name.text === "some" ||
