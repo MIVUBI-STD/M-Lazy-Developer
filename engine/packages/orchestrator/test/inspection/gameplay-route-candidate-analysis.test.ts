@@ -153,6 +153,8 @@ const completeAiStack = [{
   navigationPresent: true,
   movementGoalCandidatePresent: true,
   attackBehaviorPresent: true,
+  movementGoalPriorities: [],
+  duplicateMovementGoalPriorities: [],
   navigationCapabilities: [
     "navigation:walk",
   ],
@@ -228,6 +230,8 @@ describe("gameplay route candidate analysis", () => {
           navigationPresent: false,
           movementGoalCandidatePresent: true,
           attackBehaviorPresent: true,
+          movementGoalPriorities: [],
+          duplicateMovementGoalPriorities: [],
           navigationCapabilities: [],
           missingSurfaces: ["navigation"],
           status:

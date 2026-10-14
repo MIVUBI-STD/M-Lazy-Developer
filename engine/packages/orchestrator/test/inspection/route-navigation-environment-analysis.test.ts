@@ -31,6 +31,8 @@ describe("route navigation environment analysis", () => {
             navigationPresent: true,
             movementGoalCandidatePresent: true,
             attackBehaviorPresent: true,
+            movementGoalPriorities: [],
+            duplicateMovementGoalPriorities: [],
             navigationCapabilities: [
               "navigation:walk",
             ],
@@ -62,6 +64,8 @@ describe("route navigation environment analysis", () => {
       movementGoalCandidatePresent: true,
       attackBehaviorPresent: true,
       missingSurfaces: [] as const,
+      movementGoalPriorities: [],
+      duplicateMovementGoalPriorities: [],
       status:
         "targeted-stack-complete" as const,
     };
