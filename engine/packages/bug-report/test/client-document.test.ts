@@ -85,9 +85,9 @@ function report(): BugReportV2 {
 }
 
 describe("client bug report document projection", () => {
-  it("shows only blocker and major open issues by default", () => {
+  it("can explicitly filter the client document to blocker and major open issues", () => {
     const document =
-      projectBugReportClientDocument(report());
+      projectBugReportClientDocument(report(), { includeMinor: false });
 
     expect(document.summary).toEqual(
       expect.objectContaining({
@@ -98,8 +98,8 @@ describe("client bug report document projection", () => {
         minor: 0,
       }),
     );
-    expect(document.source.severityScope).toBe("blocker-major");
-    expect(document.issueIndex.map((item) => item.title))
+    expect(document.severityLegend.map((item) => item.severity)).not.toContain("minor");
+    expect(document.issues.map((item) => item.title)
       .toEqual([
         "Level cannot continue",
         "Inventory remains after reset",
@@ -114,19 +114,21 @@ describe("client bug report document projection", () => {
 
     expect(document.summary.visibleIssues).toBe(3);
     expect(document.summary.minor).toBe(1);
-    expect(document.source.severityScope).toBe("all");
+    expect(document.severityLegend.map((item) => item.severity)).toContain("minor");
   });
 
-  it("keeps implementation internals out of the client model", () => {
+  it("preserves reviewable technical context without exposing internal control fields", () => {
     const document =
       projectBugReportClientDocument(report());
     const serialized = JSON.stringify(document);
 
     expect(serialized).not.toContain("aiAnalysis");
-    expect(serialized).not.toContain("relevantCode");
+    expect(document.issues[1]?.relevantCode).toMatchObject([{
+      file: "scripts/reset.ts",
+    }]);
     expect(serialized).not.toContain("foundBy");
     expect(serialized).not.toContain("repairBy");
-    expect(serialized).not.toContain("BUG-AC-A");
+    expect(document.issues[0]?.id).toBe("BUG-AC-A");
   });
 
   it("passes the client-document structural readability gate", () => {
