@@ -12,7 +12,6 @@ describe("bug report v2 vocabulary", () => {
     expect(BUG_REPORT_V2_LABELS).toMatchObject({
       mapVersion: "Map Version",
       drive: "Map Drive",
-      drive: "https://drive.google.com/file/d/map/view",
       baseVersion: "Base Version",
       testedVersion: "Tested Version",
       repairBy: "Repair By",

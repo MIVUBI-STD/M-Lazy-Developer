@@ -4,7 +4,7 @@ import {
   projectBugReportClientDocument,
   reviewBugReportClientDocument,
   type BugReportV2,
-} from "../../src/index.js";
+} from "../src/index.js";
 
 describe("bug report client presentation", () => {
   it("projects canonical metadata and presentation-only checklists", () => {
