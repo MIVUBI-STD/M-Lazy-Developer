@@ -12,6 +12,9 @@ const lifecycle = {
   projectileRemovals: 0,
   projectileCleanupGap: 1,
   hurtOnlyTerminalRisk: 0,
+  explicitCombatScopeGuards: 0,
+  hurtHandlersWithoutScopeGuard: 0,
+  secondaryEffectPathsWithoutScopeGuard: 0,
   paths: [],
 };
 
