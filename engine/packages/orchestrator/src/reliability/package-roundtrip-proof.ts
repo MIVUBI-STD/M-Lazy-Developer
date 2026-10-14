@@ -69,8 +69,8 @@ export async function proveNoopPackageRoundtrip(
         differences.push({
           path,
           kind: "unexpected-after",
-          afterHash: afterEntry?.contentHash,
-          afterSize: afterEntry?.size,
+          ...(afterEntry?.contentHash === undefined ? {} : { afterHash: afterEntry.contentHash }),
+          ...(afterEntry?.size === undefined ? {} : { afterSize: afterEntry.size }),
         });
         continue;
       }
@@ -79,7 +79,7 @@ export async function proveNoopPackageRoundtrip(
         differences.push({
           path,
           kind: "missing-after",
-          beforeHash: beforeEntry.contentHash,
+          ...(beforeEntry.contentHash === undefined ? {} : { beforeHash: beforeEntry.contentHash }),
           beforeSize: beforeEntry.size,
         });
         continue;
@@ -92,8 +92,8 @@ export async function proveNoopPackageRoundtrip(
         differences.push({
           path,
           kind: "content-changed",
-          beforeHash: beforeEntry.contentHash,
-          afterHash: afterEntry.contentHash,
+          ...(beforeEntry.contentHash === undefined ? {} : { beforeHash: beforeEntry.contentHash }),
+          ...(afterEntry.contentHash === undefined ? {} : { afterHash: afterEntry.contentHash }),
           beforeSize: beforeEntry.size,
           afterSize: afterEntry.size,
         });

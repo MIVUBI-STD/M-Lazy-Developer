@@ -9,9 +9,6 @@ import type {
   ProviderRepairRealization,
   RepairStrategyEnumeration,
 } from "../repair-strategy-enumeration.js";
-import {
-  realizeProviderRepairStrategyFromGraph,
-} from "./repair-realizer-execution.js";
 import type {
   RepairStrategyProviderRegistry,
 } from "../repair-strategy-provider.js";
@@ -54,7 +51,7 @@ export function realizeLinearTopologyRepairStrategy(
     enumeration.envelope.sourceFingerprint,
   );
 
-  if (planned.status !== "planned") {
+  if (planned.status === "unsupported") {
     return {
       status: "blocked",
       sourceId: "linear-topology-repair",
@@ -62,23 +59,13 @@ export function realizeLinearTopologyRepairStrategy(
     };
   }
 
-  return realizeProviderRepairStrategyFromGraph(
-    graph,
-    enumeration,
-    registry,
-    realizerRegistry,
-    {
-      sourceId: "linear-topology-repair",
-      sourceVersion:
-        registry.providers.find(
-          (provider) =>
-            provider.id ===
-              "linear-topology-repair",
-        )?.version ?? "",
-      transaction: planned.transaction,
-      repairClass: "implementation-repair",
-      reversible: true,
-      idempotent: false,
-    },
-  );
+  // The planner produces an authored-source proposal, not an authorized
+  // PatchTransaction. Never turn a proposal into executable repair authority.
+  return {
+    status: "blocked",
+    sourceId: "linear-topology-repair",
+    reasons: [
+      "Topology replacement is proposal-only; an authorized PatchTransaction with current evidence and preservation validation is required before realization.",
+    ],
+  };
 }

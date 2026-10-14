@@ -440,14 +440,9 @@ function scoreboardEvidence(
             executionRegion:
               command.executionRegion ??
               "module",
-            amount:
-              operation === "growth" ||
-              operation === "decrement"
-                ? Math.abs(value)
-                : undefined,
+            ...((operation === "growth" || operation === "decrement") ? { amount: Math.abs(value) } : {}),
             executionShape: "unknown",
-            sourceLine:
-              command.source.range?.lineStart,
+            ...(command.source.range?.lineStart === undefined ? {} : { sourceLine: command.source.range.lineStart }),
           });
         }
       }
@@ -478,8 +473,7 @@ function scoreboardEvidence(
           command.executionRegion ??
           "module",
         executionShape: "unknown",
-        sourceLine:
-          command.source.range?.lineStart,
+        ...(command.source.range?.lineStart === undefined ? {} : { sourceLine: command.source.range.lineStart }),
       });
     }
   }
@@ -505,11 +499,10 @@ function variableEvidence(
     operation: item.kind,
     executionRegion:
       item.executionRegion,
-    amount: item.amount,
+    ...(item.amount === undefined ? {} : { amount: item.amount }),
     executionShape:
       item.executionShape,
-    sourceLine:
-      item.source.range?.lineStart,
+    ...(item.source.range?.lineStart === undefined ? {} : { sourceLine: item.source.range.lineStart }),
   }));
 }
 
@@ -701,8 +694,7 @@ function spawnEvidence(
           spawn.actorIdentifier,
         executionShape:
           spawn.executionShape,
-        sourceLine:
-          spawn.source.range?.lineStart,
+        ...(spawn.source.range?.lineStart === undefined ? {} : { sourceLine: spawn.source.range.lineStart }),
       });
     }
 
@@ -865,8 +857,8 @@ function deferredSpawnAccountingAssessment(
                 "single",
             )
             ? "unresolved" as const
-            : reservationAmounts.reduce(
-                (sum, amount) =>
+            : reservationAmounts.reduce<number>(
+                 (sum, amount) =>
                   sum + (amount ?? 0),
                 0,
               ) ===

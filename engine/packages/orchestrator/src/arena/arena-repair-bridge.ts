@@ -79,41 +79,29 @@ export function bridgeArenaRepairLocalization(
           continue;
         }
 
-        const repair =
-          repairCandidates.find(
-            (candidate) =>
-              candidate.status === "planned" &&
-              candidate.transaction !== undefined &&
-              sameLocation(
-                candidate,
-                source.source.relativePath,
-                source.source.range?.lineStart,
-              ),
-          );
-
-        if (repair?.transaction) {
+        const proposal = repairCandidates.find(
+          (candidate) =>
+            candidate.status === "proposal" &&
+            candidate.proposal !== undefined &&
+            sameLocation(
+              candidate,
+              source.source.relativePath,
+              source.source.range?.lineStart,
+            ),
+        );
+        if (proposal) {
           return {
             kind: item.kind,
             arenaId: item.arenaId,
-            status:
-              "deterministic-repair-available",
-            sourcePath:
-              source.source.relativePath,
-            ...(source.source.range
-                ?.lineStart === undefined
+            status: "proposal-only",
+            sourcePath: source.source.relativePath,
+            ...(source.source.range?.lineStart === undefined
               ? {}
-              : {
-                  line:
-                    source.source.range
-                      .lineStart,
-                }),
-            repairCandidateKind:
-              repair.kind,
-            transactionId:
-              repair.transaction.id,
+              : { line: source.source.range.lineStart }),
+            repairCandidateKind: proposal.kind,
             reasons: [
-              "Exact arena divergence source overlaps an existing deterministic repair candidate.",
-              "Automatic mutation authority comes from the existing repair planner, not from physical divergence alone.",
+              "A matching source-grounded repair proposal exists, but no authorized patch transaction has been created.",
+              "The arena divergence cannot be reported as automatically repairable until repair authorization and validation are established.",
             ],
           };
         }

@@ -374,8 +374,7 @@ function negativeSpaceFromState(
         hasProducer: state.write,
         hasConsumer: state.read,
         hasReset: state.clear,
-        hasBaselineRestore:
-          state.clear ? state.write : undefined,
+        ...(state.clear ? { hasBaselineRestore: state.write } : {}),
         evidenceIds: state.evidenceIds,
       }),
   );
@@ -727,12 +726,9 @@ function auditScenarioPresetFromModel(
           classification:
             input.classification,
         }),
-    arenaCount: input.world.arenas.count,
-    concurrentArenaLimit:
-      input.world.arenas.safeConcurrentArenas ??
-      input.world.arenas.declaredConcurrentArenaLimit,
-    maxPartySize:
-      input.world.arenas.perArenaPlayerCapacity,
+    ...(input.world.arenas.count === undefined ? {} : { arenaCount: input.world.arenas.count }),
+    ...((input.world.arenas.safeConcurrentArenas ?? input.world.arenas.declaredConcurrentArenaLimit) === undefined ? {} : { concurrentArenaLimit: (input.world.arenas.safeConcurrentArenas ?? input.world.arenas.declaredConcurrentArenaLimit)! }),
+    ...(input.world.arenas.perArenaPlayerCapacity === undefined ? {} : { maxPartySize: input.world.arenas.perArenaPlayerCapacity }),
     hasMultiArena:
       input.world.arenas.detected &&
       (input.world.arenas.count ?? 0) > 1,
@@ -798,6 +794,7 @@ export function analyzeHiddenGameplayDefects(
     readonly intent: GameplayIntentModel;
     readonly semanticIr: SemanticIr;
     readonly world: GameplayWorldModel;
+    readonly classification?: GameDesignMapClassification;
     readonly defectResolutions?: readonly GameplayDefectResolution[];
   },
 ): HiddenGameplayDefectAnalysis {
@@ -1022,12 +1019,9 @@ export function refreshHiddenGameplayDefectsForWorld(
             classification:
               existing.classification,
           }),
-      arenaCount: world.arenas.count,
-      concurrentArenaLimit:
-        world.arenas.safeConcurrentArenas ??
-        world.arenas.declaredConcurrentArenaLimit,
-      maxPartySize:
-        world.arenas.perArenaPlayerCapacity,
+      ...(world.arenas.count === undefined ? {} : { arenaCount: world.arenas.count }),
+      ...((world.arenas.safeConcurrentArenas ?? world.arenas.declaredConcurrentArenaLimit) === undefined ? {} : { concurrentArenaLimit: (world.arenas.safeConcurrentArenas ?? world.arenas.declaredConcurrentArenaLimit)! }),
+      ...(world.arenas.perArenaPlayerCapacity === undefined ? {} : { maxPartySize: world.arenas.perArenaPlayerCapacity }),
       hasMultiArena:
         world.arenas.detected &&
         (world.arenas.count ?? 0) > 1,
@@ -1097,10 +1091,8 @@ export function refreshHiddenGameplayDefectsForWorld(
           intent,
           world,
           preset: auditScenarioPreset,
-          existingSourceFlowCandidates:
-            existing.scenarioAudit.graph.sourceFlowCandidates,
-          existingGuardedSourceTransitions:
-            existing.scenarioAudit.graph.guardedSourceTransitions,
+          ...(existing.scenarioAudit.graph.sourceFlowCandidates === undefined ? {} : { existingSourceFlowCandidates: existing.scenarioAudit.graph.sourceFlowCandidates }),
+           ...(existing.scenarioAudit.graph.guardedSourceTransitions === undefined ? {} : { existingGuardedSourceTransitions: existing.scenarioAudit.graph.guardedSourceTransitions }),
         });
   const scenarioClosure =
     intent === undefined

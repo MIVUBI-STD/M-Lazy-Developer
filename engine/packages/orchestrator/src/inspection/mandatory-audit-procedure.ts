@@ -530,7 +530,7 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
       : "Gameplay model remains " + gameplayModelStatus +
         "; indexed semantic gaps, unowned source evidence and unknown gameplay meaning still block closure.",
     [
-      ...world.gameplayClosure.surfaces.flatMap((surface) => surface.evidenceIds),
+      ...world.gameplayClosure.surfaces.flatMap((surface) => surface.evidenceIds).filter((id): id is string => typeof id === "string"),
       ...discovery.discoveryChallengeIds,
       ...discovery.gameplayIntentUnknownIds,
     ],
@@ -561,8 +561,8 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
           world.gameplayClosure.stateModelComplete,
           "Gameplay model closure requires a complete material state model.",
           world.gameplayClosure.surfaces.flatMap(
-            (surface) => surface.evidenceIds,
-          ),
+             (surface) => surface.evidenceIds,
+           ).filter((id): id is string => typeof id === "string"),
         ),
         obligation(
           "gameplay-model-boundaries-extracted",
@@ -570,8 +570,8 @@ export function deriveMandatoryAuditProcedureReceipt(input: {
           world.gameplayClosure.boundariesExtracted,
           "Gameplay model closure requires material boundaries to be extracted.",
           world.gameplayClosure.surfaces.flatMap(
-            (surface) => surface.boundaries,
-          ),
+             (surface) => surface.boundaries,
+           ).filter((id): id is string => typeof id === "string"),
         ),
         obligation(
           "gameplay-model-surfaces-accounted",

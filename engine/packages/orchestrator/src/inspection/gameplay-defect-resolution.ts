@@ -564,7 +564,7 @@ function dimensionScopeClosed(
       ) &&
       (
         candidate.id === contradicted.id ||
-        (candidate.dimensionEvidence[dimension]?.length ?? 0) > 0
+        (boundedDimensionEvidence(candidate, dimension).length ?? 0) > 0
       ),
   );
   if (relevant.length === 0) return false;
@@ -606,7 +606,7 @@ function dimensionEvidenceFor(
   };
   const hints = componentHints[dimension];
   const directDimensionEvidence =
-    contradicted.dimensionEvidence[dimension] ?? [];
+    boundedDimensionEvidence(contradicted, dimension);
 
   return [
     ...new Set([
@@ -621,11 +621,20 @@ function dimensionEvidenceFor(
         )
         .flatMap((candidate) => [
           ...candidate.evidenceIds,
-          ...(candidate.dimensionEvidence[dimension] ?? []),
+          ...boundedDimensionEvidence(candidate, dimension),
         ])
         .filter(Boolean),
     ]),
   ].sort();
+}
+
+/** A missing dimension is unknown evidence, never an exhaustive counterproof. */
+function boundedDimensionEvidence(
+  link: GameplayCausalLink,
+  dimension: CounterProofSearchDimension,
+): readonly string[] {
+  if (!(dimension in link.dimensionEvidence)) return [];
+  return link.dimensionEvidence[dimension as keyof GameplayCausalLink["dimensionEvidence"]] ?? [];
 }
 
 function runtimeQuestionFor(

@@ -232,7 +232,7 @@ export function analyzeInspectionRuntimeState(
     );
   const preflightKnowledgeDemand =
     derivePreflightKnowledgeDemand({
-      intent: input.gameplayIntent,
+      ...(input.gameplayIntent === undefined ? {} : { intent: input.gameplayIntent }),
       scripts: parsedScriptModels,
       entityCount: input.parsedEntities.length,
       target: input.target,
@@ -791,9 +791,13 @@ export function analyzeInspectionRuntimeState(
   const arenaResetClosure =
     assessArenaResetClosure({
       cleanup: arenaCleanupSurfaces,
-      inventory: inventoryLifecycle,
-      capability:
-        capabilityMutationFootprint,
+      inventory: {
+        unresolvedResetPairs: Math.max(0, inventoryLifecycle.resetCandidates - inventoryLifecycle.completeResets),
+        unresolvedLoadoutTransactions: inventoryLifecycle.unresolvedLoadoutTransactions,
+      },
+      capability: {
+        unguardedMutationRegions: capabilityMutationFootprint.unresolved,
+      },
       combat: combatPolicy,
       interaction:
         interactionLifecycle,
