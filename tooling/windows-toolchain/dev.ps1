@@ -46,7 +46,7 @@ try {
             if (-not (Test-Path "package-lock.json")) {
                 throw "package-lock.json is required by repository policy."
             }
-            npm ci --no-audit --no-fund
+            npm ci --ignore-scripts --no-audit --no-fund
         }
         "doctor" {
             $toolchain = Get-Content "toolchain.json" -Raw | ConvertFrom-Json

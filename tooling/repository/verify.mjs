@@ -231,6 +231,17 @@ if (!requiredNpmVersion || pkg.packageManager !== `npm@${requiredNpmVersion}`) {
   process.exit(1);
 }
 
+const windowsSetup = readFileSync("tooling/windows-toolchain/dev.ps1", "utf8");
+if (!windowsSetup.includes("npm ci --ignore-scripts --no-audit --no-fund")) {
+  console.error("DEV.cmd setup must use script-free npm 10 installs.");
+  process.exit(1);
+}
+const npmToolchain = toolchain?.npm;
+if (npmToolchain?.installMode !== "npm ci --ignore-scripts --no-audit --no-fund") {
+  console.error("toolchain.json installMode must match supported script-free npm 10 installation.");
+  process.exit(1);
+}
+
 function sortedRecord(value) {
   return Object.fromEntries(
     Object.entries(value ?? {}).sort(([left], [right]) =>

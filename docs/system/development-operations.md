@@ -79,6 +79,13 @@ Observed feasibility example at exact GitHub `4ba3106f8e14fe443ec6ce80c20be5b5ca
 
 Prefer this bounded capability for immediately falsifiable pure parser/solver contracts within ChatGPT Chat. Escalate only exact functions requiring an unavailable imported module or complete repository; report those proofs as NOT EXECUTED without recommending Work, a new cloud service or the user's PC.
 
+
+### Source snapshot handoff (manual, not a test receipt)
+
+The existing `.github/workflows/package-source.yml` remains **manual dispatch only**. On an authorized exact-commit run it executes an install with lifecycle scripts disabled, verifies the platform esbuild helper, records the actual commit, Node/npm versions and lockfile checksum, and publishes the **seven-day** `lazy-developer-portable` artifact. A successful package job means that **this specific workflow job** ran; it does not mean `Verify` passed or a Minecraft artifact was audited. The previous workflow runs were at older SHAs and cannot serve as current-HEAD test results.
+
+A GitHub artifact can be used for ChatGPT execution **only if** its bytes genuinely arrive in the ChatGPT working filesystem through an available, supported file handoff. The repository source/lockfile and provenance must then match the pinned commit and the target `.mcworld` checksum before typecheck, Vitest, extractor or selected-map execution is credited. Connector metadata or a reported artifact URL alone is not a mounted checkout. No automatic artifact transfer is claimed. Preserve the current direct-GitHub isolated-source testing path if full transport is absent.
+
 ## Verification lanes
 
 Use the strongest evidence available for the exact claim without turning a higher execution context into a mandatory dependency.
@@ -130,7 +137,7 @@ This is an optional stronger-proof path. It does not define whether ChatGPT remo
 
 Production source may import external packages declared in `dependencies` or `optionalDependencies`; a package in `optionalDependencies` must be loaded at the point of use and unavailable-package errors must produce explicit UNKNOWN/failed coverage, never successful evidence. Test/build-only packages belong in `devDependencies`.
 
-npm 10.9.2 does **not** enforce `package.json#allowScripts`; it cannot be cited as install-script protection. For both manual GitHub verification workflows and the portable source package, use `npm ci --ignore-scripts --no-audit --no-fund`. Do **not** also omit optional dependencies: esbuild relies on an optional platform binary, while the optional native LevelDB reader remains unavailable until a separate deliberately authorized installation actually succeeds. This safe-install policy is a source contract; package installation, esbuild boot, typecheck, Vitest and native LevelDB have not been executed at this exact commit. Running a native installation with lifecycle scripts requires separate review and cannot silently convert failed native coverage into success.
+npm 10.9.2 does **not** enforce `package.json#allowScripts`; it cannot be cited as install-script protection. For both manual GitHub verification workflows, the portable source package and `DEV.cmd setup`, use `npm ci --ignore-scripts --no-audit --no-fund`. Do **not** also omit optional dependencies: esbuild relies on an optional platform binary, while the optional native LevelDB reader remains unavailable until a separate deliberately authorized installation actually succeeds. This safe-install policy is a source contract; package installation, esbuild boot, typecheck, Vitest and native LevelDB have not been executed at this exact commit. Running a native installation with lifecycle scripts requires separate review and cannot silently convert failed native coverage into success.
 
 ## Public API surface audit
 
