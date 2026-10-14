@@ -56,8 +56,17 @@ export function analyzeWorldRuleAuthority(
     const script = item.parsed;
     for (const command of script.commandLiterals) {
       const text = normalized(command.command);
-      const match = /^gamerule\s+(\S+)\s+(\S+)/i.exec(text);
-      if (!match) continue;
+      const gamerule = /^gamerule\s+(\S+)\s+(\S+)/i.exec(text);
+      const difficulty = /^difficulty\s+(\S+)/i.exec(text);
+      const timeSet = /^time\s+set\s+(\S+)/i.exec(text);
+      const weather = /^weather\s+(\S+)/i.exec(text);
+      const rule = gamerule?.[1] ??
+        (difficulty ? "world:difficulty" : undefined) ??
+        (timeSet ? "world:time" : undefined) ??
+        (weather ? "world:weather" : undefined);
+      const value = gamerule?.[2] ?? difficulty?.[1] ??
+        timeSet?.[1] ?? weather?.[1];
+      if (rule === undefined || value === undefined) continue;
       writes.push({
         scriptId: script.identifier,
         executionRegion: command.executionRegion ?? "module",
@@ -122,14 +131,22 @@ export function analyzeWorldRuleAuthority(
   const parsedScripts = normalizedScripts.map(
     (item) => item.parsed,
   );
-  const scriptSpawnEntityPaths = parsedScripts.reduce(
-    (sum, script) =>
-      sum +
-      script.methodCalls.filter(
-        (call) => call.method === "spawnEntity",
-      ).length,
-    0,
-  );
+  const scriptSpawnEntityPaths = parsedScripts.reduce((sum, script) => {
+    // Direct spatial syntax can be recorded without a typed Dimension
+    // receiver. Count each authored call site only once across producers.
+    const spawnSites = [
+      ...script.methodCalls.filter((call) => call.method === "spawnEntity")
+        .map((call) => call.source),
+      ...(script.spatialMutations ?? [])
+        .filter((mutation) => mutation.kind === "entity-spawn")
+        .map((mutation) => mutation.source),
+    ];
+    const distinctSites = new Set(spawnSites.map((site) => JSON.stringify([
+      site.artifactId, site.relativePath, site.range?.lineStart,
+      site.range?.columnStart, site.range?.lineEnd, site.range?.columnEnd,
+    ])));
+    return sum + distinctSites.size;
+  }, 0);
   const parsedCommandSummonPaths = parsedScripts.reduce(
     (sum, script) =>
       sum +

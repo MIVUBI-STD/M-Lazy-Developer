@@ -29,7 +29,7 @@ jobs:
           cat > .chatgpt-transfer/provenance.json <<EOF
           {
             "repository": "$GITHUB_REPOSITORY",
-            "sourceBase": "bb7a0cf7ddeb8ed9e470b563e2c940ec879137d6",
+            "sourceBase": "a6951cc5e95379f3447bb8d95af60d93014ff9ef",
             "packedCommit": "$GITHUB_SHA",
             "node": "$(node -v)",
             "npm": "$(npm -v)",
