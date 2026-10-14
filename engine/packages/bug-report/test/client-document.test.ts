@@ -99,7 +99,7 @@ describe("client bug report document projection", () => {
       }),
     );
     expect(document.severityLegend.map((item) => item.severity)).not.toContain("minor");
-    expect(document.issues.map((item) => item.title)
+    expect(document.issues.map((item) => item.title))
       .toEqual([
         "Level cannot continue",
         "Inventory remains after reset",
