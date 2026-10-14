@@ -435,6 +435,31 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("keeps sparse or spread-length map inputs unresolved", () => {
+    const configured = (array: string, index: number): string => [
+      `const configs = ${array}.map((id) => ({maxPlayers:5, id}));`,
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  join(p) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(p), true);",
+      "  }",
+      "};",
+      `const party = new Party(configs[${index}]);`,
+      "party.join('player');",
+    ].join("\n");
+    for (const [array, index] of [
+      ["[, 1]", 0],
+      ["[...[]]", 0],
+      ["[0, ...[]]", 1],
+    ] as const) {
+      const parsed = parseScriptFile("sparse-map", configured(array, index), source);
+      expect(parsed.arenaAuthorityPaths?.some((path) =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
   it("rejects an out-of-range direct generated-config index", () => {
     const configured = (index: number): string => [
       "const configs = [0, 1].map((id) => ({maxPlayers:5, id}));",

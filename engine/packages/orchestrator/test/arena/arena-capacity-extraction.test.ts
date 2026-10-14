@@ -466,6 +466,29 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.evidence.unresolvedRosterCapacityPaths).toBe(1);
   });
 
+  it("does not project sparse map array slots as proven player capacity", () => {
+    const script = parseScriptFile("sparse-config", [
+      "const configs = [, 1].map((id) => ({ maxPlayers: 5, id }));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "};",
+      "const party = new Party(configs[0]);",
+      "party.join('one');",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/sparse-config.js",
+    });
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [script], declaredArenaCount: 2,
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+  });
+
   it("keeps B3/B5 numeric capacity UNKNOWN for out-of-range mapped config indices", () => {
     const script = parseScriptFile("invalid-index", [
       "const configs = [0, 1].map((id) => ({ maxPlayers: 5, id }));",

@@ -917,7 +917,10 @@ function mappedConstructorCapacity(
           !ts.isNumericLiteral(props[0]!.initializer)) continue;
       const value = Number(props[0]!.initializer.text);
       if (Number.isSafeInteger(value) && value > 0 &&
-          d.initializer.expression.expression.elements.length > 0)
+          d.initializer.expression.expression.elements.length > 0 &&
+          d.initializer.expression.expression.elements.every((element) =>
+            !ts.isOmittedExpression(element) &&
+            !ts.isSpreadElement(element)))
         generators.set(d.name.text, {
           value,
           property: lineSource(file, props[0]!, source),
