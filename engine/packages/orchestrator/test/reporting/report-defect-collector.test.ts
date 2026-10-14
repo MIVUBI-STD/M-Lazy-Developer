@@ -17,11 +17,13 @@ import {
   groupConfirmedDefects,
 } from "../../../bug-report/src/index.js";
 import {
-  buildBugReportFromAuditCandidates,
+  buildBugReportFromAuditCandidatesCompatibility as buildBugReportFromAuditCandidates,
   collectConfirmedDefects,
   describeAuditReportCandidate,
-  prepareBugReportReviewFromAuditCandidates,
+  prepareBugReportReviewFromAuditCandidatesCompatibility as prepareBugReportReviewFromAuditCandidates,
   type BuildBugReportFromAuditInput,
+  type AiConfirmedDefectDraft,
+  type ConfirmedDefectDraft,
 } from "../../src/reporting/report-defect-collector.js";
 
 const intent: GameplayIntentModel = {
@@ -77,28 +79,14 @@ const staticResult: IntentDiagnosticGateResult = {
   reasons: ["Static implementation contradicts authored cleanup intent."],
 };
 
-const completeDiscovery = {
-  status: "COMPLETE" as const,
-  discoveredSurfaceIds: [
-    "outcome:cleanup",
-  ],
-  sourceCoverageComplete: true,
-  sourceParseFailures: 0,
-  unresolvedReferences: 0,
-  reasons: [],
+type DefectOptions = {
+  ai?: boolean;
+  impactEvidenceIds?: readonly string[];
+  primaryEvidenceIds?: readonly string[];
 };
 
-const closedGameplayModel = {
-  status: "CLOSED" as const,
-  surfaces: [],
-  unaccountedSurfaceIds: [],
-  blockingSurfaceIds: [],
-  unknownSurfaceIds: [],
-  stateModelComplete: true,
-  boundariesExtracted: true,
-  reasons: [],
-};
-
+function defect(label: string, options: DefectOptions & { reproduction: readonly string[] }): ConfirmedDefectDraft;
+function defect(label: string, options?: DefectOptions & { reproduction?: never }): AiConfirmedDefectDraft;
 function defect(
   label: string,
   options: {
@@ -107,7 +95,7 @@ function defect(
     impactEvidenceIds?: readonly string[];
     primaryEvidenceIds?: readonly string[];
   } = {},
-) {
+): ConfirmedDefectDraft {
   return {
     title: "Cleanup retains match state",
     problem: "Match-owned state remains after cleanup.",
@@ -160,10 +148,6 @@ function buildApprovedReport(
       map: input.map,
       files: input.files,
       candidates: input.candidates,
-      gameplayDiscoveryClosure:
-        completeDiscovery,
-      gameplayClosure:
-        closedGameplayModel,
       ...(input.groupResolutions === undefined
         ? {}
         : { groupResolutions: input.groupResolutions }),
@@ -182,10 +166,6 @@ function buildApprovedReport(
 
   return buildBugReportFromAuditCandidates({
     ...input,
-    gameplayDiscoveryClosure:
-      completeDiscovery,
-    gameplayClosure:
-      closedGameplayModel,
     approved: reviewed.approved,
   });
 }
@@ -282,6 +262,7 @@ describe("report defect collector", () => {
       buildApprovedReport({
         map: {
           name: "Beach Bedwars",
+          drive: "https://drive.google.com/file/d/1FAKE_TEST_ONLY_WORLD/view",
           mapVersion: "1.0.4",
           baseVersion: "1.26.20",
           testedVersion: "1.26.32",
@@ -308,6 +289,7 @@ describe("report defect collector", () => {
       buildApprovedReport({
         map: {
           name: "Beach Bedwars",
+          drive: "https://drive.google.com/file/d/1FAKE_TEST_ONLY_WORLD/view",
           mapVersion: "1.0.4",
           baseVersion: "1.26.20",
           testedVersion: "1.26.32",
@@ -428,6 +410,7 @@ describe("report defect collector", () => {
     const result = buildApprovedReport({
       map: {
         name: "Beach Bedwars",
+        drive: "https://drive.google.com/file/d/1FAKE_TEST_ONLY_WORLD/view",
         mapVersion: "1.0.4",
         baseVersion: "1.26.20",
         testedVersion: "1.26.32",
@@ -475,6 +458,7 @@ describe("report defect collector", () => {
     const result = buildApprovedReport({
       map: {
         name: "Map",
+        drive: "https://drive.google.com/file/d/1FAKE_TEST_ONLY_WORLD/view",
         mapVersion: "1.0.0",
         baseVersion: "1.26.20",
         testedVersion: "1.26.32",
@@ -861,6 +845,7 @@ describe("report defect collector", () => {
     const result = buildApprovedReport({
       map: {
         name: "Map",
+        drive: "https://drive.google.com/file/d/1FAKE_TEST_ONLY_WORLD/view",
         mapVersion: "1.0.0",
         baseVersion: "1.26.20",
         testedVersion: "1.26.20",
@@ -1114,6 +1099,7 @@ describe("report defect collector", () => {
     const result = buildApprovedReport({
       map: {
         name: "Beach Bedwars",
+        drive: "https://drive.google.com/file/d/1FAKE_TEST_ONLY_WORLD/view",
         mapVersion: "1.0.4",
         baseVersion: "1.26.20",
         testedVersion: "1.26.20",
@@ -1196,6 +1182,7 @@ describe("report defect collector", () => {
     const input = {
       map: {
         name: "Beach Bedwars",
+        drive: "https://drive.google.com/file/d/1FAKE_TEST_ONLY_WORLD/view",
         mapVersion: "1.0.4",
         baseVersion: "1.26.20",
         testedVersion: "1.26.20",
