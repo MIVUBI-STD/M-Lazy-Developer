@@ -33,7 +33,7 @@
     {
       "id": "contract-registry-revision",
       "symbol": "CONTRACT_REGISTRY_REVISION",
-      "owner": "packages/project-model/src/contract-registry-revision.ts",
+      "owner": "packages/project-model/src/contracts/contract-registry-revision.ts",
       "producers": [
         "tooling/repository"
       ],
@@ -47,7 +47,7 @@
     {
       "id": "decision-basis-revision",
       "symbol": "DecisionBasisRevision",
-      "owner": "packages/project-model/src/decision-ledger.ts",
+      "owner": "packages/project-model/src/evidence/decision-ledger.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -61,7 +61,7 @@
     {
       "id": "decision-ledger-snapshot",
       "symbol": "DecisionLedgerSnapshot",
-      "owner": "packages/project-model/src/decision-ledger.ts",
+      "owner": "packages/project-model/src/evidence/decision-ledger.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -76,7 +76,7 @@
     {
       "id": "diagnostic-repair-decision",
       "symbol": "DiagnosticRepairDecision",
-      "owner": "packages/project-model/src/diagnostic-decision.ts",
+      "owner": "packages/project-model/src/evidence/diagnostic-decision.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -90,7 +90,7 @@
     {
       "id": "invariant-registry-snapshot",
       "symbol": "InvariantRegistrySnapshot",
-      "owner": "packages/project-model/src/invariant-registry.ts",
+      "owner": "packages/project-model/src/evidence/invariant-registry.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -104,7 +104,7 @@
     {
       "id": "post-repair-closure-receipt",
       "symbol": "PostRepairClosureReceipt",
-      "owner": "packages/orchestrator/src/post-repair-closure.ts",
+      "owner": "packages/orchestrator/src/repair/post-repair-closure.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -134,7 +134,7 @@
     {
       "id": "repair-lifecycle-state",
       "symbol": "RepairLifecycleState",
-      "owner": "packages/orchestrator/src/repair-lifecycle.ts",
+      "owner": "packages/orchestrator/src/repair/repair-lifecycle.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -148,7 +148,7 @@
     {
       "id": "repair-proof-bundle",
       "symbol": "RepairProofBundle",
-      "owner": "packages/orchestrator/src/repair-proof-bundle.ts",
+      "owner": "packages/orchestrator/src/repair/repair-proof-bundle.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -162,7 +162,7 @@
     {
       "id": "repair-strategy-provider-proposal",
       "symbol": "RepairStrategyProviderProposal",
-      "owner": "packages/orchestrator/src/repair-strategy-provider.ts",
+      "owner": "packages/orchestrator/src/repair/repair-strategy-provider.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -176,7 +176,7 @@
     {
       "id": "repair-strategy-provider-registry",
       "symbol": "RepairStrategyProviderRegistry",
-      "owner": "packages/orchestrator/src/repair-strategy-provider.ts",
+      "owner": "packages/orchestrator/src/repair/repair-strategy-provider.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -191,7 +191,7 @@
     {
       "id": "repair-verification-receipt",
       "symbol": "RepairVerificationReceipt",
-      "owner": "packages/orchestrator/src/repair-lifecycle.ts",
+      "owner": "packages/orchestrator/src/repair/repair-lifecycle.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -205,7 +205,7 @@
     {
       "id": "runtime-probe-request",
       "symbol": "RuntimeProbeRequest",
-      "owner": "packages/project-model/src/runtime-probe.ts",
+      "owner": "packages/project-model/src/runtime/runtime-probe.ts",
       "producers": [
         "packages/telemetry",
         "packages/orchestrator"
@@ -221,7 +221,7 @@
     {
       "id": "runtime-probe-response",
       "symbol": "RuntimeProbeResponse",
-      "owner": "packages/project-model/src/runtime-probe.ts",
+      "owner": "packages/project-model/src/runtime/runtime-probe.ts",
       "producers": [
         "packages/telemetry"
       ],
@@ -235,7 +235,7 @@
     {
       "id": "runtime-probe-transcript",
       "symbol": "RuntimeProbeTranscript",
-      "owner": "packages/project-model/src/runtime-probe.ts",
+      "owner": "packages/project-model/src/runtime/runtime-probe.ts",
       "producers": [
         "packages/telemetry"
       ],
@@ -250,7 +250,7 @@
     {
       "id": "semantic-proof-claim",
       "symbol": "SemanticProofClaim",
-      "owner": "packages/project-model/src/semantic-proof.ts",
+      "owner": "packages/project-model/src/evidence/semantic-proof.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -265,7 +265,7 @@
     {
       "id": "telemetry-batch",
       "symbol": "TelemetryBatch",
-      "owner": "packages/project-model/src/telemetry.ts",
+      "owner": "packages/project-model/src/evidence/telemetry.ts",
       "producers": [
         "packages/telemetry"
       ],
@@ -280,7 +280,7 @@
     {
       "id": "telemetry-event",
       "symbol": "TelemetryEvent",
-      "owner": "packages/project-model/src/telemetry.ts",
+      "owner": "packages/project-model/src/evidence/telemetry.ts",
       "producers": [
         "packages/telemetry"
       ],
@@ -294,7 +294,7 @@
     {
       "id": "work-session-checkpoint",
       "symbol": "WorkSessionCheckpoint",
-      "owner": "packages/project-model/src/work-session.ts",
+      "owner": "packages/project-model/src/session/work-session.ts",
       "producers": [
         "packages/orchestrator"
       ],
@@ -309,7 +309,7 @@
     {
       "id": "zero-waste-execution-receipt",
       "symbol": "ZeroWasteExecutionReceipt",
-      "owner": "packages/orchestrator/src/zero-waste-execution-receipt.ts",
+      "owner": "packages/orchestrator/src/workflow/zero-waste-execution-receipt.ts",
       "producers": [
         "packages/orchestrator"
       ],

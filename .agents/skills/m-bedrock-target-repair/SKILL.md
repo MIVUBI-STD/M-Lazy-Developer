@@ -8,7 +8,11 @@ description: >
 
 **Lane:** OPERATIONAL / TARGET REPAIR
 
-## Entry
+## Purpose
+
+Apply only an explicitly approved repair to a working copy, preserving all unrelated gameplay behavior and the original artifact.
+
+## Entry criteria
 
 Bug repair requires:
 
@@ -45,7 +49,11 @@ Approved authority
 - Original artifacts remain immutable.
 - Symptom removal without preservation proof is not completion.
 
-## Forbidden
+## Allowed actions
+
+Inspect the approved target and its repair/preservation contract, apply the smallest transactional patch to a working copy, verify the requested change, and package the result with proof limits.
+
+## Forbidden actions
 
 - repair an unapproved bug;
 - invent expected behavior outside the selected-version Gameplay Contract;
@@ -54,7 +62,7 @@ Approved authority
 - widen into unrelated cleanup;
 - change detector capability in this lane.
 
-## Output
+## Output contract
 
 Validate against `../../schemas/target-repair-output.schema.json`.
 

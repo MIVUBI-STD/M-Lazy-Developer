@@ -124,6 +124,8 @@ A lane remains active across domain handoffs. Do not replace Map Audit with Dete
 
 ### Map Audit → Detection Development
 
+An unsupported mechanism is a `detection-gap` handoff, not permission to change production detection or to mark the map safe.
+
 Emit:
 
 ```text

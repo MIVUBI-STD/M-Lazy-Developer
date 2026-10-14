@@ -7,8 +7,8 @@
       "state": "partial",
       "evidence": "High-value command grammar, selectors, state access and topology effects are covered; the full Bedrock command surface is not.",
       "proofPaths": [
-        "analyzers/commands/src/index.ts",
-        "analyzers/commands/test/parse.test.ts"
+        "engine/analyzers/commands/src/index.ts",
+        "engine/analyzers/commands/test/parse.test.ts"
       ]
     },
     {
@@ -17,8 +17,8 @@
       "state": "partial",
       "evidence": "mcstructure NBT, palette/index normalization and layer-length invariants are covered; full block/entity semantics are not.",
       "proofPaths": [
-        "adapters/mcstructure/src/index.ts",
-        "adapters/mcstructure/test/indexing.test.ts"
+        "engine/adapters/mcstructure/src/index.ts",
+        "engine/adapters/mcstructure/test/indexing.test.ts"
       ]
     },
     {
@@ -27,8 +27,8 @@
       "state": "partial",
       "evidence": "Imports, module usage, events and dynamic-property calls are statically extracted without code execution.",
       "proofPaths": [
-        "analyzers/scripts/src/index.ts",
-        "analyzers/scripts/test/parse.test.ts"
+        "engine/analyzers/scripts/src/index.ts",
+        "engine/analyzers/scripts/test/parser/parse.test.ts"
       ]
     },
     {
@@ -37,7 +37,7 @@
       "state": "partial",
       "evidence": "Database presence and transport boundaries exist; most record families remain opaque.",
       "proofPaths": [
-        "analyzers/world-db/src/index.ts"
+        "engine/analyzers/world-db/src/index.ts"
       ]
     },
     {
@@ -58,8 +58,8 @@
       "state": "partial",
       "evidence": "Broad scoreboard/tag writes are detected as cross-scope risk; session intent is not fully inferred.",
       "proofPaths": [
-        "analyzers/topology/src/state-scope.ts",
-        "packages/orchestrator/src/state-authority-analysis.ts"
+        "engine/analyzers/topology/src/state-scope.ts",
+        "engine/packages/orchestrator/src/state-authority-analysis.ts"
       ]
     },
     {
@@ -68,10 +68,10 @@
       "state": "partial",
       "evidence": "Property-based session sequences, bounded state exploration and interleaving reduction are implemented and tested; generated scenarios still execute against an abstract session model rather than real Minecraft clients.",
       "proofPaths": [
-        "packages/reliability/src/session-generators.ts",
-        "packages/reliability/test/session-model.test.ts",
-        "packages/reliability-search/src/session-bounded-domain.ts",
-        "packages/reliability-search/test/interleaving-scale.test.ts"
+        "engine/packages/reliability/src/session/session-generators.ts",
+        "engine/packages/reliability/test/session/session-model.test.ts",
+        "engine/packages/reliability-search/src/search/session-bounded-domain.ts",
+        "engine/packages/reliability-search/test/search/interleaving-scale.test.ts"
       ]
     },
     {
@@ -80,11 +80,11 @@
       "state": "partial",
       "evidence": "Bedrock observation capture, runtime control records, model/runtime comparison and live regression incident capture are implemented and tested; automated multi-client Minecraft execution is not integrated yet.",
       "proofPaths": [
-        "packages/reliability/src/bedrock-runtime-emitter.ts",
-        "packages/reliability/src/live-regression-runner.ts",
-        "packages/reliability/src/runtime-control.ts",
-        "packages/reliability/test/live-regression-runner.test.ts",
-        "packages/reliability/test/bedrock-runtime-emitter.test.ts"
+        "engine/packages/reliability/src/runtime/bedrock-runtime-emitter.ts",
+        "engine/packages/reliability/src/regression/live-regression-runner.ts",
+        "engine/packages/reliability/src/runtime/runtime-control.ts",
+        "engine/packages/reliability/test/regression/live-regression-runner.test.ts",
+        "engine/packages/reliability/test/runtime/bedrock-runtime-emitter.test.ts"
       ]
     },
     {
@@ -93,10 +93,10 @@
       "state": "partial",
       "evidence": "Targeted chunk readiness observation using Dimension.isChunkLoaded is implemented with fail-closed unknown handling and tests; automated chunk lifecycle chaos, recovery lease execution, and real Minecraft runtime orchestration are not integrated yet.",
       "proofPaths": [
-        "packages/reliability/src/chunk-runtime-observation.ts",
-        "packages/reliability/test/chunk-runtime-observation.test.ts",
-        "packages/orchestrator/src/area-loaded-proof.ts",
-        "packages/orchestrator/test/area-loaded-proof.test.ts"
+        "engine/packages/reliability/src/runtime/chunk-runtime-observation.ts",
+        "engine/packages/reliability/test/runtime/chunk-runtime-observation.test.ts",
+        "engine/packages/orchestrator/src/area-loaded-proof.ts",
+        "engine/packages/orchestrator/test/diagnosis/area-loaded-proof.test.ts"
       ]
     },
     {
