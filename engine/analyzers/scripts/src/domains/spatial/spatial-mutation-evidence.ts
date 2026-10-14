@@ -22,6 +22,9 @@ export interface ScriptSpatialMutationEvidence {
   source: SourceRef;
   position: SafeConfigExpression;
   identifier?: string;
+  /** Authored teleport options, not observed dimension/arrival evidence. */
+  dimensionExpression?: string;
+  checkForBlocks?: boolean;
   resultBinding?: string;
 }
 
