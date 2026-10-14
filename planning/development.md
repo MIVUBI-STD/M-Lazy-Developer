@@ -1,3 +1,15 @@
+## FORMALIZE alias callback mutation via method calls (2026-10-14)
+
+**Proven counterexample:** The previous `readOnlyAlias()` considered `configs.some(item => item.__defineGetter__('maxPlayers', () => 9))` a safe member read. A Node 22.16 reproduction using its original predicate classified this as read-only, while real JavaScript changed all source configurations from `maxPlayers:5` to 9. No direct `item.maxPlayers = 9` assignment is required, making the existing write detector insufficient.
+
+**Fix:** In the canonical `mappedConstructorCapacity()` source owner, the existing read-only alias check now follows member access and rejects method invocations, assignment/update/delete, computed access, and passing properties to unknown consumers. Ordinary scalar read comparisons such as `item.maxPlayers === 5` remain eligible. This is a generic JavaScript ownership correction, not a detector dedicated to the selected maps.
+
+**Regressions:** Added parser positive/negative source fixtures and positive/negative B3/B5 extractor expectations in existing Vitest owners. **Source patch and fixture assertions authored; whole-repository Vitest, typecheck and production parser/extractor execution NOT EXECUTED** pending exact repository dependencies. The Node 22 / TypeScript AST reproduction establishes a real pre-fix counterexample only. FORMALIZE and subsequent pipeline stages remain blocked.
+
+**Next:** Check the exact-source alias predicate after this change using bounded Node execution, then prioritize obtaining complete repository source/dependencies for original `parseScriptFile` -> `extractArenaConcurrencyCapacity` verification, not additional synthetic stage closure.
+
+---
+
 ## Class-property allocation fragment execution evidence (2026-10-14)
 
 **Actual execution:** At GitHub commit `b9c9524f0701`, original source blob `baea1cbfd029`, exact 1176-character allocation-owner branch verified by FNV1a32 `955d2e03` and SHA-256 `ca632a8a394a...`; Node 22.16.0 / TypeScript 5.8.3 `node:test` executed **9 pass / 0 fail** isolated AST scenarios. The harness SHA-256, TAP checksum and named cases are archived in `engine/reliability/history/audit-runs/learning/chatgpt-class-field-mapped-owner-fragment-2026-10-14.json`.

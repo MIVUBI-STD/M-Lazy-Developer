@@ -439,6 +439,35 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.report?.safeConcurrentArenas ?? null).toBeNull();
   });
 
+  it("does not project mutated mapped-config inspection aliases into B3/B5", () => {
+    const base = [
+      "const configs = [0, 1].map(id => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+      "const parties = configs.map(item => new Party(item));",
+    ];
+    const sourceRef = { artifactId: "fixture", relativePath: "scripts/aliases.js" };
+    const clean = parseScriptFile("readonly-aliased-config", [
+      ...base, "configs.some(item => item.maxPlayers === 5);",
+    ].join("\n"), sourceRef);
+    expect(extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [clean], declaredArenaCount: 2,
+    }).evidence.perArenaPlayerCapacity).toBe(5);
+    const mutated = parseScriptFile("mutated-aliased-config", [
+      ...base,
+      "configs.some(item => item.__defineGetter__('maxPlayers', () => 9));",
+    ].join("\n"), sourceRef);
+    const evidence = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [mutated], declaredArenaCount: 2,
+    }).evidence;
+    expect(evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+  });
+
   it("keeps B3/B5 numeric capacity UNKNOWN for hidden map-return branches", () => {
     const script = parseScriptFile("branching-config", [
       "const configs = [0, 1].map((id) => {",

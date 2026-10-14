@@ -1184,10 +1184,38 @@ function mappedConstructorCapacity(
                    node.parent.name === node) {
           // declaration
         } else if (ts.isPropertyAccessExpression(node.parent) &&
-                   node.parent.expression === node &&
-                   !(ts.isBinaryExpression(node.parent.parent) &&
-                     node.parent.parent.left === node.parent)) {
-          // read one member only
+                   node.parent.expression === node) {
+          // A property access is not necessarily a read. Calls such as
+          // item.__defineGetter__("maxPlayers", () => 9) mutate the
+          // configuration without a syntactic assignment to maxPlayers.
+          // Walk through dotted accesses and reject writes, invocation,
+          // computed access, escapes and unknown value consumers.
+          let access: ts.Node = node.parent;
+          while (ts.isPropertyAccessExpression(access.parent) &&
+                 access.parent.expression === access)
+            access = access.parent;
+          while (ts.isParenthesizedExpression(access.parent) &&
+                 access.parent.expression === access)
+            access = access.parent;
+          const use = access.parent;
+          const assigned = ts.isBinaryExpression(use) &&
+            use.left === access &&
+            use.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+            use.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+          const updated = (ts.isPrefixUnaryExpression(use) ||
+                           ts.isPostfixUnaryExpression(use)) &&
+            use.operand === access;
+          const removed = ts.isDeleteExpression(use) &&
+            use.expression === access;
+          const invoked = ts.isCallExpression(use) &&
+            (use.expression === access || use.arguments.some((arg) => arg === access));
+          const escaped = (ts.isVariableDeclaration(use) &&
+                             use.initializer === access) ||
+            (ts.isPropertyAssignment(use) && use.initializer === access) ||
+            (ts.isSpreadElement(use) && use.expression === access) ||
+            (ts.isElementAccessExpression(use) && use.expression === access);
+          if (assigned || updated || removed || invoked || escaped)
+            safe = false;
         } else safe = false;
       }
       ts.forEachChild(node, visit);

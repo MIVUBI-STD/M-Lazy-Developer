@@ -407,6 +407,43 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("rejects mutating method calls through mapped-config inspection aliases", () => {
+    const base = [
+      "const configs = [0, 1].map(id => ({ maxPlayers: 5, id }));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+      "const parties = configs.map(item => new Party(item));",
+    ];
+    const positive = parseScriptFile("readonly-some", [
+      ...base,
+      "configs.some(item => item.maxPlayers === 5);",
+    ].join("\n"), source);
+    expect(positive.arenaAuthorityPaths?.find(path =>
+      path.capacityAuthorityProven
+    )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+
+    for (const inspection of [
+      "configs.some(item => item.__defineGetter__('maxPlayers', () => 9));",
+      "configs.some(item => item.__defineSetter__('maxPlayers', value => {}));",
+      "configs.some(item => item.valueOf());",
+      "configs.some(item => item.nested.mutate());",
+      "configs.some(item => item.maxPlayers++);",
+      "configs.some(item => item.nested.value = 9);",
+      "configs.some(item => leak(item.maxPlayers));",
+    ]) {
+      const parsed = parseScriptFile("unsafe-some", [
+        ...base, inspection,
+      ].join("\n"), source);
+      expect(parsed.arenaAuthorityPaths?.some(path =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
   it("does not prove a map generator with hidden branches or partial execution", () => {
     const configured = (body: string): string => [
       "const configs = [0, 1].map((id) => {",
