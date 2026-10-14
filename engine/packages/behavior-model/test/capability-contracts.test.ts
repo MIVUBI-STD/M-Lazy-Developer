@@ -16,12 +16,12 @@ describe("behavior-model capability contracts", () => {
     });
 
     expect(
-      model.transitions.map((item) => item.id),
+      (model.transitions ?? []).map((item) => item.id),
     ).toContain(
       "minecraft.arena:arena-1:start",
     );
     expect(
-      model.properties.map((item) => item.id),
+      (model.properties ?? []).map((item) => item.id),
     ).toContain(
       "minecraft.arena:arena-1:capacity-never-exceeded",
     );
@@ -32,7 +32,7 @@ describe("behavior-model capability contracts", () => {
       createChunkResidencyBehavior("0,0");
 
     expect(
-      model.variables.map((item) => item.id),
+      (model.variables ?? []).map((item) => item.id),
     ).toEqual(
       expect.arrayContaining([
         "chunk.loaded-for-script",
@@ -40,7 +40,7 @@ describe("behavior-model capability contracts", () => {
       ]),
     );
     expect(
-      model.transitions.map((item) => item.id),
+      (model.transitions ?? []).map((item) => item.id),
     ).toEqual(
       expect.arrayContaining([
         "minecraft.chunk:0,0:activate-simulation",
@@ -54,7 +54,7 @@ describe("behavior-model capability contracts", () => {
       createEntityLifecycleBehavior({
         entityKey: "mob-1",
       });
-    const despawn = model.transitions.find(
+    const despawn = (model.transitions ?? []).find(
       (item) =>
         item.id ===
         "minecraft.entity:mob-1:despawn",
@@ -79,7 +79,7 @@ describe("behavior-model capability contracts", () => {
       });
 
     expect(
-      model.properties.map((item) => item.id),
+      (model.properties ?? []).map((item) => item.id),
     ).toContain(
       "minecraft.inventory:player-1:commit-requires-verification",
     );

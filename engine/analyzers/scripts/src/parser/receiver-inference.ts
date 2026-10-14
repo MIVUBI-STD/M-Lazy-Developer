@@ -805,13 +805,14 @@ function uniqueSpawnPlayerForward(
             if (ts.isCallExpression(nested) &&
                 ts.isIdentifier(nested.expression) &&
                 topLevel.has(nested.expression.text)) {
+              const calledFunction = nested.expression.text;
               nested.arguments.forEach((argument, index) => {
                 if (!ts.isPropertyAccessExpression(argument) ||
                     argument.name.text !== "player" ||
                     !ts.isIdentifier(argument.expression) ||
                     argument.expression.text !== eventName) return;
                 eligibleCalls.set(nested, {
-                  functionName: nested.expression.text,
+                  functionName: calledFunction,
                   parameterIndex: index,
                 });
               });

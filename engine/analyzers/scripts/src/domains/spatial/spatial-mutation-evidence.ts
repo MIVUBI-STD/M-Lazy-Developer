@@ -11,6 +11,7 @@ import {
 
 export type ScriptSpatialMutationKind =
   | "teleport"
+  | "try-teleport"
   | "entity-spawn"
   | "structure-place";
 
@@ -128,9 +129,16 @@ function expressionAt(
   index: number,
 ): SafeConfigExpression | undefined {
   const value = call.arguments[index];
-  return value
-    ? compileSafeConfigExpression(value)
-    : undefined;
+  if (!value) return undefined;
+  // Calls can invoke arbitrary runtime logic. A compiled call-shaped
+  // expression does not prove that its coordinates are deterministic.
+  let runtimeCall = false;
+  const inspect = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) runtimeCall = true;
+    ts.forEachChild(node, inspect);
+  };
+  inspect(value);
+  return runtimeCall ? undefined : compileSafeConfigExpression(value);
 }
 
 
@@ -216,7 +224,7 @@ export function deriveScriptSpatialMutations(
               : { checkForBlocks: node.arguments[1]!.getText(file).match(/checkForBlocks\s*:\s*(true|false)/)![1] === "true" }),
             ...(method !== "tryTeleport" || assignedIdentifier(node) === undefined
               ? {}
-              : { resultBinding: assignedIdentifier(node) }),
+              : { resultBinding: assignedIdentifier(node)! }),
           });
         }
       }
@@ -244,10 +252,7 @@ export function deriveScriptSpatialMutations(
               : { identifier }),
             ...(assignedIdentifier(node) === undefined
               ? {}
-              : {
-                  resultBinding:
-                    assignedIdentifier(node),
-                }),
+              : { resultBinding: assignedIdentifier(node)! }),
           });
         }
       }

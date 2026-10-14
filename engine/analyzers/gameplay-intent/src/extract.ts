@@ -730,7 +730,7 @@ export function extractGameplayIntentSignals(
     const origin = signal?.executionRegionOrigins?.[0];
     if (origin === undefined) return key;
     const suffix = functionOwnerSuffix(origin.scriptSource, origin.region);
-    return signal.subjectKey.endsWith(suffix) ? key + suffix : key;
+    return signal?.subjectKey.endsWith(suffix) ? key + suffix : key;
   };
 
   // Name-only class declarations are observations, not proof that a

@@ -720,7 +720,7 @@ export function reconcileSourceGuardedStateTransitions(
         writeOperationId: write.id,
         executionRegionId: write.executionRegionId,
         surfaceId: write.surfaceId,
-        receiverHint: write.targetHint,
+        receiverHint: write.targetHint!,
         fromValue: compared.value,
         toValue: destination.value,
         scalarKind: "string" as const,
@@ -911,29 +911,29 @@ export function deriveSourceEffectSlices(
         id: op.id, kind: "state-mutation" as const,
         region: op.executionRegionId, source: op.source,
         surfaceId: op.surfaceId,
-        lexicalGuards: op.lexicalGuards,
-        precedenceGuards: op.precedenceGuards,
+        ...(op.lexicalGuards === undefined ? {} : { lexicalGuards: op.lexicalGuards }),
+        ...(op.precedenceGuards === undefined ? {} : { precedenceGuards: op.precedenceGuards }),
       })),
     ...(ir.state.resourceActions ?? []).map(action => ({
       id: action.id, kind: "resource-action" as const,
       region: action.executionRegionId, source: action.source,
       resourceAction: action.action, resourceKey: action.key,
-      lexicalGuards: action.lexicalGuards,
-      precedenceGuards: action.precedenceGuards,
+      ...(action.lexicalGuards === undefined ? {} : { lexicalGuards: action.lexicalGuards }),
+      ...(action.precedenceGuards === undefined ? {} : { precedenceGuards: action.precedenceGuards }),
     })),
     ...(ir.execution.outcomes ?? []).map(outcome => ({
       id: outcome.id, kind: "authored-return" as const,
       region: outcome.executionRegionId, source: outcome.source,
-      lexicalGuards: outcome.lexicalGuards,
-      precedenceGuards: outcome.precedenceGuards,
+      ...(outcome.lexicalGuards === undefined ? {} : { lexicalGuards: outcome.lexicalGuards }),
+      ...(outcome.precedenceGuards === undefined ? {} : { precedenceGuards: outcome.precedenceGuards }),
     })),
     ...(ir.execution.worldEffects ?? []).map(effect => ({
       id: effect.id, kind: "world-effect" as const,
       region: effect.executionRegionId, source: effect.source,
       worldEffectKind: effect.kind, targetLabel: effect.targetLabel,
       evidencePrecision: effect.precision,
-      lexicalGuards: effect.lexicalGuards,
-      precedenceGuards: effect.precedenceGuards,
+      ...(effect.lexicalGuards === undefined ? {} : { lexicalGuards: effect.lexicalGuards }),
+      ...(effect.precedenceGuards === undefined ? {} : { precedenceGuards: effect.precedenceGuards }),
     })),
   ];
   const stateOutcomeCandidates = reconcileSourceStateOutcomes(ir);
@@ -997,8 +997,8 @@ export function deriveSourceEffectSlices(
         precedenceGuards?: readonly AuthoredBranchGuard[];
       };
       let requirements: GuardCarrier[] = [{
-        lexicalGuards: effect.lexicalGuards,
-        precedenceGuards: effect.precedenceGuards,
+        ...(effect.lexicalGuards === undefined ? {} : { lexicalGuards: effect.lexicalGuards }),
+        ...(effect.precedenceGuards === undefined ? {} : { precedenceGuards: effect.precedenceGuards }),
       }];
       if (mutuallyExclusiveGuards(requirements[0]!, requirements[0]!)) {
         return false;
@@ -1276,7 +1276,7 @@ export function deriveSourceEffectSlices(
         .filter((item): item is NonNullable<typeof item> => item !== undefined);
       const filtered = path.executionEdgeIds.reduce<typeof admitted>((items, edgeId) => {
         const edge = edgeById.get(edgeId);
-        if (!edge?.sourceSequence) return items;
+        if (!edge?.sourceSequence?.block) return items;
         const relevant = items.filter(item =>
           item.executionRegionId === edge.from &&
           item.sourceSequence?.stableWorldReceiver);
@@ -1290,9 +1290,10 @@ export function deriveSourceEffectSlices(
           group.push(item);
           bySurface.set(key, group);
         }
+        const sourceSequence = edge.sourceSequence;
         const retained = [...bySurface.values()].flatMap(group =>
           retainSourceSequentialWriteCandidates(
-            { ...edge.sourceSequence, stableWorldReceiver: true }, group));
+            { ...sourceSequence, block: sourceSequence.block!, stableWorldReceiver: true }, group));
         return [...unrelated, ...retained];
       }, admitted);
       return filtered.map(item => item.id).sort();
@@ -1354,14 +1355,14 @@ export function deriveSourceEffectSlices(
       ...(effect.worldEffectKind === undefined ? {} : {
         worldEffectKind: effect.worldEffectKind,
         targetLabel: effect.targetLabel,
-        evidencePrecision: effect.evidencePrecision,
+        ...(effect.evidencePrecision === undefined ? {} : { evidencePrecision: effect.evidencePrecision }),
       }),
       ...(effect.resourceAction === undefined ? {} : {
         resourceAction: effect.resourceAction,
         resourceKey: effect.resourceKey,
       }),
       ...(resourceLifetimes.get(effect.id) === undefined ? {} : {
-        sourceResourceLifetime: resourceLifetimes.get(effect.id),
+        sourceResourceLifetime: resourceLifetimes.get(effect.id)!,
       }),
       ...(authoredStateValue === undefined ? {} : { authoredStateValue }),
       executionRegionId: effect.region,

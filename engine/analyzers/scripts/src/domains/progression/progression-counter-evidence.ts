@@ -1157,13 +1157,8 @@ function directStateAssignment(
     return undefined;
   }
 
-  return {
-    target,
-    value:
-      literalString(
-        statement.expression.right,
-      ),
-  };
+  const value = literalString(statement.expression.right);
+  return { target, ...(value === undefined ? {} : { value }) };
 }
 
 function transitionOwnedCallsAndEvents(

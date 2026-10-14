@@ -7,9 +7,9 @@ import {
 import type { SourceRef } from "../../../../../packages/project-model/src/index.js";
 import type {
   ScriptMethodCall,
-  ScriptSafeConfigBinding,
   ScriptSpatialWorldMutation,
 } from "../../core/types.js";
+import type { ScriptSafeConfigBinding } from "../../config/safe-config-compiler.js";
 import {
   compileSafeConfigExpression,
 } from "../../config/safe-config-compiler.js";
@@ -210,7 +210,7 @@ export function deriveScriptSpatialWorldMutations(
                   ? {}
                   : {
                       writeIdentity:
-                        blockIdentity(node.arguments[1]),
+                        blockIdentity(node.arguments[1])!,
                     }),
               }),
         });
@@ -249,7 +249,7 @@ export function deriveScriptSpatialWorldMutations(
                   ? {}
                   : {
                       writeIdentity:
-                        blockIdentity(node.arguments[1]),
+                        blockIdentity(node.arguments[1])!,
                     }),
               }),
         });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { derivePersistentReconciliationEvidence } from "../../src/domains/persistence/persistent-reconciliation.js";
+import { derivePersistentReconciliationEvidence } from "../../../src/domains/persistence/persistent-reconciliation.js";
 
 const source = { artifactId: "fixture", relativePath: "scripts/main.ts" };
 
