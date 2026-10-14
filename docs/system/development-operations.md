@@ -66,6 +66,19 @@ A requested native DB scan still requires the addon, and an unavailable/incompat
 
 **Remaining environment gap:** GitHub connector file reads are authenticated evidence, but they are not a mounted exact-commit repository tree. A source/lockfile-compatible Node version cannot provide missing source files, `node_modules`, `vitest`, `tsx` or `@zip.js/zip.js`; no full repository test may be reported as executed until those exact inputs are genuinely present. The lock currently still carries `@types/node` 24 and TypeScript 5.9.3: align Node typings only with a verified lockfile update, not an untested lockfile rewrite.
 
+### ChatGPT Chat: exact-source isolated module execution
+
+When this conversation has a connected GitHub source reader but no mounted repository checkout, do not equate failure to clone with inability to run **any** repository code. Select one small, relevant source owner and its minimum dependency closure. Fetch the file at the exact `Local` commit through authenticated GitHub, reconstruct its UTF-8 contents in the ChatGPT execution container, and compare `git hash-object <file>` with the fetched Git blob SHA **before** executing it. An unmatched blob must not be used as exact-ref repository proof. Never copy target-map proprietary source into GitHub.
+
+If TypeScript is installed in the ChatGPT container, an exact source module may be transpiled with its installed compiler and executed when its imports are available. A pure function can alternatively be extracted **unchanged** from the SHA-verified file for an explicitly isolated test; that is a test of the specified source function, **not** proof that the whole package resolved, typechecked or passed Vitest. Record the installed compiler version, imported dependencies, executed assertions, and any mocks/extracted scope. Import-time native availability and native function invocation are separate claims. Do not create a parallel engine, synthetic audit receipt or large source-copy database.
+
+Observed feasibility example at exact GitHub `4ba3106f8e14fe443ec6ce80c20be5b5ca270394` in ChatGPT Chat with Node 22.16.0 and TypeScript 5.8.3:
+- `engine/adapters/leveldb/src/native-reader.ts` Git blob `649e8dbdc09bfcbcf6e834f2d0f473506741f19c`: reconstructed content SHA matched; isolated transpilation reported 0 diagnostics; module loaded without its native dependency; invoking the reader failed with `MODULE_NOT_FOUND` (as expected because native binding was not installed).
+- `engine/analyzers/diagnostics/src/arena/arena-capacity.ts` Git blob `410bd2dcf99f780e57ce0adac00e20fde7218b1d`: exact source SHA matched; the unchanged pure capacity solver region was transpiled and executed in six isolated assertions (fixed-pool shortfall/sufficient, reported capacity, unbounded resource, invalid cost rejection and bottleneck owner), all 6 passed.
+- These are real **isolated source executions**, not Vitest, whole-repository `tsc`, `runSelectedMapAudit()`, installed native LevelDB or live Minecraft. The GitHub connector still cannot materialize the entire 2656-file / ~15.2 MB repository into this ChatGPT container, so do not treat this targeted transfer as a full source checkout.
+
+Prefer this bounded capability for immediately falsifiable pure parser/solver contracts within ChatGPT Chat. Escalate only exact functions requiring an unavailable imported module or complete repository; report those proofs as NOT EXECUTED without recommending Work, a new cloud service or the user's PC.
+
 ## Verification lanes
 
 Use the strongest evidence available for the exact claim without turning a higher execution context into a mandatory dependency.
