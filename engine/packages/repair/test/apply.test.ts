@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyPatchTransaction, rollbackAppliedFiles } from "../src/apply.js";
 import { createPatchTransaction } from "../src/create.js";
+import { fixtureRepairAuthorization } from "./fixture-authorization.js";
 
 describe("applyPatchTransaction", () => {
   it("applies a command replacement only inside working root", async () => {
@@ -20,6 +21,7 @@ describe("applyPatchTransaction", () => {
     const tx = createPatchTransaction({
       title: "repair topology outlier",
       sourceFingerprint: "fixture",
+      authorization: fixtureRepairAuthorization("fixture"),
       operations: [{
         kind: "replace-command",
         source: {
@@ -64,6 +66,7 @@ describe("applyPatchTransaction", () => {
     const tx = createPatchTransaction({
       title: "stale source",
       sourceFingerprint: "expected",
+      authorization: fixtureRepairAuthorization("expected"),
       operations: [{
         kind: "replace-command",
         source: {
@@ -98,6 +101,7 @@ describe("applyPatchTransaction", () => {
     const tx = createPatchTransaction({
       title: "stale patch",
       sourceFingerprint: "fixture",
+      authorization: fixtureRepairAuthorization("fixture"),
       operations: [{
         kind: "replace-command",
         source: {
@@ -133,6 +137,7 @@ describe("applyPatchTransaction", () => {
     const tx = createPatchTransaction({
       title: "rollback demo",
       sourceFingerprint: "fixture",
+      authorization: fixtureRepairAuthorization("fixture"),
       operations: [{
         kind: "replace-command",
         source: {
