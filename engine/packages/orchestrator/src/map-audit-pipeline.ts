@@ -511,7 +511,7 @@ function deriveSelectedMapAuditControl(input: {
         defectResolution: input.scenario.defectResolution,
         gameplayWorld: input.gameplayWorld,
         capabilityDelivery: input.capabilityDelivery,
-        userIntent: input.userIntent,
+        ...(input.userIntent === undefined ? {} : { userIntent: input.userIntent }),
         gameplayClosure: input.gameplayClosure,
         discovery: input.discovery,
         negativeSpace: input.negativeSpace,
@@ -830,7 +830,7 @@ function assembleSelectedMapAuditRun(
       hidden.accumulationGrowth,
     capabilityExposure:
       inspection.capabilityExposure,
-    userIntent,
+    ...(userIntent === undefined ? {} : { userIntent }),
   });
   const needValidationFindings = [
     ...control.issueLanes.BUG,
@@ -856,7 +856,7 @@ function assembleSelectedMapAuditRun(
     intent: inspection.gameplayIntent.model,
     auditRevision,
     world: inspection.gameplayWorld,
-    userIntent,
+    ...(userIntent === undefined ? {} : { userIntent }),
     needValidationFindings,
     auditObligations:
       control.auditObligations,
@@ -935,10 +935,14 @@ function assembleSelectedMapAuditRun(
         ...(inspection.arenaAnalysis.spatialLayout === undefined
           ? {}
           : { spatialLayout: inspection.arenaAnalysis.spatialLayout }),
-        entityPopulationProof:
-          inspection.arenaAnalysis.entityPopulationProof?.replicas,
-        actorPopulationProof:
-          inspection.arenaAnalysis.actorPopulationProof?.replicas,
+        ...(inspection.arenaAnalysis.entityPopulationProof === undefined
+          ? {}
+          : { entityPopulationProof:
+              inspection.arenaAnalysis.entityPopulationProof.replicas }),
+        ...(inspection.arenaAnalysis.actorPopulationProof === undefined
+          ? {}
+          : { actorPopulationProof:
+              inspection.arenaAnalysis.actorPopulationProof.replicas }),
         stateIsolationObservations:
           inspection.gameplayWorld.arenas.isolation.observations,
         chunkLeases: inspection.gameplayWorld.chunks.leases,
@@ -1323,7 +1327,7 @@ export function applySelectedMapAuditModelResponses(input: {
       ["knowledge requirements", resolution.knowledgeRequirementIds,
         link.knowledgeRequirementIds],
     ] as const) {
-      if (supplied?.some((id) => !authorized.includes(id))) {
+      if (supplied?.some((id: string) => !authorized.includes(id))) {
         throw new Error("Model response cites out-of-scope " + label +
           " for " + link.id + ".");
       }
@@ -1350,11 +1354,11 @@ export function applySelectedMapAuditModelResponses(input: {
       ...(resolution.counterProofEvidenceIds ?? []),
       ...(resolution.counterProofSearch?.evidenceIds ?? []),
       ...(resolution.counterProofSearch?.dimensionReceipts ?? [])
-        .flatMap((receipt) => receipt.evidenceIds),
+        .flatMap((receipt: { readonly evidenceIds: readonly string[] }) => receipt.evidenceIds),
       ...(resolution.familyProof?.criteria ?? [])
-        .flatMap((criterion) => criterion.evidenceIds),
+        .flatMap((criterion: { readonly evidenceIds: readonly string[] }) => criterion.evidenceIds),
     ];
-    if (claimedEvidence.some((id) =>
+    if (claimedEvidence.some((id: string) =>
       typeof id !== "string" ||
       !id.trim() ||
       !allowedEvidence.has(id))) {
