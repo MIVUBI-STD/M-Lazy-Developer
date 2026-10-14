@@ -439,6 +439,57 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.report?.safeConcurrentArenas ?? null).toBeNull();
   });
 
+  it("keeps B3/B5 numeric capacity UNKNOWN for hidden map-return branches", () => {
+    const script = parseScriptFile("branching-config", [
+      "const configs = [0, 1].map((id) => {",
+      "  if (id) return { maxPlayers: 9 };",
+      "  return { maxPlayers: 5 };",
+      "});",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "};",
+      "const party = new Party(configs[0]);",
+      "party.join('one');",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/branching-config.js",
+    });
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [script], declaredArenaCount: 2,
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    expect(result.evidence.unresolvedRosterCapacityPaths).toBe(1);
+  });
+
+  it("keeps B3/B5 numeric capacity UNKNOWN for out-of-range mapped config indices", () => {
+    const script = parseScriptFile("invalid-index", [
+      "const configs = [0, 1].map((id) => ({ maxPlayers: 5, id }));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "};",
+      "const party = new Party(configs[99]);",
+      "party.join('one');",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/invalid-index.js",
+    });
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [script], declaredArenaCount: 2,
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    expect(result.evidence.unresolvedRosterCapacityPaths).toBe(1);
+  });
+
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {
     const script = {
       arenaAuthorityPaths: [{
