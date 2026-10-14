@@ -1,3 +1,11 @@
+## ChatGPT full-source strict + spatial validation batch (2026-10-14)
+
+Using the verified exact-commit ChatGPT source runtime for `063d9af53a2efcce96dc5a6482656b54ff9d33b3`, full TypeScript errors decreased from **458 to 433** without weakening strict checks. Original Vitest tests covering spatial evidence, safe-config, source evidence, capability contracts, custom-block component and persistent reconciliation ran **25/25 PASS (six files)**. Fixed an actual source false-positive where `getRuntimeLocation()` had been treated as deterministic coordinates for `spawnEntity`: arbitrary runtime call expressions now cannot close source-only spatial position proof. Canonical imports, optionals and source-order evidence preserve unknown instead of fabricating values. See `engine/reliability/history/repository-operations/chatgpt-strict-source-spatial-2026-10-14.json` for exact scope.
+
+**Not accepted:** whole-tree typecheck remains FAIL (433 errors), complete Vitest is not green, and live Minecraft / original selected-map FORMALIZE is not executed. The batch is exact-source tested; new HEAD still requires fresh artifact handoff for independent re-test.
+
+---
+
 ## Multi-requirement orchestrator provenance migration (2026-10-14)
 
 **Contract repair:** Migrated `map-audit-candidate-grouping`, `map-audit-model-task`, and `map-audit-validation-projection` away from obsolete single `knowledgeRequirementId` to canonical `knowledgeRequirementIds` arrays, preserving all matched requirement IDs and receipt evidence. Candidate grouping uses a deterministic sorted multi-domain signature and no longer collapses multiple knowledge owners to one. Updated a stale PROVEN candidate-group test fixture to include mandatory evidence/impact fields; did not weaken the public types.

@@ -532,8 +532,8 @@ export function evaluateSafeConfig(
                   value: index,
                 },
               },
-              functions:
-                activeEnvironment.functions,
+              ...(activeEnvironment.functions === undefined ? {}
+                : { functions: activeEnvironment.functions }),
             },
           ),
       );

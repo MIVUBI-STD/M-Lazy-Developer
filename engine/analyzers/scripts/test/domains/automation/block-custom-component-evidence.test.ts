@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveBlockCustomComponentRegistrations } from "../../src/domains/automation/block-custom-component-evidence.js";
+import { deriveBlockCustomComponentRegistrations } from "../../../src/domains/automation/block-custom-component-evidence.js";
 
 const source = {
   artifactId: "art_demo",

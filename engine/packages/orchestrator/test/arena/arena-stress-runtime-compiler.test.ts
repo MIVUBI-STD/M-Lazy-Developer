@@ -52,7 +52,9 @@ describe("arena stress runtime compiler", () => {
       ),
     ).toBe(true);
     expect(
-      result.manualRequired.some(
+      // Both referenced arenas have explicit generation identities, so
+      // the cleanup/start experiment is source-authorized to compile.
+      result.runtimeReady.some(
         (item) =>
           item.kind === "cleanup-start-overlap",
       ),
