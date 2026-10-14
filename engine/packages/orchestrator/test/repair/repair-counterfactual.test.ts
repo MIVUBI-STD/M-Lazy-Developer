@@ -6,6 +6,7 @@ import {
   DEFAULT_REPAIR_BLAST_RADIUS_POLICY,
   decideRepairBlastRadius,
 } from "../../src/repair/repair-blast-radius.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 function graphFixture(): SemanticGraph {
   const graph = new SemanticGraph();
@@ -52,6 +53,7 @@ function transaction(path = "functions/target.mcfunction") {
   return createPatchTransaction({
     title: "demo",
     sourceFingerprint: "abc",
+    authorization: fixtureRepairAuthorization("abc"),
     operations: [{
       kind: "replace-text",
       source: {
@@ -148,6 +150,7 @@ describe("repair counterfactual and blast radius", () => {
     const tx = createPatchTransaction({
       title: "wide",
       sourceFingerprint: "abc",
+      authorization: fixtureRepairAuthorization("abc"),
       operations: [{
         kind: "replace-text",
         source: {

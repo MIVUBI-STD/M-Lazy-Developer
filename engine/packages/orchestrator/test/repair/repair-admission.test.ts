@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createPatchTransaction } from "../../../repair/src/index.js";
 import { decideRepairAdmission } from "../../src/repair/repair-admission.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 const transaction = createPatchTransaction({
   title: "demo",
   sourceFingerprint: "abc",
+  authorization: fixtureRepairAuthorization("abc"),
   operations: [{
     kind: "replace-text",
     source: { artifactId: "art-1", relativePath: "a.mcfunction" },

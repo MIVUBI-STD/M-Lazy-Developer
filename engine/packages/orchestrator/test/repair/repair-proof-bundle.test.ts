@@ -6,6 +6,7 @@ import { decideRepairBlastRadius } from "../../src/repair/repair-blast-radius.js
 import { decideRepairAdmission } from "../../src/repair/repair-admission.js";
 import { createRepairProofBundle, validateRepairProofBundle } from "../../src/repair/repair-proof-bundle.js";
 import { semanticGraphFingerprint } from "../../src/workflow/semantic-graph-fingerprint.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 function decisionBasis(graph: SemanticGraph) {
   return {
@@ -48,6 +49,7 @@ function setup() {
   const transaction = createPatchTransaction({
     title: "demo",
     sourceFingerprint: "abc",
+    authorization: fixtureRepairAuthorization("abc"),
     operations: [{
       kind: "replace-text",
       source: source("functions/target.mcfunction"),

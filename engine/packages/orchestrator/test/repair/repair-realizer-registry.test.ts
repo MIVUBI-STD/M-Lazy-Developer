@@ -10,6 +10,7 @@ import {
   repairRealizerRegistryRevision,
   type RepairStrategyEnumeration,
 } from "../../src/index.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 describe("repair realizer registry and graph binding", () => {
   it("derives changed semantic nodes from operation source refs", () => {
@@ -62,6 +63,7 @@ describe("repair realizer registry and graph binding", () => {
     const transaction = createPatchTransaction({
       title: "change line four",
       sourceFingerprint: "source-a",
+      authorization: fixtureRepairAuthorization("source-a"),
       operations: [{
         kind: "replace-text",
         source: {
@@ -98,6 +100,7 @@ describe("repair realizer registry and graph binding", () => {
     const transaction = createPatchTransaction({
       title: "unknown source",
       sourceFingerprint: "source-a",
+      authorization: fixtureRepairAuthorization("source-a"),
       operations: [{
         kind: "replace-text",
         source: {
