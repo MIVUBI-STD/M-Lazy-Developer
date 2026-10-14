@@ -27,7 +27,18 @@ describe("cross-domain reasoning", () => {
     });
   });
 
-  it("allows complete non-runtime proof to reach proven", () => {\n    const result = assessCrossDomainHypotheses(set, [\n      { predicate: "wave-spawn-failed", state: "present", evidenceId: "static:wave", domain: "static" },\n      { predicate: "target-chunk-unloaded", state: "present", evidenceId: "knowledge:chunk", domain: "knowledge" },\n    ])[0]!;\n    expect(result.disposition).toBe("supported");\n    expect(result.confidence).toBe("proven");\n    expect(result.missingRequiredPredicates).toEqual([]);\n    expect(result.domains).not.toContain("runtime");\n  });\n\n  it("keeps partial evidence open and identifies the next missing predicate", () => {
+  it("allows complete non-runtime proof to reach proven", () => {
+    const result = assessCrossDomainHypotheses(set, [
+      { predicate: "wave-spawn-failed", state: "present", evidenceId: "static:wave", domain: "static" },
+      { predicate: "target-chunk-unloaded", state: "present", evidenceId: "knowledge:chunk", domain: "knowledge" },
+    ])[0]!;
+    expect(result.disposition).toBe("supported");
+    expect(result.confidence).toBe("proven");
+    expect(result.missingRequiredPredicates).toEqual([]);
+    expect(result.domains).not.toContain("runtime");
+  });
+
+  it("keeps partial evidence open and identifies the next missing predicate", () => {
     const result = assessCrossDomainHypotheses(set, [
       { predicate: "spawn-distance-risk", state: "present", evidenceId: "static:distance", domain: "static" },
     ])[0]!;

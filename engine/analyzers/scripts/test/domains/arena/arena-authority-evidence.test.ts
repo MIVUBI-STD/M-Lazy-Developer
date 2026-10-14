@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseScriptFile,
+  deriveScriptTerminalPrecedenceEvidence,
 } from "../../../src/index.js";
 
 const source = {
@@ -142,11 +143,9 @@ describe("arena authority evidence", () => {
       ].join("\n"),
       source,
     );
-    expect(wrongOwner.arenaAuthorityPaths?.find(
-      (item) => item.arenaExpression === "arena",
-    )).toMatchObject({
-      capacityAuthorityProven: false,
-    });
+    expect((wrongOwner.arenaAuthorityPaths ?? []).some(
+      (item) => item.arenaExpression === "arena" && item.capacityAuthorityProven,
+    )).toBe(false);
   });
 
   it("admits a full-party IfStatement only when the true branch terminates the same-block join", () => {

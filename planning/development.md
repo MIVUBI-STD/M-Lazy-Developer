@@ -1,3 +1,17 @@
+## ChatGPT full-source runtime blocker resolved; integrated failing baseline recorded (2026-10-14)
+
+**Significant milestone:** Using a narrow temporary GitHub branch and connected `download_workflow_artifact`, the exact original `Local` source tree plus locked npm dependencies were packaged and **materialized successfully into this ChatGPT container**. Artifact SHA-256 and lockfile SHA-256 matched `provenance.json`. Node 22.16.0, npm 10.9.2, TypeScript 5.8.3, Vitest 3.2.7 and the original project were runnable. Do not claim that an unmodified permanent ChatGPT-only network path exists: this is a verified GitHub artifact handoff that must be refreshed for new commits.
+
+**Original baseline, actually executed:** Full GitHub Actions Vitest: 529/708 test files passed, 2,456/2,816 cases passed (360 failed). Typecheck initially failed on syntax. Repository policy failed on a retired `knowledge-binding-edges.mjs` file reference. Vite Bug Report UI build failed from undefined `buildBugReportFileName` export. All failures are now observables rather than environment UNKNOWN.
+
+**Validated repairs in ChatGPT container:** Normalized an erroneously escaped multiline test, corrected repair-admission ternary punctuation and causal-link fixture syntax/required metadata, restored missing terminal precedence import, made the wrong-owner test assert no proven path without inventing absent evidence, implemented the canonical V2 report filename helper, and retired the verifier's nonexistent knowledge-binding-edges path. Targeted Vitest **78/78 passed**, and production Bug Report UI Vite build **PASSED** on the locally patched exact-source snapshot.
+
+**Remaining failures:** After syntax fixes, `tsc --noEmit` now reports 655 type errors across 193 source/test files; source/type drift needs prioritization by repeated owner. The full 708-file suite has not yet been rerun against these patches. The repository verifier advances to capability-truth index staleness and requires the existing regeneration/verification owner. These are real product-maintenance failures, **not** a ChatGPT execution transport blocker. Do not mark `verify:full`, FORMALIZE B3/B5 acceptance, or downstream EVALUATE/PROVE/REPORT as PASSED until the corresponding tests actually pass.
+
+**Operational next steps:** Refresh exact HEAD source artifact as needed; regenerate capability truth without inventing a parallel registry; work through type and test errors by shared root cause (missing exports/contracts/incorrect fixture assumptions) in verified batches. Preserve existing artifact-sensitive provenance and do not treat unexecuted live Minecraft as source test success.
+
+---
+
 ## Executed read-only mapped callback source proof (2026-10-14)
 
 At SHA `84a0250a34da`, the exact `readOnlyAlias` source fragment (GitHub blob `2a5274f6036a`, 3579 characters, FNV1a32 `07efdaac`) executed **26/26** original-fragment AST assertions in ChatGPT Node 22.16 / TypeScript 5.8.3; 0 failed. An isolated strict TypeScript typecheck of the same wrapped source succeeded. Metadata, counterexamples and reproducibility hashes are archived at `engine/reliability/history/audit-runs/learning/chatgpt-readonly-alias-purity-2026-10-14.json`.
