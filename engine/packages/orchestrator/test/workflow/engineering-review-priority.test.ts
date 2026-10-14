@@ -5,7 +5,7 @@ import {
 
 const emptyRuntime = {
   "confirmed-defect": 0,
-  "probable-defect": 0,
+  "design-review": 0,
   "designed-behavior": 0,
   "engine-constraint": 0,
   "compatibility-difference": 0,
@@ -20,7 +20,7 @@ describe("engineering review priority", () => {
       runtimeClassifications: {
         ...emptyRuntime,
         "confirmed-defect": 1,
-        "probable-defect": 2,
+        "design-review": 2,
       },
       diagnostics: [{
         id: "diag:1",
@@ -58,7 +58,7 @@ describe("engineering review priority", () => {
       "blocking-proof",
       "confirmed-defect",
       "critical-diagnostic",
-      "probable-defect",
+      "design-review",
     ]);
     expect(priority.hasBlockingProofGap).toBe(true);
   });
@@ -100,7 +100,7 @@ describe("engineering review priority", () => {
     const priority = buildEngineeringReviewPriority({
       runtimeClassifications: {
         ...emptyRuntime,
-        "probable-defect": 1,
+        "design-review": 1,
         "runtime-proof-required": 1,
       },
       diagnostics: [],
@@ -130,15 +130,15 @@ describe("engineering review priority", () => {
         kind: "linear-topology-outlier",
         diagnosticCode: "TOPOLOGY_TRANSLATION_OUTLIER",
         sourcePath: "functions/test.mcfunction",
-        status: "planned",
+        status: "proposal",
       }],
     });
 
     expect(priority.items.map((item) => item.kind)).toEqual([
       "evidence-recovery",
       "runtime-proof-required",
-      "probable-defect",
-      "planned-repair",
+      "design-review",
+      "proposed-repair",
     ]);
   });
 });

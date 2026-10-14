@@ -43,11 +43,11 @@ function sourceFixture(): EngineeringReviewSource {
           outcomeObservation: { outcomeId: "outcome:session", evidenceId: "obs:1" },
           observationNeeds: [],
           result: {
-            disposition: "probable-defect",
+            disposition: "design-review",
             subjectIds: ["session"],
             basisInvariantIds: ["inv:1"],
             evidenceIds: ["ev:1"],
-            nextEvidenceNeed: "authored-intent",
+            nextEvidenceNeed: "intent-grounding",
             reasons: ["Observed evidence contradicts inferred intent."],
           },
         },
@@ -67,7 +67,7 @@ function sourceFixture(): EngineeringReviewSource {
       routeAssessments: [],
       routeStallAssessments: [],
       designedBehavior: 0,
-      probableDefects: 1,
+      confirmedDefects: 0,
       ambiguousIntent: 0,
       insufficientEvidence: 0,
       runtimeStateObservations: 0,
@@ -155,7 +155,7 @@ function sourceFixture(): EngineeringReviewSource {
       kind: "linear-topology-outlier",
       diagnosticCode: "TOPOLOGY_TRANSLATION_OUTLIER",
       sourcePath: "functions/a.mcfunction",
-      status: "planned",
+      status: "proposal",
     }],
     diagnostics: [{
       id: "diag:1",
@@ -175,18 +175,18 @@ describe("engineering review projection", () => {
     expect(review.schemaVersion).toBe(1);
     expect(review.artifact.id).toBe("art_demo");
     expect(review.understanding.unknowns).toHaveLength(1);
-    expect(review.runtimeClassifications["probable-defect"]).toBe(1);
+    expect(review.runtimeClassifications["design-review"]).toBe(1);
     expect(review.runtimeClassifications["confirmed-defect"]).toBe(0);
     expect(review.runtimeClassifications["runtime-proof-required"]).toBe(1);
     expect(review.runtimeAssessments).toEqual([
       {
         id: "runtime:outcome:session:obs:1",
         outcomeId: "outcome:session",
-        disposition: "probable-defect",
+        disposition: "design-review",
         subjectIds: ["session"],
         basisInvariantIds: ["inv:1"],
         evidenceIds: ["ev:1"],
-        nextEvidenceNeed: "authored-intent",
+        nextEvidenceNeed: "intent-grounding",
         reasons: ["Observed evidence contradicts inferred intent."],
       },
       {
@@ -205,17 +205,17 @@ describe("engineering review projection", () => {
     );
     expect(review.attention.map((item) => item.kind)).toEqual([
       "critical-diagnostic",
-      "probable-defect",
+      "design-review",
       "runtime-proof-required",
       "evidence-recovery",
-      "planned-repair",
+      "proposed-repair",
     ]);
     expect(review.priority.items.map((item) => item.kind)).toEqual([
       "critical-diagnostic",
       "evidence-recovery",
       "runtime-proof-required",
-      "probable-defect",
-      "planned-repair",
+      "design-review",
+      "proposed-repair",
     ]);
     expect(review.priority.hasCriticalDiagnostic).toBe(true);
     expect(review.priority.hasConfirmedDefect).toBe(false);
@@ -229,11 +229,11 @@ describe("engineering review projection", () => {
         kind: "linear-topology-outlier",
         diagnosticCode: "TOPOLOGY_TRANSLATION_OUTLIER",
         sourcePath: "functions/a.mcfunction",
-        status: "planned",
+        status: "proposal",
       },
     ]);
     expect(
-      review.attention.find((item) => item.kind === "planned-repair")?.reason,
-    ).toContain("not implied to be applied or verified");
+      review.attention.find((item) => item.kind === "proposed-repair")?.reason,
+    ).toContain("not authorized, applied, or verified");
   });
 });

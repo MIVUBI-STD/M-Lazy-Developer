@@ -28,12 +28,12 @@ export interface EngineeringReviewAttention {
   kind:
     | "critical-diagnostic"
     | "confirmed-defect"
-    | "probable-defect"
+    | "design-review"
     | "ambiguous-intent"
     | "insufficient-evidence"
     | "runtime-proof-required"
     | "evidence-recovery"
-    | "planned-repair";
+    | "proposed-repair";
   count: number;
   reason: string;
 }
@@ -120,7 +120,7 @@ export interface EngineeringReviewProjection {
 
 const runtimeDispositions: readonly IntentDiagnosticDisposition[] = [
   "confirmed-defect",
-  "probable-defect",
+  "design-review",
   "designed-behavior",
   "engine-constraint",
   "compatibility-difference",
@@ -167,9 +167,9 @@ function attentionFrom(
     "Runtime/intent evidence currently classifies these observations as confirmed defects.",
   );
   push(
-    "probable-defect",
-    runtimeClassifications["probable-defect"],
-    "These observations contradict inferred intent but do not yet have sufficient authored intent for confirmation.",
+    "design-review",
+    runtimeClassifications["design-review"],
+    "Design-review candidates require additional authored intent or observation evidence before defect classification.",
   );
   push(
     "ambiguous-intent",
@@ -192,9 +192,9 @@ function attentionFrom(
     "Runtime evidence integrity requires one or more recovery actions.",
   );
   push(
-    "planned-repair",
-    source.repairCandidates.filter((item) => item.status === "planned").length,
-    "Repair candidates are planned but not implied to be applied or verified.",
+    "proposed-repair",
+    source.repairCandidates.filter((item) => item.status === "proposal").length,
+    "Repair candidates are proposals, not authorized, applied, or verified repairs.",
   );
 
   return attention;

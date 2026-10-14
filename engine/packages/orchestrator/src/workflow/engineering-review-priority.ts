@@ -9,7 +9,7 @@ export type EngineeringReviewPriorityLane =
   | "confirmed-defect"
   | "critical-diagnostic"
   | "evidence-required"
-  | "probable-defect"
+  | "design-review"
   | "repair-follow-up";
 
 export type EngineeringReviewPriorityAction =
@@ -18,8 +18,8 @@ export type EngineeringReviewPriorityAction =
   | "review-critical-diagnostic"
   | "collect-required-evidence"
   | "clarify-intent"
-  | "investigate-probable-defect"
-  | "validate-planned-repair";
+  | "investigate-design-review"
+  | "review-proposed-repair";
 
 export interface EngineeringReviewPriorityItem {
   lane: EngineeringReviewPriorityLane;
@@ -31,8 +31,8 @@ export interface EngineeringReviewPriorityItem {
     | "runtime-proof-required"
     | "ambiguous-intent"
     | "insufficient-evidence"
-    | "probable-defect"
-    | "planned-repair";
+    | "design-review"
+    | "proposed-repair";
   count: number;
   action: EngineeringReviewPriorityAction;
   reason: string;
@@ -60,7 +60,7 @@ export const ENGINEERING_REVIEW_PRIORITY_ORDER:
     "confirmed-defect",
     "critical-diagnostic",
     "evidence-required",
-    "probable-defect",
+    "design-review",
     "repair-follow-up",
   ];
 
@@ -138,21 +138,21 @@ export function buildEngineeringReviewPriority(
   );
 
   push(
-    "probable-defect",
-    "probable-defect",
-    input.runtimeClassifications["probable-defect"],
-    "investigate-probable-defect",
-    "Observed evidence contradicts inferred intent but does not yet justify confirmed-defect status.",
+    "design-review",
+    "design-review",
+    input.runtimeClassifications["design-review"],
+    "investigate-design-review",
+    "Design-review observations remain unconfirmed pending authoritative intent or stronger evidence."
   );
 
   push(
     "repair-follow-up",
-    "planned-repair",
+    "proposed-repair",
     input.repairCandidates.filter((candidate) =>
-      candidate.status === "planned"
+      candidate.status === "proposal"
     ).length,
-    "validate-planned-repair",
-    "Repair candidates are planned and still require execution plus matching validation before they can be treated as verified.",
+    "review-proposed-repair",
+    "Proposed repairs still require explicit authorization, execution, and validation before verified status."
   );
 
   const laneOrder = new Map(
