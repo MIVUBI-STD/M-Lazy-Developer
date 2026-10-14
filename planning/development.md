@@ -1,3 +1,11 @@
+## Class-property allocation fragment execution evidence (2026-10-14)
+
+**Actual execution:** At GitHub commit `b9c9524f0701`, original source blob `baea1cbfd029`, exact 1176-character allocation-owner branch verified by FNV1a32 `955d2e03` and SHA-256 `ca632a8a394a...`; Node 22.16.0 / TypeScript 5.8.3 `node:test` executed **9 pass / 0 fail** isolated AST scenarios. The harness SHA-256, TAP checksum and named cases are archived in `engine/reliability/history/audit-runs/learning/chatgpt-class-field-mapped-owner-fragment-2026-10-14.json`.
+
+**Not equivalent to full parser acceptance:** Only a verified unchanged source *fragment* was run. Full `mappedConstructorCapacity()`, `parseScriptFile()`, `extractArenaConcurrencyCapacity()`, repository Vitest/typecheck, original maps and Minecraft runtime were not run. B3/B5 and downstream stages remain blocked. The prior class-field fixture expecting numeric proof was moved to the strictly source-bounded `const` path, with separate negative class-field cases.
+
+---
+
 ## FORMALIZE class-field mapped-session ownership — conservative admission (2026-10-14)
 
 **Observation:** `class Sessions { parties = configs.map(item => new Party(item)); }` was accepted by `mappedConstructorCapacity()` even though the engine did not track uses of the resulting class field. A real JS/TS 5.8.3 reproduction confirmed `owner.parties[0].definition.maxPlayers` can change from 5 to 9 after constructing the owner.
