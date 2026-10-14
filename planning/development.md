@@ -1,3 +1,13 @@
+## FORMALIZE exact-source mapped generator test receipt (2026-10-14)
+
+**Execution upgraded:** The exact original `mappedConstructorCapacity()` generator-selection source fragment was copied from GitHub HEAD `3fbf4e8645bd` (blob `f2afca8d459d`) to the ChatGPT Node 22.16 / TS 5.8.3 runtime. Byte length **3716** and **FNV1a32 aeeb1807** matched the authenticated source. A minimal wrapper executed this **unchanged** fragment with TypeScript AST inputs. **19/19 node:test scenarios passed, 0 failures** (four supported synchronous cases and fifteen rejection cases including async Promise callbacks). Test output and harness hashes are archived in `engine/reliability/history/audit-runs/learning/chatgpt-mapped-generator-exact-fragment-2026-10-14.json`.
+
+**Proof ceiling remains explicit:** This verifies the original generator-selection **fragment**, not the complete `mappedConstructorCapacity()`, `parseScriptFile()`, extractor, full Vitest/typecheck, selected-map audit or Minecraft. FORMALIZE B3/B5, EVALUATE, PROVE, REPORT remain **BLOCKED**. Do not aggregate fragment counts into full pipeline acceptance.
+
+**Next:** If exact authenticated source/dependency handoff remains unavailable, execute the next bounded original source fragment (constructor allocation and identity) with SHA matching, retaining callback escape counterexamples; do not create duplicate parsers or synthetic closed receipts.
+
+---
+
 ## FORMALIZE async mapped capacity is not synchronous numeric authority (2026-10-14)
 
 **Observed counterexample:** The source-level same-file `.map()` generator and `new Party(config)` allocation analysis accepted `async` arrow callbacks. Actual JavaScript returns `Promise<config>` for an async generator and `Promise<Party>` for an async allocator, so an observed syntactic `maxPlayers:5` cannot safely be projected as a directly available synchronous arena cap.
