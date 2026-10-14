@@ -1338,7 +1338,7 @@ function capacityComparisonEvidence(
     file,
   );
   if (!capacity) return undefined;
-  const staticCapacity = staticModuleCapacity(other, file, source) ??
+  const staticCapacity: { value: number; source: SourceRef; witnesses?: readonly SourceRef[] } | undefined = staticModuleCapacity(other, file, source) ??
     staticConstructorCapacity(other, file, source, fieldBindings) ??
     mappedConstructorCapacity(other, file, source, fieldBindings);
 
@@ -1365,7 +1365,7 @@ function capacityComparisonEvidence(
     ...(staticCapacity ? {
       resolvedCapacityValue: staticCapacity.value,
       resolvedCapacitySource: staticCapacity.source,
-      ...("witnesses" in staticCapacity
+      ...(staticCapacity.witnesses !== undefined
         ? { resolvedCapacityWitnesses: staticCapacity.witnesses } : {}),
     } : {}),
     executionRegion:

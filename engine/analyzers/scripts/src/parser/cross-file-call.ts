@@ -163,7 +163,7 @@ function hasPriorPossibleFunctionExit(
   let current: ts.Node | undefined = node;
 
   while (current?.parent) {
-    const parent = current.parent;
+    const parent: ts.Node = current.parent;
 
     if (
       ts.isBlock(parent) &&
@@ -245,10 +245,11 @@ function controlFlow(
 }
 
 function hasModifier(
-  node: ts.Node & { modifiers?: ts.NodeArray<ts.ModifierLike> },
+  node: ts.Node,
   kind: ts.SyntaxKind,
 ): boolean {
-  return node.modifiers?.some((modifier) => modifier.kind === kind) ?? false;
+  return ts.canHaveModifiers(node) &&
+    (ts.getModifiers(node)?.some(modifier => modifier.kind === kind) ?? false);
 }
 
 function moduleExports(
@@ -396,8 +397,9 @@ interface TopLevelSourceClass {
 function topLevelSourceClasses(file: ts.SourceFile): readonly TopLevelSourceClass[] {
   const bindings = new Map<string, number>();
   const candidates: { name: string; declaration: TopLevelSourceClass["declaration"] }[] = [];
-  const add = (name: string): void =>
+  const add = (name: string): void => {
     bindings.set(name, (bindings.get(name) ?? 0) + 1);
+  };
   for (const statement of file.statements) {
     if ((ts.isFunctionDeclaration(statement) ||
          ts.isClassDeclaration(statement)) && statement.name) {
@@ -702,9 +704,9 @@ function stableParameterOrigin(
       return { parameterName: name, aliases: aliases.reverse() };
     }
     if (!ts.isBlock(caller.body)) return undefined;
-    const declarations = caller.body.statements.flatMap(statement => {
+    const declarations = caller.body.statements.flatMap<{ declaration: ts.VariableDeclaration | undefined; isConst: boolean }>(statement => {
       if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) {
-        return [{ declaration: undefined, isConst: false }];
+        return [{ declaration: undefined as ts.VariableDeclaration | undefined, isConst: false }];
       }
       if (!ts.isVariableStatement(statement)) return [];
       return statement.declarationList.declarations
@@ -1467,6 +1469,7 @@ export function extractScriptClassMapSites(file: ts.SourceFile, owner: SourceRef
             let constructorSource:SourceRef|undefined;
             // Same lexical block immutable initialization, preceding the set.
             if(value && ts.isIdentifier(value)) {
+              const valueName = value.text;
               let block:ts.Block|undefined;
               for(let current:ts.Node|undefined=node.parent;current;current=current.parent){
                 if(ts.isBlock(current)){block=current;break;}
@@ -1476,7 +1479,7 @@ export function extractScriptClassMapSites(file: ts.SourceFile, owner: SourceRef
                 const candidates=block.statements.filter(ts.isVariableStatement)
                   .flatMap(statement=>statement.declarationList.declarations
                     .filter(decl=>ts.isIdentifier(decl.name) &&
-                      decl.name.text===value.text &&
+                      decl.name.text===valueName &&
                       !!(statement.declarationList.flags & ts.NodeFlags.Const) &&
                       decl.getStart(file)<node.getStart(file)));
                 const initializer=candidates[0]?.initializer;
@@ -1489,14 +1492,14 @@ export function extractScriptClassMapSites(file: ts.SourceFile, owner: SourceRef
                   let mutated=false;
                   const check=(n:ts.Node):void=>{
                     if (ts.isBinaryExpression(n) && ts.isIdentifier(n.left) &&
-                        n.left.text===value.text &&
+                        n.left.text===valueName &&
                         n.operatorToken.kind>=ts.SyntaxKind.FirstAssignment &&
                         n.operatorToken.kind<=ts.SyntaxKind.LastAssignment)mutated=true;
                     ts.forEachChild(n,check);
                   };
                   check(block);
                   if(!mutated) {
-                    constructorName=ctorExpr.expression.text;
+                    constructorName=ts.isIdentifier(ctorExpr.expression) ? ctorExpr.expression.text : undefined;
                     constructorSource=nodeSource(file,ctorExpr,owner);
                   }
                 }

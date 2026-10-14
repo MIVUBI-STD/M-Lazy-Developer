@@ -4,8 +4,8 @@ import {
 } from "./attack.js";
 import {
   extractNavigationCapabilities,
-  type NavigationCapabilities,
 } from "./navigation.js";
+import type { NavigationCapabilities } from "./types.js";
 import {
   extractTargetingSemantics,
   type TargetingSemantics,

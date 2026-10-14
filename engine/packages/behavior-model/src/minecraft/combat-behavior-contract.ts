@@ -69,7 +69,7 @@ export function resolveCombatDamageEligibility(
   contract: CombatBehaviorContract,
   query: CombatDamageEligibilityQuery,
 ): CombatDamageEligibilityResolution {
-  const errors = validateCombatBehaviorContract(policy);
+  const errors = validateCombatBehaviorContract(contract);
   if (errors.length > 0) {
     return {
       status: "unknown",

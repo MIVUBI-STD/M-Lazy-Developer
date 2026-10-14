@@ -138,7 +138,7 @@ function functionBodyExpression(
   }
   if (
     body.statements.length !== 1 ||
-    !ts.isReturnStatement(body.statements[0]) ||
+    !body.statements[0] || !ts.isReturnStatement(body.statements[0]) ||
     body.statements[0]!.expression === undefined
   ) {
     return undefined;

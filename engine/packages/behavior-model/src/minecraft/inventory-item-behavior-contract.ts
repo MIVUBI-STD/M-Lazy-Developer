@@ -150,7 +150,7 @@ export function resolveInventoryItemBehaviorContract(
   query: InventoryItemPolicyQuery,
 ): InventoryItemPolicyResolution {
   const errors =
-    validateInventoryItemBehaviorContract(policy);
+    validateInventoryItemBehaviorContract(contract);
   if (errors.length > 0) {
     return {
       query,

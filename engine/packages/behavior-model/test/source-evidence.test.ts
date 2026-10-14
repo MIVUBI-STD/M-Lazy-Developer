@@ -231,13 +231,17 @@ describe("source-observed state/outcome reconciliation", () => {
     });
     const result = results.find(item => item.outcomeId === "outcome:start");
     expect(result?.status).toBe("UNRESOLVED");
-    expect(result?.precedingWriteOperationIds).toEqual(["write:active"]);
+    // Source-order association does not yet establish causal surface ownership.
+    // A compatible earlier write to another surface remains visible as a hint.
+    expect(result?.precedingWriteOperationIds).toEqual([
+      "write:active", "write:other-surface",
+    ]);
     expect(result?.intermediateMutationOperationIds).toEqual([
       "write:conditional-intermediate", "write:unlocated",
     ]);
     expect(result?.provenance.evidenceIds).toEqual([
       "outcome:start", "write:active",
-      "write:conditional-intermediate", "write:unlocated",
+      "write:conditional-intermediate", "write:other-surface", "write:unlocated",
     ]);
   });
 
