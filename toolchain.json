@@ -47,7 +47,9 @@
   },
   "typescript": {
     "source": "package-lock.json",
-    "strict": true
+    "strict": true,
+    "version": "5.8.3",
+    "pinPolicy": "Exact TypeScript 5.8.3 baseline available in ChatGPT Node 22 execution; no full repository typecheck implied"
   },
   "powershell": {
     "minimumMajor": 7,

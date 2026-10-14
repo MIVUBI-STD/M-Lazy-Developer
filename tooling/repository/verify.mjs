@@ -243,6 +243,16 @@ if (npmToolchain?.installMode !== "npm ci --ignore-scripts --no-audit --no-fund"
   process.exit(1);
 }
 
+const tsSpec = String(pkg.dependencies?.typescript ?? "");
+const tsLocked = lock?.packages?.["node_modules/typescript"];
+if (tsSpec !== String(toolchain?.typescript?.version ?? "") ||
+    tsLocked?.version !== tsSpec ||
+    !tsLocked?.integrity ||
+    !tsLocked?.resolved?.endsWith("/typescript-" + tsSpec + ".tgz")) {
+  console.error("TypeScript production parser must match the exact ChatGPT-compatible compiler pin and lock entry.");
+  process.exit(1);
+}
+
 function sortedRecord(value) {
   return Object.fromEntries(
     Object.entries(value ?? {}).sort(([left], [right]) =>
