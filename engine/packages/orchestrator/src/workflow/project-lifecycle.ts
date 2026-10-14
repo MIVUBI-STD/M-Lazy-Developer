@@ -362,8 +362,7 @@ export function createProjectApprovalSnapshot(
       project: input.project,
       deliverables:
         input.deliverables,
-      auditRevision:
-        input.auditRevision,
+      ...(input.auditRevision === undefined ? {} : { auditRevision: input.auditRevision }),
     });
   return {
     ...payload,

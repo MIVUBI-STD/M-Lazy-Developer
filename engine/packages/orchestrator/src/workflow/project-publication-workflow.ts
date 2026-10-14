@@ -58,10 +58,8 @@ export async function approveAndPersistProject(input: {
     createProjectApprovalSnapshot({
       project: input.project,
       deliverables: input.deliverables,
-      blockingReasons:
-        input.blockingReasons,
-      requireBugReport:
-        input.requireBugReport,
+      ...(input.blockingReasons === undefined ? {} : { blockingReasons: input.blockingReasons }),
+      ...(input.requireBugReport === undefined ? {} : { requireBugReport: input.requireBugReport }),
     });
   const approved =
     approveProject(
@@ -129,8 +127,7 @@ export async function approveAuditProjectAndPersist(input: {
     createProjectApprovalSnapshot({
       project: input.project,
       deliverables: input.deliverables,
-      blockingReasons:
-        input.blockingReasons,
+      ...(input.blockingReasons === undefined ? {} : { blockingReasons: input.blockingReasons }),
       requireBugReport: true,
       auditRevision:
         input.audit.auditRevision,
