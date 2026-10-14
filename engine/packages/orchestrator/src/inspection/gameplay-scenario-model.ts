@@ -423,7 +423,7 @@ export interface GameplayArchitectureNavigation {
       readonly unclassifiedMaterialStepIds: readonly string[];
     })[];
     /** Source-authored cross-file behavior references, not executable proof. */
-    readonly authoredBehaviorRelationships: readonly NonNullable<
+    readonly authoredBehaviorRelationships: NonNullable<
       SemanticIr["execution"]["authoredBehaviorRelations"]
     >;
     /**

@@ -439,6 +439,8 @@ export interface ScriptSpatialWorldMutation {
     max: { x: number; y: number; z: number };
   };
   writeIdentity?: string;
+  /** Uninterpreted authored second argument at the write site. */
+  permutationExpression?: string;
   reason?: string;
   source: SourceRef;
   lexicalGuards?: readonly ScriptLexicalGuard[];

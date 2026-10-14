@@ -6,7 +6,11 @@ describe("interactive block state analysis", () => {
   it("does not treat type-only mutation as permutation proof", () => {
     const script = parseScriptFile(
       "main",
-      "dimension.setBlockType({ x: 1, y: 2, z: 3 }, 'minecraft:oak_door');",
+      [
+        'import { world } from "@minecraft/server";',
+        'const dimension = world.getDimension("overworld");',
+        "dimension.setBlockType({ x: 1, y: 2, z: 3 }, 'minecraft:oak_door');",
+      ].join("\n"),
       { artifactId: "fixture", relativePath: "scripts/main.ts" },
     );
     expect(analyzeInteractiveBlockState([script])).toMatchObject({
@@ -18,7 +22,11 @@ describe("interactive block state analysis", () => {
   it("decodes literal BlockPermutation.resolve state maps", () => {
     const script = parseScriptFile(
       "main",
-      "dimension.setBlockPermutation({ x: 1, y: 2, z: 3 }, BlockPermutation.resolve('minecraft:oak_door', { 'open_bit': true, 'direction': 2 }));",
+      [
+        'import { world } from "@minecraft/server";',
+        'const dimension = world.getDimension("overworld");',
+        "dimension.setBlockPermutation({ x: 1, y: 2, z: 3 }, BlockPermutation.resolve('minecraft:oak_door', { 'open_bit': true, 'direction': 2 }));",
+      ].join("\n"),
       { artifactId: "fixture", relativePath: "scripts/main.ts" },
     );
     const result = analyzeInteractiveBlockState([script]);
@@ -33,7 +41,11 @@ describe("interactive block state analysis", () => {
   it("preserves authored permutation expression as state evidence", () => {
     const script = parseScriptFile(
       "main",
-      "dimension.setBlockPermutation({ x: 1, y: 2, z: 3 }, doorPermutation);",
+      [
+        'import { world } from "@minecraft/server";',
+        'const dimension = world.getDimension("overworld");',
+        "dimension.setBlockPermutation({ x: 1, y: 2, z: 3 }, doorPermutation);",
+      ].join("\n"),
       { artifactId: "fixture", relativePath: "scripts/main.ts" },
     );
     const result = analyzeInteractiveBlockState([script]);

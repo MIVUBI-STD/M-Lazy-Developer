@@ -197,6 +197,9 @@ export function deriveScriptSpatialWorldMutations(
           executionRegion:
             method.executionRegion ?? "module",
           source: callSource,
+          ...(method.method === "setBlockPermutation" && node.arguments[1] !== undefined
+            ? { permutationExpression: node.arguments[1]!.getText(file) }
+            : {}),
           ...(point === undefined
             ? {
                 status: "unresolved" as const,

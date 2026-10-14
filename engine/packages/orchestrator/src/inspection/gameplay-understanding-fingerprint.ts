@@ -178,7 +178,7 @@ export function deriveGameplayUnderstandingFingerprint(
       files: result.files,
       scripts: result.scripts,
       authoredSourceFiles:
-        result.gameplayIntent.authoredSourceFiles,
+        result.gameplayIntent.contractSourceFiles,
       entities: result.entities,
       functions: result.functions,
     },

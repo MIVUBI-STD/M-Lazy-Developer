@@ -1661,7 +1661,8 @@ export function buildGameplayIntentModel(
         summary:"Canonical Semantic IR resolved synchronous local call. " +
           "Neither call reachability nor its gameplay purpose is established.",
       });
-      for (const [id,region] of [[from,call.callerRegion],[to,call.targetRegion]]) {
+      const boundedRegions: [string, string][] = [[from, call.callerRegion], [to, call.targetRegion]];
+      for (const [id,region] of boundedRegions) {
         const existing = nodes.get(id);
         nodes.set(id,{
           id,kind:"mechanic",

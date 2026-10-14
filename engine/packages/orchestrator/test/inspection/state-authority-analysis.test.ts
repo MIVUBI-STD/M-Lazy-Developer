@@ -273,10 +273,10 @@ describe("objective authority diagnostics", () => {
     expect(
       findings.map((item) =>
         item.code
-      ),
+      ).sort(),
     ).toEqual([
-      "STATE_AUTHORITY_UNDECLARED",
       "STATE_MULTIPLE_AUTHORITIES",
+      "STATE_AUTHORITY_UNDECLARED",
     ].sort());
   });
 });
