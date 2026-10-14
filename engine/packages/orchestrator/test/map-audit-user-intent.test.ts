@@ -13,7 +13,6 @@ import {
   normalizeAuditUserIntent,
   validateAuditUserIntent,
   validateAuditUserIntentConfirmation,
-  validateAuditUserIntentConfirmation,
   type AuditUserIntentEnvelope,
 } from "../src/map-audit-user-intent.js";
 
@@ -157,6 +156,23 @@ describe("map audit user intent", () => {
     expect(() =>
       normalizeAuditUserIntent(malformed)
     ).not.toThrow();
+  });
+
+  it("drops non-string imported fragment references without creating evidence", () => {
+    const injected: AuditUserIntentEnvelope = {
+      ...envelope(),
+      items: [{
+        kind: "SYMPTOM_REPORT",
+        raw: "raw symptom",
+        normalized: "unverified symptom",
+        sourceFragmentIds: ["f1", 42, null, { id: "f2" }] as unknown as string[],
+      }],
+      unmappedFragmentIds: ["f2", false, { id: "f3" }] as unknown as string[],
+    };
+    const normalized = normalizeAuditUserIntent(injected);
+    expect(normalized.items[0]?.sourceFragmentIds).toEqual(["f1"]);
+    expect(normalized.unmappedFragmentIds).toEqual(["f2"]);
+    expect(normalized.items[0]?.kind).toBe("SYMPTOM_REPORT");
   });
 
   it("rejects unsupported runtime values instead of trusting loose JSON", () => {

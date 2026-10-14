@@ -513,7 +513,7 @@ function deriveSelectedMapAuditControl(input: {
         capabilityDelivery: input.capabilityDelivery,
         ...(input.userIntent === undefined ? {} : { userIntent: input.userIntent }),
         gameplayClosure: input.gameplayClosure,
-        discovery: input.discovery,
+        ...(input.discovery === undefined ? {} : { discovery: input.discovery }),
         negativeSpace: input.negativeSpace,
         temporalRisks: input.temporalRisks,
         discoveryChallenges: input.discoveryChallenges,
@@ -1387,7 +1387,7 @@ export function applySelectedMapAuditModelResponses(input: {
     if (resolution.disposition === "BLOCKING_COUNTERPROOF") {
       const blocking = new Set(blockingCounterProofFor(graph, link));
       if (!(resolution.counterProofEvidenceIds?.length) ||
-          resolution.counterProofEvidenceIds.some((id) => !blocking.has(id))) {
+          resolution.counterProofEvidenceIds.some((id: string) => !blocking.has(id))) {
         throw new Error(
           "AI cannot invent a blocking counterproof; no exact PROVEN exclusion supports " +
           link.id + ".",

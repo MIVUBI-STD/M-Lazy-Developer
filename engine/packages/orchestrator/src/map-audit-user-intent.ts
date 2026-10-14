@@ -163,17 +163,24 @@ export function createFallbackAuditUserIntent(
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Validate imported JSON values before giving them audit-intent authority. */
+function isAuditUserInputClass(value: unknown): value is AuditUserInputClass {
+  return typeof value === "string" &&
+    USER_INPUT_CLASSES.has(value as AuditUserInputClass);
+}
+
 export function normalizeAuditUserIntent(
   input: AuditUserIntentEnvelope,
 ): AuditUserIntentEnvelope {
-  const fragments = (
-    Array.isArray(input.fragments)
-      ? input.fragments
-      : []
-  ).flatMap((fragment) => {
+  const fragmentsInput: readonly unknown[] =
+    Array.isArray(input.fragments) ? input.fragments : [];
+  const fragments = fragmentsInput.flatMap((fragment) => {
     if (
-      fragment === null ||
-      typeof fragment !== "object" ||
+      !isRecord(fragment) ||
       typeof fragment.id !== "string" ||
       typeof fragment.raw !== "string"
     ) {
@@ -190,15 +197,12 @@ export function normalizeAuditUserIntent(
   );
 
   const seen = new Set<string>();
-  const items = (
-    Array.isArray(input.items)
-      ? input.items
-      : []
-  ).flatMap((item) => {
+  const itemsInput: readonly unknown[] =
+    Array.isArray(input.items) ? input.items : [];
+  const items: AuditUserIntentItem[] = itemsInput.flatMap((item) => {
     if (
-      item === null ||
-      typeof item !== "object" ||
-      !USER_INPUT_CLASSES.has(item.kind) ||
+      !isRecord(item) ||
+      !isAuditUserInputClass(item.kind) ||
       typeof item.raw !== "string" ||
       typeof item.normalized !== "string"
     ) {
@@ -218,11 +222,10 @@ export function normalizeAuditUserIntent(
       normalized,
       sourceFragmentIds:
         [...new Set(
-          (
-            Array.isArray(item.sourceFragmentIds)
-              ? item.sourceFragmentIds
-              : []
-          )
+          (Array.isArray(item.sourceFragmentIds)
+            ? item.sourceFragmentIds as readonly unknown[]
+            : [])
+            .filter((id): id is string => typeof id === "string")
             .map(clean)
             .filter((id) => fragmentIds.has(id)),
         )].sort(),
@@ -252,11 +255,10 @@ export function normalizeAuditUserIntent(
     items,
     unmappedFragmentIds:
       [...new Set(
-        (
-          Array.isArray(input.unmappedFragmentIds)
-            ? input.unmappedFragmentIds
-            : []
-        )
+        (Array.isArray(input.unmappedFragmentIds)
+          ? input.unmappedFragmentIds as readonly unknown[]
+          : [])
+          .filter((id): id is string => typeof id === "string")
           .map(clean)
           .filter((id) => fragmentIds.has(id)),
       )].sort(),
@@ -530,7 +532,7 @@ export function validateAuditUserIntent(
       Array.isArray(item.sourceFragmentIds)
         ? item.sourceFragmentIds
             .filter(
-              (id): id is string =>
+              (id: unknown): id is string =>
                 typeof id === "string",
             )
             .map(clean)
