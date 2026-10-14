@@ -10,16 +10,55 @@ import type {
 } from "../../src/inspection/gameplay-scenario-model.js";
 import type {
   GameplayIntentModel,
+  GameplayIntentNode,
+  GameplayIntentEdge,
+  GameplayIntentEvidence,
 } from "../../../gameplay-intent/src/index.js";
 import type {
   SemanticIr,
 } from "../../../semantic-ir/src/index.js";
 
-const emptyIntent = {
-  nodes: [],
-  edges: [],
-  evidence: [],
-} as unknown as GameplayIntentModel;
+type FixtureIntentNode = Pick<GameplayIntentNode, "id" | "evidenceIds"> &
+  Partial<Omit<GameplayIntentNode, "id" | "evidenceIds">>;
+type FixtureIntentEdge = Pick<GameplayIntentEdge, "id" | "evidenceIds"> &
+  Partial<Omit<GameplayIntentEdge, "id" | "evidenceIds">>;
+type FixtureIntentEvidence = Pick<GameplayIntentEvidence, "id" | "origin" | "locator"> &
+  Partial<Omit<GameplayIntentEvidence, "id" | "origin" | "locator">>;
+
+/** Well-typed, test-only intent records; missing metadata never supplies gameplay proof. */
+function intentFixture(input: {
+  schemaVersion?: 1;
+  id?: string;
+  artifactId?: string;
+  evidence?: readonly FixtureIntentEvidence[];
+  nodes?: readonly FixtureIntentNode[];
+  edges?: readonly FixtureIntentEdge[];
+  invariants?: GameplayIntentModel["invariants"];
+  unknowns?: GameplayIntentModel["unknowns"];
+} = {}): GameplayIntentModel {
+  return {
+    schemaVersion: 1,
+    id: input.id ?? "fixture:discovery-challenger",
+    ...(input.artifactId === undefined ? {} : { artifactId: input.artifactId }),
+    nodes: (input.nodes ?? []).map(node => ({
+      ...node, kind: node.kind ?? "policy", label: node.label ?? node.id,
+      status: node.status ?? "hypothesis",
+    })),
+    edges: (input.edges ?? []).map(edge => ({
+      ...edge, from: edge.from ?? "fixture:unbound-from",
+      to: edge.to ?? "fixture:unbound-to",
+      kind: edge.kind ?? "requires",
+      status: edge.status ?? "hypothesis",
+    })),
+    evidence: (input.evidence ?? []).map(evidence => ({
+      ...evidence, summary: evidence.summary ?? "Fixture-only source location",
+    })),
+    invariants: input.invariants ?? [],
+    unknowns: input.unknowns ?? [],
+  };
+}
+
+const emptyIntent = intentFixture();
 
 const emptyGraph: GameplayScenarioGraph = {
   schemaVersion: 1,
@@ -62,7 +101,7 @@ describe("gameplay discovery challenger", () => {
     expect(missing.map(item => item.kind)).toEqual(expect.arrayContaining([
       "unowned-return-outcome", "unowned-resource-action",
     ]));
-    const intent = {
+    const intent = intentFixture({
       ...emptyIntent,
       nodes: [{ id: "node:done", status: "authored",
         evidenceIds: ["outcome:done", "action:release"] }],
@@ -70,7 +109,7 @@ describe("gameplay discovery challenger", () => {
         id, scope: "selected-artifact", origin: "source-code",
         locator: "scripts/finish.js", summary: "Authored evidence",
       })),
-    } as unknown as GameplayIntentModel;
+    });
     const withoutScenario = challengeGameplayDiscovery({
       semanticIr: ir, intent, graph: emptyGraph,
     });
@@ -173,14 +212,14 @@ describe("gameplay discovery challenger", () => {
       }], authorityBindings: [] },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = { ...emptyIntent,
+    const intent = intentFixture({ ...emptyIntent,
       nodes: [{ id: "intent:one", status: "authored", evidenceIds: ["state-op:one"] }],
       evidence: [{ id: "state-op:one", scope: "selected-artifact",
         origin: "source-code", locator: "scripts/two.js", summary: "mismatched source" }],
-    } as GameplayIntentModel;
+    });
     const wrong = challengeGameplayDiscovery({ semanticIr: ir, intent, graph: emptyGraph });
     expect(wrong.map(item => item.kind)).toContain("unowned-state-operation");
-    const corrected = { ...intent, evidence: [{ ...intent.evidence[0], locator: "scripts/one.js" }] } as GameplayIntentModel;
+    const corrected = intentFixture({ ...intent, evidence: [{ ...intent.evidence[0]!, locator: "scripts/one.js" }] });
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent: corrected, graph: emptyGraph })
       .some(item => item.kind === "unowned-state-operation")).toBe(true);
   });
@@ -194,16 +233,16 @@ describe("gameplay discovery challenger", () => {
       state: { surfaces: [], operations: [], authorityBindings: [] },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = { ...emptyIntent, nodes: [{
+    const intent = intentFixture({ ...emptyIntent, nodes: [{
       id: "intent:one", status: "authored", evidenceIds: ["region:one"],
     }], evidence: [{ id: "region:one", scope: "selected-artifact",
       origin: "source-code", locator: "scripts/other.js", summary: "different source" }],
-    } as GameplayIntentModel;
+    });
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent, graph: emptyGraph })
       .some(item => item.subjectId === "region:one")).toBe(true);
-    const matched = { ...intent, evidence: [{
-      ...intent.evidence[0], locator: "scripts/one.js",
-    }] } as GameplayIntentModel;
+    const matched = intentFixture({ ...intent, evidence: [{
+      ...intent.evidence[0]!, locator: "scripts/one.js",
+    }] });
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent: matched, graph: emptyGraph })
       .some(item => item.subjectId === "region:one")).toBe(true);
   });
@@ -216,20 +255,20 @@ describe("gameplay discovery challenger", () => {
       state: { surfaces: [], operations: [], authorityBindings: [] },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = { ...emptyIntent, nodes: [{
+    const intent = intentFixture({ ...emptyIntent, nodes: [{
       id: "intent:authored", status: "authored", evidenceIds: ["region:external"],
-    }] } as GameplayIntentModel;
+    }] });
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent, graph: emptyGraph })
       .some(item => item.subjectId === "region:external")).toBe(true);
-    const external = { ...intent, evidence: [{
+    const external = intentFixture({ ...intent, evidence: [{
       id: "region:external", scope: "external-reference", origin: "source-code",
       locator: "external.js", summary: "external reference",
-    }] } as GameplayIntentModel;
+    }] });
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent: external, graph: emptyGraph })
       .some(item => item.subjectId === "region:external")).toBe(true);
-    const selected = { ...external, evidence: [{
-      ...external.evidence[0], scope: "selected-artifact", locator: "scripts/main.js",
-    }] } as GameplayIntentModel;
+    const selected = intentFixture({ ...external, evidence: [{
+      ...external.evidence[0]!, scope: "selected-artifact", locator: "scripts/main.js",
+    }] });
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent: selected, graph: emptyGraph })
       .some(item => item.subjectId === "region:external")).toBe(true);
   });
@@ -242,15 +281,15 @@ describe("gameplay discovery challenger", () => {
       state: { surfaces: [], operations: [], authorityBindings: [] },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const proposed = { ...emptyIntent, nodes: [{
+    const proposed = intentFixture({ ...emptyIntent, nodes: [{
       id: "intent:proposed", status: "hypothesis",
       evidenceIds: ["region:hypothesis"],
-    }] } as GameplayIntentModel;
+    }] });
     const findings = challengeGameplayDiscovery({ semanticIr: ir, intent: proposed, graph: emptyGraph });
     expect(findings.map(item => item.subjectId)).toContain("region:hypothesis");
-    const authored = { ...proposed, evidence: [{ id: "region:hypothesis", scope: "selected-artifact", origin: "source-code", locator: "scripts/main.js", summary: "exact region" }], nodes: [{
-      ...proposed.nodes[0], status: "authored",
-    }] } as GameplayIntentModel;
+    const authored = intentFixture({ ...proposed, evidence: [{ id: "region:hypothesis", scope: "selected-artifact", origin: "source-code", locator: "scripts/main.js", summary: "exact region" }], nodes: [{
+      ...proposed.nodes[0]!, status: "authored",
+    }] });
     const admitted = challengeGameplayDiscovery({ semanticIr: ir, intent: authored, graph: emptyGraph });
     expect(admitted.some(item => item.subjectId === "region:hypothesis")).toBe(true);
   });
@@ -263,12 +302,12 @@ describe("gameplay discovery challenger", () => {
       state: { surfaces: [], operations: [], authorityBindings: [] },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = { ...emptyIntent, nodes: [{
+    const intent = intentFixture({ ...emptyIntent, nodes: [{
       id: "intent:inferred", status: "inferred", evidenceIds: ["region:inferred"],
-    }] } as GameplayIntentModel;
+    }] });
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent, graph: emptyGraph })
       .some(item => item.subjectId === "region:inferred")).toBe(true);
-    const authored = { ...intent, evidence: [{ id: "region:inferred", scope: "selected-artifact", origin: "source-code", locator: "scripts/main.js", summary: "exact region" }], nodes: [{ ...intent.nodes[0], status: "authored" }] } as GameplayIntentModel;
+    const authored = intentFixture({ ...intent, evidence: [{ id: "region:inferred", scope: "selected-artifact", origin: "source-code", locator: "scripts/main.js", summary: "exact region" }], nodes: [{ ...intent.nodes[0]!, status: "authored" }] });
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent: authored, graph: emptyGraph })
       .some(item => item.subjectId === "region:inferred")).toBe(true);
   });
@@ -288,7 +327,7 @@ describe("gameplay discovery challenger", () => {
       causalLinks: [link] } as unknown as GameplayScenarioGraph;
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent: emptyIntent, graph })
       .some(item => item.subjectId === "region:scenario")).toBe(true);
-    const proven = { ...graph, causalLinks: [{ ...link, status: "PROVEN" }] } as GameplayScenarioGraph;
+    const proven: GameplayScenarioGraph = { ...graph, causalLinks: graph.causalLinks.map(item => ({ ...item, status: "PROVEN" })) };
     expect(challengeGameplayDiscovery({ semanticIr: ir, intent: emptyIntent, graph: proven })
       .some(item => item.subjectId === "region:scenario")).toBe(true);
   });
@@ -351,10 +390,10 @@ describe("gameplay discovery challenger", () => {
     expect(gap.map((item) => item.kind)).toContain("unowned-execution-edge");
     const owned = challengeGameplayDiscovery({
       semanticIr: ir,
-      intent: { ...emptyIntent,
+      intent: intentFixture({ ...emptyIntent,
         evidence: [{ id: "edge:resolved", scope: "selected-artifact", origin: "source-code", locator: "scripts/test.js", summary: "exact edge" }],
         edges: [{ id: "intent:edge", status: "authored", evidenceIds: ["edge:resolved"] }],
-      } as GameplayIntentModel,
+      }),
       graph: emptyGraph,
     });
     expect(owned.some((item) => item.id === "discovery-challenge:edge:edge:resolved"))
@@ -379,9 +418,9 @@ describe("gameplay discovery challenger", () => {
       ], authorityBindings: [] },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = { ...emptyIntent,
+    const intent = intentFixture({ ...emptyIntent,
       nodes: [{ id: "node:test", evidenceIds: ["op:known"] }],
-    } as GameplayIntentModel;
+    });
     const result = challengeGameplayDiscovery({
       semanticIr: ir, intent, graph: emptyGraph,
     });
@@ -390,11 +429,11 @@ describe("gameplay discovery challenger", () => {
       item.subjectId === "region:mixed")).toBe(true);
     const explicitlyOwned = challengeGameplayDiscovery({
       semanticIr: ir,
-      intent: { ...emptyIntent,
+      intent: intentFixture({ ...emptyIntent,
         evidence: [{ id: "region:mixed", scope: "selected-artifact", origin: "source-code", locator: "scripts/test.js", summary: "exact region" }],
         nodes: [{ id: "node:region", status: "authored",
           evidenceIds: ["op:known", "region:mixed"] }],
-      } as GameplayIntentModel,
+      }),
       graph: emptyGraph,
     });
     expect(explicitlyOwned.some((item) =>
@@ -413,9 +452,9 @@ describe("gameplay discovery challenger", () => {
       }], authorityBindings: [] },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = { ...emptyIntent, nodes: [{
+    const intent = intentFixture({ ...emptyIntent, nodes: [{
       id: "intent:state", evidenceIds: ["op:state-only"],
-    }] } as GameplayIntentModel;
+    }] });
     const findings = challengeGameplayDiscovery({ semanticIr: ir, intent, graph: emptyGraph });
     expect(findings.map(item => item.kind)).toContain("unowned-execution-region");
     expect(findings.map(item => item.kind)).toContain("unowned-state-operation");
@@ -433,7 +472,7 @@ describe("gameplay discovery challenger", () => {
     expect(missing.map(item => item.subjectId)).toContain("module:alone");
     const owned = challengeGameplayDiscovery({
       semanticIr: ir,
-      intent: { ...emptyIntent, evidence: [{ id: "module:alone", scope: "selected-artifact", origin: "source-code", locator: "scripts/main.js", summary: "module" }], nodes: [{ id: "intent:module", status: "authored", evidenceIds: ["module:alone"] }] } as GameplayIntentModel,
+      intent: intentFixture({ ...emptyIntent, evidence: [{ id: "module:alone", scope: "selected-artifact", origin: "source-code", locator: "scripts/main.js", summary: "module" }], nodes: [{ id: "intent:module", status: "authored", evidenceIds: ["module:alone"] }] }),
       graph: emptyGraph,
     });
     expect(owned.some(item => item.subjectId === "module:alone")).toBe(true);
@@ -450,9 +489,9 @@ describe("gameplay discovery challenger", () => {
     const missing = challengeGameplayDiscovery({ semanticIr: ir, intent: emptyIntent, graph: emptyGraph });
     expect(missing.map(item => item.subjectId)).toContain("exec:mcfunction-source:standalone");
     const owned = challengeGameplayDiscovery({ semanticIr: ir,
-      intent: { ...emptyIntent, evidence: [{ id: "exec:mcfunction-source:standalone", scope: "selected-artifact", origin: "source-code", locator: "functions/intro.mcfunction", summary: "function" }], nodes: [{
+      intent: intentFixture({ ...emptyIntent, evidence: [{ id: "exec:mcfunction-source:standalone", scope: "selected-artifact", origin: "source-code", locator: "functions/intro.mcfunction", summary: "function" }], nodes: [{
         id: "intent:function", status: "authored", evidenceIds: ["exec:mcfunction-source:standalone"],
-      }] } as GameplayIntentModel, graph: emptyGraph });
+      }] }), graph: emptyGraph });
     expect(owned.some(item => item.subjectId === "exec:mcfunction-source:standalone")).toBe(true);
   });
 
@@ -491,9 +530,9 @@ describe("gameplay discovery challenger", () => {
     );
     const owned = challengeGameplayDiscovery({
       semanticIr: ir,
-      intent: { ...emptyIntent, evidence: [{ id: "temporal:guarded", scope: "selected-artifact", origin: "source-code", locator: "scripts/test.js", summary: "scheduler" }], nodes: [{
+      intent: intentFixture({ ...emptyIntent, evidence: [{ id: "temporal:guarded", scope: "selected-artifact", origin: "source-code", locator: "scripts/test.js", summary: "scheduler" }], nodes: [{
         id: "node:tick", status: "authored", evidenceIds: ["temporal:guarded"],
-      }] } as GameplayIntentModel,
+      }] }),
       graph: emptyGraph,
     });
     expect(owned.some((item) =>
@@ -510,11 +549,11 @@ describe("gameplay discovery challenger", () => {
       state: { surfaces: [], operations: [], authorityBindings: [] },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = { ...emptyIntent,
+    const intent = intentFixture({ ...emptyIntent,
       evidence: [{ id, origin: "source-code", locator: path,
         scope: "selected-artifact", summary: "exact" }],
       nodes: [{ id: "mechanic:wave", status: "authored", evidenceIds: [id] }],
-    } as GameplayIntentModel;
+    });
     const link = { id: "link:wave", scenarioId: "scenario:wave",
       fromComponentId: "component:wave", toComponentId: "component:wave",
       status: "PROVEN", evidenceIds: [id] };
@@ -533,8 +572,8 @@ describe("gameplay discovery challenger", () => {
     // reject the graph. No source/technical ownership can be fabricated.
     expect(open(intent, { ...graph,
       components: [] } as GameplayScenarioGraph)).toBe(true);
-    expect(open(intent, { ...graph, causalLinks: [{ ...link,
-      fromComponentId: "component:absent" }] } as GameplayScenarioGraph))
+    expect(open(intent, { ...graph, causalLinks: [{ ...graph.causalLinks[0]!,
+      fromComponentId: "component:absent" }] }))
       .toBe(true);
     expect(open(intent, { ...graph, scenarios: [{
       ...graph.scenarios[0]!, componentIds: [],
@@ -542,13 +581,13 @@ describe("gameplay discovery challenger", () => {
     expect(open(intent, { ...graph, scenarios: [{
       ...graph.scenarios[0]!, causalLinkIds: [],
     }] } as GameplayScenarioGraph)).toBe(true);
-    expect(open(intent, { ...graph, causalLinks: [{ ...link,
-      status: "DETECTION_GAP" }] } as GameplayScenarioGraph)).toBe(true);
+    expect(open(intent, { ...graph, causalLinks: [{ ...graph.causalLinks[0]!,
+      status: "DETECTION_GAP" }] })).toBe(true);
     expect(open(intent, { ...graph, scenarios: [] } as GameplayScenarioGraph)).toBe(true);
-    expect(open({ ...intent, nodes: [{ ...intent.nodes[0],
-      status: "inferred" }] } as GameplayIntentModel, graph)).toBe(true);
-    expect(open({ ...intent, evidence: [{ ...intent.evidence[0],
-      locator: "scripts/other.js" }] } as GameplayIntentModel, graph)).toBe(true);
+    expect(open(intentFixture({ ...intent, nodes: [{ ...intent.nodes[0]!,
+      status: "inferred" }] }), graph)).toBe(true);
+    expect(open(intentFixture({ ...intent, evidence: [{ ...intent.evidence[0]!,
+      locator: "scripts/other.js" }] }), graph)).toBe(true);
   });
 
 
@@ -568,7 +607,7 @@ describe("gameplay discovery challenger", () => {
       },
       temporal: { relations: [] },
     } as SemanticIr;
-    const intent = { ...emptyIntent,
+    const intent = intentFixture({ ...emptyIntent,
       nodes: [{
         id: "lifecycle:reset", status: "authored",
         evidenceIds: ["resource:reset"],
@@ -577,7 +616,7 @@ describe("gameplay discovery challenger", () => {
         id: "resource:reset", scope: "selected-artifact",
         origin: "source-code", locator: source.relativePath,
       }],
-    } as GameplayIntentModel;
+    });
     const link = {
       id: "link:reset", scenarioId: "scenario:arena", status: "PROVEN",
       fromComponentId: "component:reset",
@@ -806,7 +845,7 @@ describe("gameplay discovery challenger", () => {
       item.value === "open");
     expect(action && outcome).toBeTruthy();
     const ids = [action!.id, outcome!.id];
-    const intent = {
+    const intent = intentFixture({
       ...emptyIntent,
       evidence: ids.map(id => ({
         id, origin: "source-code" as const,
@@ -817,7 +856,7 @@ describe("gameplay discovery challenger", () => {
         id: "node:" + i, status: "authored" as const,
         evidenceIds: [id],
       })),
-    } as GameplayIntentModel;
+    });
     const graph: GameplayScenarioGraph = {
       ...emptyGraph,
       components: ids.map((id, i) => ({
@@ -883,7 +922,7 @@ describe("gameplay discovery challenger", () => {
       state: { surfaces: [], operations: [], authorityBindings: [] },
       temporal: { relations: [] },
     } as SemanticIr;
-    const intent = { ...emptyIntent, nodes: [
+    const intent = intentFixture({ ...emptyIntent, nodes: [
       { id: "intent:call", status: "authored", evidenceIds: [edgeId] },
       { id: "intent:return", status: "authored", evidenceIds: [outcomeId] },
     ], evidence: [
@@ -891,7 +930,7 @@ describe("gameplay discovery challenger", () => {
         locator: caller.relativePath, origin: "source-code" },
       { id: outcomeId, scope: "selected-artifact",
         locator: target.relativePath, origin: "source-code" },
-    ] } as GameplayIntentModel;
+    ] });
     const components = [edgeId, outcomeId].map((id, i) => ({
       id: "component:" + i, kind: "lifecycle" as const,
       label: "Source record " + i, technicalRole: "technical",
@@ -938,9 +977,9 @@ describe("gameplay discovery challenger", () => {
     expect(check(complete)).toEqual([]);
     expect(check({ ...complete, causalLinks: [...independent,
       { ...pair, status: "DETECTION_GAP" }] })).toHaveLength(1);
-    const foreign = { ...intent, evidence: intent.evidence.map(e =>
+    const foreign = intentFixture({ ...intent, evidence: intent.evidence.map(e =>
       e.id === edgeId ? { ...e, locator: "scripts/unrelated.js" } : e),
-    } as GameplayIntentModel;
+    });
     expect(check(graph, foreign)).toEqual([]);
   });
 
@@ -959,10 +998,10 @@ describe("gameplay discovery challenger", () => {
       state: { surfaces: [], operations: [], authorityBindings: [] },
       temporal: { relations: [temporal] },
     } as unknown as SemanticIr;
-    const intent = {
+    const intent = intentFixture({
       ...emptyIntent,
       nodes: [{ id: "intent:tick", evidenceIds: ["temporal:missing"] }],
-    } as GameplayIntentModel;
+    });
     const findings = challengeGameplayDiscovery({ semanticIr: ir, intent, graph: emptyGraph });
     expect(findings.map(item => item.id)).toContain("discovery-challenge:temporal:temporal:missing");
   });
@@ -985,10 +1024,10 @@ describe("gameplay discovery challenger", () => {
       },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = {
+    const intent = intentFixture({
       ...emptyIntent,
       nodes: [{ id: "node:inventory", evidenceIds: ["op:grant"] }],
-    } as GameplayIntentModel;
+    });
     const result = challengeGameplayDiscovery({
       semanticIr: ir, intent, graph: emptyGraph,
     });
