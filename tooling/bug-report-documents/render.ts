@@ -171,6 +171,17 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+/** Render authored steps as plain, escaped HTML; never infer unstated steps. */
+function orderedSteps(steps: readonly string[]): string {
+  if (steps.length === 0) return "<p>No reproduction steps documented.</p>";
+  return "<ol>" + steps.map(step => "<li>" + escapeHtml(step) + "</li>").join("") + "</ol>";
+}
+
+function checklist(items: readonly string[]): string {
+  if (items.length === 0) return "";
+  return "<ul>" + items.map(item => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>";
+}
+
 function auditStatusLabel(
   finding: MapAuditHtmlFinding,
 ): string {
@@ -183,10 +194,8 @@ function auditFindingCard(
   finding: MapAuditHtmlFinding,
   index: number,
 ): string {
-  const severity =
-    finding.status === "PROVEN"
-      ? finding.severity ?? "—"
-      : "UNPROVEN";
+  // Map Audit V2 has no severity authority; show proof status instead.
+  const severity = finding.status === "PROVEN" ? "PROVEN" : "UNPROVEN";
   const validationRows =
     finding.status === "NEED_VALIDATION"
       ? [
@@ -675,7 +684,7 @@ function renderCompleteMapAuditHtml(
     .filter((item) => item.status === "PROVEN")
     .reduce(
       (counts, item) => {
-        const severity = item.severity ?? "—";
+        const severity = item.issueType;
         counts.set(
           severity,
           (counts.get(severity) ?? 0) + 1,
@@ -689,7 +698,7 @@ function renderCompleteMapAuditHtml(
       .map(([severity, count]) =>
         String(count) + " " + severity,
       )
-      .join(" · ") || "No proven severity";
+      .join(" · ") || "No proven findings";
   const css = `
 *{box-sizing:border-box}body{margin:0;background:#eef1f5;font:14px Arial;color:#172033}.r{max-width:980px;margin:auto;background:#fff;min-height:100vh}.hero{padding:24px;background:#172b4d;color:#fff}.hero h1{margin:0}.hero p{margin:6px 0 0;font-size:11px;opacity:.8}.summary{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:10px solid #eef1f5}.summary div{padding:16px 18px;border-right:1px solid #d9dee8}.summary small{display:block;color:#667085;font-size:9px;font-weight:800}.summary strong{font-size:20px}.source{margin:14px;padding:12px 14px;background:#f8fafc;border:1px solid #d9dee8;border-radius:8px}.section{padding:0 14px 24px}.section h2{font-size:13px;border-bottom:1px solid #ddd;padding-bottom:6px}.issue{border:1px solid #d7dde7;border-radius:8px;margin:9px 0;overflow:hidden;background:#fff}.ih{padding:10px}.tags{display:flex;gap:6px;align-items:center}.tags span{font-size:9px;font-weight:800}.sev{background:#fff2dc;color:#8a5700;padding:2px 6px;border-radius:99px}.kind{background:#eef4ff;color:#3157a4;padding:2px 6px;border-radius:99px}.status{margin-left:auto;background:#f3f4f6;color:#475467;padding:2px 6px;border-radius:99px}.issue h3{margin:7px 0 3px;font-size:14px}.issue code{font-size:10px;color:#667085}.issue summary{cursor:pointer;padding:9px 10px;background:#f8fafc;color:#3157a4;font-weight:800}.row{display:grid;grid-template-columns:145px 1fr;border-top:1px solid #e5e7eb}.row>b{padding:10px;background:#f8fafc;color:#3157a4;font-size:10px}.row>div{padding:10px;font-size:12px}.row ol,.row ul{margin:0;padding-left:18px}.tech{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10px}.empty{padding:14px;color:#667085;background:#f8fafc;border-radius:8px}@media(max-width:650px){.summary{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr}.r{width:100%}}
 `;
@@ -830,7 +839,7 @@ async function main(): Promise<void> {
             projectId: sourceProjectId,
             projectName: level.levelName,
             artifact: level.artifact,
-            publication: { drive: level.drive },
+            ...(level.drive === undefined ? {} : { publication: { drive: level.drive } }),
           });
           reportScopes.push({
             projectId: project.projectId,
