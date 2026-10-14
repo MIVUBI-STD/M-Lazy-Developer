@@ -206,8 +206,9 @@ export function compileArenaGlobalStateRuntime(
               firstValue,
               secondValue,
               baselineValue: baseline,
-              minimumRunsPerArm:
-                input.minimumRunsPerArm,
+              ...(input.minimumRunsPerArm === undefined
+                ? {}
+                : { minimumRunsPerArm: input.minimumRunsPerArm }),
             }),
           reasons: [
             "Paired static lease evidence exists and both owner generations plus concrete resource values are explicit.",

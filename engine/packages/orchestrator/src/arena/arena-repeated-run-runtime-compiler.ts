@@ -142,8 +142,9 @@ function compileStage(
           stage.compareSurfaces,
         preservationInvariantIds:
           stage.invariants,
-        minimumRunsPerArm:
-          input.minimumRunsPerArm,
+        ...(input.minimumRunsPerArm === undefined
+          ? {}
+          : { minimumRunsPerArm: input.minimumRunsPerArm }),
       }),
     reasons: [
       "Repeated-cycle stage has explicit arena generations and player capacity.",
