@@ -1,3 +1,11 @@
+## Executed read-only mapped callback source proof (2026-10-14)
+
+At SHA `84a0250a34da`, the exact `readOnlyAlias` source fragment (GitHub blob `2a5274f6036a`, 3579 characters, FNV1a32 `07efdaac`) executed **26/26** original-fragment AST assertions in ChatGPT Node 22.16 / TypeScript 5.8.3; 0 failed. An isolated strict TypeScript typecheck of the same wrapped source succeeded. Metadata, counterexamples and reproducibility hashes are archived at `engine/reliability/history/audit-runs/learning/chatgpt-readonly-alias-purity-2026-10-14.json`.
+
+**Proof boundary:** This does not establish entire `mappedConstructorCapacity`, `parseScriptFile`, `extractArenaConcurrencyCapacity`, repository Vitest, or selected Minecraft world audit acceptance. Those remain NOT EXECUTED until complete exact-commit source and dependencies are available. Continue the main pipeline validation instead of equating fragment success to FORMALIZE closure.
+
+---
+
 ## FORMALIZE alias callback purity and source-array parameters (2026-10-14)
 
 **Second counterexample:** `Array.prototype.some` passes (element, index, entire input array). Before this fix, `readOnlyAlias()` only checked uses of the first callback argument, and `checkReferences()` accepted more than one parameter. Runtime reproduction shows `configs.some((unused, index, all) => all[index].__defineGetter__('maxPlayers', () => 9))` changes both authored capacities from 5 to 9 while bypassing direct `.maxPlayers =` syntax and the first-argument alias check.
