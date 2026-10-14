@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { validateSpatialAuthorityBehaviorContract } from "../../../behavior-model/src/index.js";
 import type {
   SpatialAuthorityAction,
   SpatialAuthorityActor,

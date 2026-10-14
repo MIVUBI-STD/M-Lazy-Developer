@@ -49,10 +49,10 @@ import type { InteractionLifecycleAnalysis } from "../inspection/interaction-lif
 import type { RouteNavigationEnvironmentAnalysis } from "../route-navigation-environment-analysis.js";
 import type { CombatLifecycleAnalysis } from "../combat-lifecycle-analysis.js";
 import type { CombatRuntimeTelemetryAnalysis } from "../combat-runtime-telemetry-analysis.js";
-import type { CombatContractAnalysis } from "../combat-contract-analysis.js";
+import type { CombatBehaviorContractAnalysis } from "../combat-contract-analysis.js";
 import type { ChunkLifecycleAnalysis } from "../chunk-lifecycle-analysis.js";
 import type { RewardSourceAnalysis } from "../reward-source-analysis.js";
-import type { EconomyContractAnalysis } from "../economy-contract-analysis.js";
+import type { EconomyBehaviorContractAnalysis } from "../economy-contract-analysis.js";
 import type { SpatialAuthorityCoverageReport, SpatialAuthorityCoverageRequirement } from "../spatial-authority-analysis.js";
 import type { WorldRuleAuthorityAnalysis } from "../inspection/world-rule-authority-analysis.js";
 import type { PlayerCapabilitySurfaceAnalysis } from "../inspection/player-capability-surface-analysis.js";
@@ -164,10 +164,10 @@ export interface InspectDirectoryResult {
   inventoryRestoreOwnership: InventoryRestoreOwnershipAnalysis;
   combatLifecycle: CombatLifecycleAnalysis;
   combatRuntime: CombatRuntimeTelemetryAnalysis;
-  combatPolicy: CombatContractAnalysis;
+  combatPolicy: CombatBehaviorContractAnalysis;
   chunkLifecycle: ChunkLifecycleAnalysis;
   rewardSources: RewardSourceAnalysis;
-  economyPolicy: EconomyContractAnalysis;
+  economyPolicy: EconomyBehaviorContractAnalysis;
   releaseIdentity: ReleaseIdentityAnalysis;
   /** @deprecated Composite compatibility view. Prefer gameplaySemantic + engineeringAssessment. */
   gameplayWorld: GameplayWorldModel;

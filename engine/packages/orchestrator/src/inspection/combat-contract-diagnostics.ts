@@ -3,11 +3,11 @@ import {
   type DiagnosticFinding,
 } from "../../../diagnostics/src/index.js";
 import type {
-  CombatContractAnalysis,
+  CombatBehaviorContractAnalysis,
 } from "./combat-contract-analysis.js";
 
 export function combatContractDiagnostics(
-  analysis: CombatContractAnalysis,
+  analysis: CombatBehaviorContractAnalysis,
 ): DiagnosticFinding[] {
   if (
     !analysis.configured ||
@@ -19,7 +19,7 @@ export function combatContractDiagnostics(
   return [
     createDiagnostic({
       code:
-        "COMBAT_REVIVE_CONTRACT_VIOLATION",
+        "COMBAT_REVIVE_POLICY_VIOLATION",
       severity: "medium",
       message:
         String(

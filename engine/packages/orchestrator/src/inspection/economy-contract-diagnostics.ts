@@ -3,11 +3,11 @@ import {
   type DiagnosticFinding,
 } from "../../../diagnostics/src/index.js";
 import type {
-  EconomyContractAnalysis,
+  EconomyBehaviorContractAnalysis,
 } from "./economy-contract-analysis.js";
 
 export function economyContractDiagnostics(
-  analysis: EconomyContractAnalysis,
+  analysis: EconomyBehaviorContractAnalysis,
 ): DiagnosticFinding[] {
   if (!analysis.configured) return [];
 
@@ -29,7 +29,7 @@ export function economyContractDiagnostics(
   if (conflicts > 0) {
     findings.push(
       createDiagnostic({
-        code: "ECONOMY_CONTRACT_CONFLICT",
+        code: "ECONOMY_POLICY_CONFLICT",
         severity: "medium",
         message:
           "Authored economy behavior contract conflicts with one or more correlated reward/currency source paths.",
@@ -47,7 +47,7 @@ export function economyContractDiagnostics(
   if (coverageGaps > 0) {
     findings.push(
       createDiagnostic({
-        code: "ECONOMY_CONTRACT_COVERAGE_GAP",
+        code: "ECONOMY_POLICY_COVERAGE_GAP",
         severity: "minor",
         message:
           "Economy policy obligations remain unproven or only partially covered by current static/runtime evidence.",

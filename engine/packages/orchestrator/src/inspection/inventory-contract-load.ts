@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import {
   validateInventoryItemBehaviorContract,
   type InventoryItemBehaviorContract,
-  type InventoryItemBehaviorContractRule,
+  type InventoryItemPolicyRule,
   type InventoryLifecycleTransition,
   type InventoryOwnershipScope,
 } from "../../../behavior-model/src/index.js";
@@ -88,7 +88,7 @@ function transitions(
 function parseRule(
   value: unknown,
   index: number,
-): InventoryItemBehaviorContractRule {
+): InventoryItemPolicyRule {
   if (
     !value ||
     typeof value !== "object" ||

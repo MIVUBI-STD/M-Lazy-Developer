@@ -56,7 +56,7 @@ import type {
   CombatRuntimeTelemetryAnalysis,
 } from "./combat-runtime-telemetry-analysis.js";
 import type {
-  CombatContractAnalysis,
+  CombatBehaviorContractAnalysis,
 } from "./combat-contract-analysis.js";
 import type {
   ChunkLifecycleAnalysis,
@@ -66,7 +66,7 @@ import type {
   RewardSourceKind,
 } from "./reward-source-analysis.js";
 import type {
-  EconomyContractAnalysis,
+  EconomyBehaviorContractAnalysis,
 } from "./economy-contract-analysis.js";
 import type {
   InventoryLifecycleAnalysis,
@@ -1033,11 +1033,11 @@ export interface GameplayWorldModelSource {
   progressionActorAccounting?:
     ProgressionActorAccountingAnalysis;
   combatRuntime?: CombatRuntimeTelemetryAnalysis;
-  combatPolicy?: CombatContractAnalysis;
+  combatPolicy?: CombatBehaviorContractAnalysis;
   chunkLifecycle?: ChunkLifecycleAnalysis;
   persistenceSource?: PersistenceSourceAnalysis;
   rewardSources?: RewardSourceAnalysis;
-  economyPolicy?: EconomyContractAnalysis;
+  economyPolicy?: EconomyBehaviorContractAnalysis;
   inventoryLifecycle?: InventoryLifecycleAnalysis;
   inventoryPolicy?: InventoryContractAnalysis;
   inventoryRestoreOwnership?: InventoryRestoreOwnershipAnalysis;
