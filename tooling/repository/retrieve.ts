@@ -241,7 +241,7 @@ function main(): void {
           "engine/reliability/catalogs/knowledge-detector-bindings.json",
           "utf8",
         )).bindings ?? []).find(
-          (item) => item.knowledgeId === resource.locator,
+          (item: { readonly knowledgeId: string }) => item.knowledgeId === resource.locator,
         )
       : undefined;
     if (resource.class === "KNOWLEDGE" && knowledge === undefined) {
