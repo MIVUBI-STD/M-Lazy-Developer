@@ -202,7 +202,11 @@ describe("arena concurrency capacity extraction", () => {
         } },
       }] },
       { ...parsed, arenaAuthorityPaths: [{ ...original,
-        capacityCheck: { ...sourceCheck, guardedCommitSource: undefined },
+        capacityCheck: (() => {
+          const unchecked = { ...sourceCheck };
+          delete unchecked.guardedCommitSource;
+          return unchecked;
+        })(),
       }] },
       { ...parsed, arenaAuthorityPaths: [{ ...original,
         capacityCheck: { ...sourceCheck, source: {
