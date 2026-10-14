@@ -873,7 +873,12 @@ function mappedConstructorCapacity(
 
   // Only a direct array-literal .map() returning a definite object literal
   // qualifies. No spread/computed capacity keys or alternate return paths.
-  const generators = new Map<string, { value: number; property: SourceRef; generator: SourceRef }>();
+  const generators = new Map<string, {
+    value: number;
+    property: SourceRef;
+    generator: SourceRef;
+    elementCount: number;
+  }>();
   for (const statement of file.statements) {
     if (!ts.isVariableStatement(statement)) continue;
     for (const d of statement.declarationList.declarations) {
@@ -884,13 +889,18 @@ function mappedConstructorCapacity(
           !ts.isArrayLiteralExpression(d.initializer.expression.expression)) continue;
       const cb = d.initializer.arguments[0];
       if (!cb || !ts.isArrowFunction(cb)) continue;
-      const returns = ts.isBlock(cb.body)
-        ? cb.body.statements.filter(ts.isReturnStatement)
-            .map((item) => item.expression)
-        : [cb.body];
-      if (returns.length !== 1 || !returns[0]) continue;
-      const returned = ts.isParenthesizedExpression(returns[0])
-        ? returns[0].expression : returns[0];
+      // A single top-level return is not enough: nested if/switch/try
+      // branches can return a different config or throw before it.
+      // Until full path-sensitive return proof exists, only a callback
+      // whose body is exactly one unconditional return is admitted.
+      const result = ts.isBlock(cb.body)
+        ? (cb.body.statements.length === 1 &&
+           ts.isReturnStatement(cb.body.statements[0]!)
+            ? cb.body.statements[0]!.expression : undefined)
+        : cb.body;
+      if (!result) continue;
+      const returned = ts.isParenthesizedExpression(result)
+        ? result.expression : result;
       if (!ts.isObjectLiteralExpression(returned) ||
           !returned.properties.every((p) =>
             ts.isPropertyAssignment(p) ||
@@ -912,6 +922,7 @@ function mappedConstructorCapacity(
           value,
           property: lineSource(file, props[0]!, source),
           generator: lineSource(file, d.initializer, source),
+          elementCount: d.initializer.expression.expression.elements.length,
         });
     }
   }
@@ -939,10 +950,14 @@ function mappedConstructorCapacity(
       return generatorName;
     if (ts.isElementAccessExpression(argument) &&
         ts.isIdentifier(argument.expression) &&
-        generators.has(argument.expression.text) &&
         argument.argumentExpression &&
-        ts.isNumericLiteral(argument.argumentExpression))
-      return argument.expression.text;
+        ts.isNumericLiteral(argument.argumentExpression)) {
+      const generator = generators.get(argument.expression.text);
+      const index = Number(argument.argumentExpression.text);
+      if (generator && Number.isSafeInteger(index) &&
+          index >= 0 && index < generator.elementCount)
+        return argument.expression.text;
+    }
     return undefined;
   };
   const walkAllocations = (node: ts.Node): void => {

@@ -407,6 +407,59 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("does not prove a map generator with hidden branches or partial execution", () => {
+    const configured = (body: string): string => [
+      "const configs = [0, 1].map((id) => {",
+      body,
+      "});",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  join(p) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(p), true);",
+      "  }",
+      "};",
+      "const party = new Party(configs[0]);",
+      "party.join('player');",
+    ].join("\n");
+    for (const body of [
+      "if (id) return {maxPlayers:9}; return {maxPlayers:5};",
+      "if (id) throw Error('no config'); return {maxPlayers:5};",
+      "switch (id) { case 0: return {maxPlayers:9}; default: return {maxPlayers:5}; }",
+      "try { if (id) return {maxPlayers:9}; } finally {} return {maxPlayers:5};",
+    ]) {
+      const parsed = parseScriptFile("non-uniform-map", configured(body), source);
+      expect(parsed.arenaAuthorityPaths?.some((path) =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
+  it("rejects an out-of-range direct generated-config index", () => {
+    const configured = (index: number): string => [
+      "const configs = [0, 1].map((id) => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  join(p) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(p), true);",
+      "  }",
+      "};",
+      `const party = new Party(configs[${index}]);`,
+      "party.join('player');",
+    ].join("\n");
+    const lastValid = parseScriptFile("last-valid-index", configured(1), source);
+    expect(lastValid.arenaAuthorityPaths?.find((path) =>
+      path.capacityAuthorityProven
+    )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+    for (const index of [2, 99]) {
+      const parsed = parseScriptFile("out-of-range-index", configured(index), source);
+      expect(parsed.arenaAuthorityPaths?.some((path) =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
   it("does not turn recovery-only over-capacity validation into an admission guard", () => {
     const parsed = parseScriptFile("recovery-only", [
       "var definitions = [0, 1].map((id) => ({maxPlayers: 5}));",
