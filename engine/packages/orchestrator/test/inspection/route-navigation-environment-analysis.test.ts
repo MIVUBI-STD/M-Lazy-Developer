@@ -23,6 +23,8 @@ describe("route navigation environment analysis", () => {
           navigationWithoutMovement: 0,
           targetedWithoutNavigation: 0,
           movementGoalWithoutNavigation: 0,
+          goalPriorityConflictStates: 0,
+          goalPriorityConflictStates: 0,
           assessments: [{
             entityKey: "demo:zombie",
             stateId: "base",

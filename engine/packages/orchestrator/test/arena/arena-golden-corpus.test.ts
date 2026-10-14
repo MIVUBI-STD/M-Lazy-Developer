@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertArenaGoldenApprovals,
   evaluateArenaGoldenAssertions,
   parseArenaGoldenManifest,
 } from "../../src/arena/arena-golden-corpus.js";
@@ -19,6 +20,14 @@ describe("arena golden corpus", () => {
         replicaStatuses: {
           "arena-2": "bounded-proof",
         },
+        lifecycleUnresolved: 0,
+        cleanupUnresolved: 0,
+        sharedGlobalState: 0,
+        partitionProofRequired: 0,
+        globalStateUnleased: 0,
+        globalStateUnaudited: 0,
+        repairLocalizationUnresolved: 0,
+        stressStatus: "planned",
       },
       {
         arenaCount: 6,
@@ -50,6 +59,9 @@ describe("arena golden corpus", () => {
         cleanupUnresolved: 1,
         sharedGlobalState: 0,
         partitionProofRequired: 1,
+        globalStateUnleased: 0,
+        globalStateUnaudited: 0,
+        repairLocalizationUnresolved: 0,
         stressStatus: "planned",
         nominalStressPlayers: 30,
         voxelStatus: "verified",
