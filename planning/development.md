@@ -1,3 +1,15 @@
+## FORMALIZE mapped instance-result ownership (2026-10-14)
+
+**Observed issue:** An admitted `configs.map(item => new Party(item))` could be bound to `const parties` and later have `parties[0].definition.maxPlayers` overwritten or the entire collection passed to an uninspected caller, yet the original source prover inspected only the input `configs` references. On a standalone Node 22.16 / TS 5.8.3 AST fixture the result is an owned `VariableDeclaration`; JavaScript runtime confirmed effective config changed from 5 to 9. Original `mappedConstructorCapacity()` and whole-repo Vitest were not executed in this observation.
+
+**Correction:** The canonical `mappedConstructorCapacity()` now recognizes direct const-owned mapped instance collections, demands exactly one lexical binding, and restricts collection usage to direct inspected class-method calls on a source-bounded numeric index. Mutable `let/var`, exported collections, aliases, field mutations, unknown consumers and passing the `.map` result into another caller remain UNKNOWN. Existing class property-declaration allocation remains supported, and the original numeric producer/extractor contracts are unchanged. No second parser, manager or map-specific special case.
+
+**Regression:** Added original `parseScriptFile` positive and negative cases, plus `extractArenaConcurrencyCapacity()` B3/B5 examples. These regression files are **AUTHORED, NOT EXECUTED** in Vitest. Only standalone JavaScript/AST reproduction was executed. No exact-head full repo install, TypeScript typecheck, selected-map pipeline or Minecraft runtime proof. Keep FORMALIZE/EVALUATE/PROVE/REPORT acceptance blocked.
+
+**Next:** Check mapped allocations bound to class properties for source-visible mutations, then establish source transport and perform actual `parseScriptFile` → extractor integration tests before upgrading any stage acceptance.
+
+---
+
 ## FORMALIZE exact-source mapped generator test receipt (2026-10-14)
 
 **Execution upgraded:** The exact original `mappedConstructorCapacity()` generator-selection source fragment was copied from GitHub HEAD `3fbf4e8645bd` (blob `f2afca8d459d`) to the ChatGPT Node 22.16 / TS 5.8.3 runtime. Byte length **3716** and **FNV1a32 aeeb1807** matched the authenticated source. A minimal wrapper executed this **unchanged** fragment with TypeScript AST inputs. **19/19 node:test scenarios passed, 0 failures** (four supported synchronous cases and fifteen rejection cases including async Promise callbacks). Test output and harness hashes are archived in `engine/reliability/history/audit-runs/learning/chatgpt-mapped-generator-exact-fragment-2026-10-14.json`.

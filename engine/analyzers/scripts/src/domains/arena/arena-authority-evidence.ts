@@ -964,6 +964,9 @@ function mappedConstructorCapacity(
   let valid = true;
   const allocations: SourceRef[] = [];
   const directInstanceNames = new Set<string>();
+  // If a mapped allocation is stored in a module-local collection, the
+  // collection's later uses must not expose or mutate its instances.
+  const mappedInstanceCollections = new Set<string>();
   let generatorName: string | undefined;
   const stableElement = (argument: ts.Expression, callbackName?: string):
     string | undefined => {
@@ -1007,6 +1010,24 @@ function mappedConstructorCapacity(
           ts.isIdentifier(argument) &&
           argument.text === node.parent.parameters[0]!.name.text) {
         sourceName = node.parent.parent.expression.expression.text;
+        const mapCall = node.parent.parent;
+        const receiver = mapCall.parent;
+        if (ts.isVariableDeclaration(receiver) &&
+            receiver.initializer === mapCall &&
+            ts.isIdentifier(receiver.name) &&
+            ts.isVariableDeclarationList(receiver.parent) &&
+            (receiver.parent.flags & ts.NodeFlags.Const) !== 0 &&
+            ts.isVariableStatement(receiver.parent.parent) &&
+            !receiver.parent.parent.modifiers?.some((modifier) =>
+              modifier.kind === ts.SyntaxKind.ExportKeyword ||
+              modifier.kind === ts.SyntaxKind.DefaultKeyword)) {
+          mappedInstanceCollections.add(receiver.name.text);
+        } else if (!ts.isPropertyDeclaration(receiver) ||
+                   receiver.initializer !== mapCall) {
+          // Returning, forwarding or exposing the unowned mapped result
+          // loses the original class-instance identity proof.
+          valid = false;
+        }
       } else {
         // Direct literal-index instance allocations are supported only
         // when a const owns the object; forwarding an instance to an
@@ -1098,6 +1119,36 @@ function mappedConstructorCapacity(
   for (const name of directInstanceNames) {
     if (seenBindings.get(name) !== 1) valid = false;
   }
+  for (const name of mappedInstanceCollections) {
+    if (seenBindings.get(name) !== 1) valid = false;
+  }
+  const scanMappedInstanceCollections = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && mappedInstanceCollections.has(node.text)) {
+      const parent = node.parent;
+      if (ts.isVariableDeclaration(parent) && parent.name === node) {
+        // Original const binding to the mapped instance collection.
+      } else if (ts.isElementAccessExpression(parent) &&
+                 parent.expression === node &&
+                 parent.argumentExpression &&
+                 ts.isNumericLiteral(parent.argumentExpression) &&
+                 Number.isSafeInteger(Number(parent.argumentExpression.text)) &&
+                 Number(parent.argumentExpression.text) >= 0 &&
+                 Number(parent.argumentExpression.text) < gen.elementCount &&
+                 ts.isPropertyAccessExpression(parent.parent) &&
+                 parent.parent.expression === parent &&
+                 classMethods.has(parent.parent.name.text) &&
+                 ts.isCallExpression(parent.parent.parent) &&
+                 parent.parent.parent.expression === parent.parent) {
+        // Only direct calls to an inspected class method on a valid slot.
+        // Field reads, aliases, writes and external calls remain unknown.
+      } else {
+        valid = false;
+      }
+    }
+    ts.forEachChild(node, scanMappedInstanceCollections);
+  };
+  scanMappedInstanceCollections(file);
+  if (!valid) return undefined;
   const scanDirectInstances = (node: ts.Node): void => {
     if (ts.isIdentifier(node) && directInstanceNames.has(node.text)) {
       const parent = node.parent;

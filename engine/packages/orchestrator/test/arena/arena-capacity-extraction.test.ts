@@ -595,6 +595,45 @@ describe("arena concurrency capacity extraction", () => {
     expect(output.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
   });
 
+  it("keeps B3/B5 UNKNOWN when a const-owned mapped instance collection escapes", () => {
+    const original = [
+      "const configs = [0, 1].map(id => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+      "const parties = configs.map(item => new Party(item));",
+    ];
+    const bound = parseScriptFile("mapped-bound", [
+      ...original,
+      "parties[0].join('a');",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/sessions.js",
+    });
+    const positive = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [bound], declaredArenaCount: 2,
+    });
+    expect(positive.evidence.perArenaPlayerCapacity).toBe(5);
+    for (const mutation of [
+      "parties[0].definition.maxPlayers = 9;",
+      "leak(parties);",
+      "parties[3].join('a');",
+    ]) {
+      const mutated = parseScriptFile("mapped-escaped", [
+        ...original, mutation,
+      ].join("\n"), {
+        artifactId: "fixture", relativePath: "scripts/sessions.js",
+      });
+      const result = extractArenaConcurrencyCapacity({
+        tickingAreas: [], scripts: [mutated], declaredArenaCount: 2,
+      });
+      expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+      expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+    }
+  });
+
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {
     const script = {
       arenaAuthorityPaths: [{

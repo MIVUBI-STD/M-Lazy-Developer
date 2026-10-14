@@ -596,6 +596,62 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("binds a const-owned mapped instance collection only through inspected methods", () => {
+    const build = (usage: string, prefix = "const") => [
+      "const configs = [0, 1].map(id => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+      prefix + " parties = configs.map(item => new Party(item));",
+      usage,
+    ].join("\n");
+    for (const usage of ["", "parties[0].join('a');", "parties[1].join('a');"]) {
+      const parsed = parseScriptFile("mapped-collection-owned", build(usage), source);
+      expect(parsed.arenaAuthorityPaths?.find(path =>
+        path.capacityAuthorityProven
+      )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+    }
+    for (const usage of [
+      "parties[0].definition.maxPlayers = 9;",
+      "parties[0]['definition'].maxPlayers = 9;",
+      "const escaped = parties[0];",
+      "leak(parties);",
+      "parties[99].join('a');",
+      "parties.forEach(p => mutate(p));",
+    ]) {
+      const parsed = parseScriptFile("mapped-collection-unsafe", build(usage), source);
+      expect(parsed.arenaAuthorityPaths?.some(path =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+    for (const prefix of ["export const", "let", "var"]) {
+      const parsed = parseScriptFile("mapped-collection-owner", build("", prefix), source);
+      expect(parsed.arenaAuthorityPaths?.some(path =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
+  it("does not adopt a mapped instance collection passed to an unknown caller", () => {
+    const sourceText = [
+      "const configs = [0, 1].map(id => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+      "leak(configs.map(item => new Party(item)));",
+    ].join("\n");
+    const parsed = parseScriptFile("mapped-result-leak", sourceText, source);
+    expect(parsed.arenaAuthorityPaths?.some(path =>
+      path.capacityCheck?.resolvedCapacityValue !== undefined
+    )).toBe(false);
+  });
+
   it("does not turn recovery-only over-capacity validation into an admission guard", () => {
     const parsed = parseScriptFile("recovery-only", [
       "var definitions = [0, 1].map((id) => ({maxPlayers: 5}));",
