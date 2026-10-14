@@ -8,6 +8,19 @@ describe("arena lifecycle diagnostics", () => {
     const findings =
       arenaLifecycleDiagnostics(
         {
+          multiIngressTerminalTargets: 0,
+          terminalIngresses: [],
+          terminalRaces: [],
+          protectedTerminalRaces: 0,
+          provenTerminalRaces: 0,
+          unresolvedTerminalRaces: 0,
+          terminalPrecedenceProven: 0,
+          terminalPrecedenceUnresolved: 0,
+          protectedDeferredMutations: 0,
+          unresolvedDeferredMutations: 0,
+          staleReadySnapshotRisks: 0,
+          readySetSnapshotRisks: [],
+          deferredMutations: [],
           terminalCandidates: 2,
           proven: 1,
           partial: 0,
@@ -17,6 +30,7 @@ describe("arena lifecycle diagnostics", () => {
         {
           acquiredSurfaces: 2,
           terminalAssessments: [],
+          lifecycle: { declared: false, complete: 0, unresolved: 0, assessments: [] },
           exactProven: 1,
           partial: 0,
           unresolved: 1,
@@ -41,6 +55,19 @@ describe("arena lifecycle diagnostics", () => {
     const findings =
       arenaLifecycleDiagnostics(
         {
+          multiIngressTerminalTargets: 0,
+          terminalIngresses: [],
+          terminalRaces: [],
+          protectedTerminalRaces: 0,
+          provenTerminalRaces: 0,
+          unresolvedTerminalRaces: 0,
+          terminalPrecedenceProven: 0,
+          terminalPrecedenceUnresolved: 0,
+          protectedDeferredMutations: 0,
+          unresolvedDeferredMutations: 0,
+          staleReadySnapshotRisks: 0,
+          readySetSnapshotRisks: [],
+          deferredMutations: [],
           terminalCandidates: 1,
           proven: 0,
           partial: 1,
@@ -50,6 +77,7 @@ describe("arena lifecycle diagnostics", () => {
         {
           acquiredSurfaces: 1,
           terminalAssessments: [],
+          lifecycle: { declared: false, complete: 0, unresolved: 0, assessments: [] },
           exactProven: 0,
           partial: 1,
           unresolved: 0,
