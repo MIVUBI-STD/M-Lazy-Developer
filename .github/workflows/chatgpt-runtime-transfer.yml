@@ -1,0 +1,51 @@
+name: ChatGPT Runtime Transfer (temporary)
+on:
+  push:
+    branches:
+      - chatgpt-runtime-transfer-20261014
+permissions:
+  contents: read
+jobs:
+  portable-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assemble portable source and dependency snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .chatgpt-transfer
+          node -v
+          npm -v
+          node --input-type=module -e "import('typescript').then(m=>console.log('TypeScript '+m.version))"
+          node --input-type=module -e "import('esbuild').then(m => { if (!m.transformSync('const x = 1').code.includes('const x')) process.exit(1); })"
+          cat > .chatgpt-transfer/provenance.json <<EOF
+          {
+            "repository": "$GITHUB_REPOSITORY",
+            "sourceBase": "c4d029e6395086633fd14a7dd8f1603a2c26bd83",
+            "packedCommit": "$GITHUB_SHA",
+            "node": "$(node -v)",
+            "npm": "$(npm -v)",
+            "typescript": "$(node -p "require('typescript').version")",
+            "lockSha256": "$(sha256sum package-lock.json | cut -d ' ' -f1)",
+            "execution": "source-plus-dependencies-only"
+          }
+          EOF
+          tar --exclude='./.git' --exclude='./.chatgpt-transfer' --exclude='./dist' --exclude='./coverage' -czf /tmp/m-lazy-runtime.tar.gz .
+          mv /tmp/m-lazy-runtime.tar.gz .chatgpt-transfer/repository.tar.gz
+          sha256sum .chatgpt-transfer/repository.tar.gz > .chatgpt-transfer/repository.sha256
+          ls -lh .chatgpt-transfer/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lazy-developer-portable-runtime
+          path: .chatgpt-transfer/
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: error
