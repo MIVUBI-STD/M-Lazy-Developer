@@ -4,7 +4,7 @@ import { buildCoverageQualityDashboard, generateKnownLimits } from "../../src/in
 describe("coverage quality dashboard", () => {
   it("distinguishes runtime-only and weak capability states", () => {
     const dashboard = buildCoverageQualityDashboard({ capabilityTruth: { taskCapabilities: [
-      { id: "runtime.entity-ai", owner: "packages/runtime-lab", status: "owner-tested", runtimeOnly: true },
+      { id: "runtime.entity-ai", owner: "packages/runtime-lab", status: "owner-has-tests", runtimeOnly: true },
       { id: "demo", owner: "packages/demo", status: "implementation-present", runtimeOnly: false },
     ] } });
     expect(dashboard.summary["runtime-only"]).toBe(1);
