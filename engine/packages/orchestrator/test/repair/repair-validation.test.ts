@@ -2,7 +2,9 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyPatchTransaction } from "../../../repair/src/index.js";
+import { applyPatchTransaction } from "../../../repair/src/apply.js";
+import { createPatchTransaction } from "../../../repair/src/index.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 import { planLinearTopologyRepair } from "../../../repair/src/index.js";
 import { parseMcFunction } from "../../../../analyzers/functions/src/index.js";
 import { analyzeFunctionTopology } from "../../src/inspection/topology-analysis.js";
@@ -48,17 +50,30 @@ describe("repair validation executor", () => {
       effect: candidate.record.effect,
       rawCommand: candidate.record.rawCommand,
     }, "source-sha");
-    if (plan.status !== "planned") throw new Error("expected planned transaction");
-
+    if (plan.status !== "proposed") throw new Error("expected deterministic topology proposal");
+    // The topology planner proposes source edits; only an authorized working-copy
+    // transaction may apply them. Do not infer authorization from a proposal.
+    const transaction = createPatchTransaction({
+      title: plan.proposal.title,
+      sourceFingerprint: plan.proposal.sourceFingerprint,
+      authorization: fixtureRepairAuthorization(plan.proposal.sourceFingerprint),
+      operations: [plan.proposal.operation],
+      preconditions: [{ kind: "source-fingerprint", expected: "source-sha" }],
+      validation: [
+        { kind: "reparse", source: plan.proposal.operation.source },
+        { kind: "topology-compare", source: plan.proposal.operation.source, expectation: "outlier-absent" },
+        { kind: "rerun-diagnostic", code: "TOPOLOGY_TRANSLATION_OUTLIER", source: plan.proposal.operation.source, expectation: "absent" },
+      ],
+    });
     const applied = await applyPatchTransaction(
-      plan.transaction,
+      transaction,
       { sourceRoot, workingRoot },
       { currentSourceFingerprint: "source-sha" },
     );
     expect(applied.ok).toBe(true);
 
     const validation = await validatePatchTransaction(
-      plan.transaction,
+      transaction,
       { sourceRoot, workingRoot },
     );
 
@@ -103,6 +118,7 @@ describe("repair validation executor", () => {
       id: "patch_script_fixture",
       title: "script fixture",
       sourceFingerprint: "source-sha",
+      authorization: fixtureRepairAuthorization("source-sha"),
       operations: [],
       preconditions: [],
       affectedPaths: [relativePath],
@@ -155,6 +171,7 @@ describe("repair validation executor", () => {
       id: "patch_broken_script_fixture",
       title: "broken script fixture",
       sourceFingerprint: "source-sha",
+      authorization: fixtureRepairAuthorization("source-sha"),
       operations: [],
       preconditions: [],
       affectedPaths: [relativePath],
@@ -197,6 +214,7 @@ describe("repair validation executor", () => {
       id: "patch_fixture",
       title: "fixture",
       sourceFingerprint: "source-sha",
+      authorization: fixtureRepairAuthorization("source-sha"),
       operations: [],
       preconditions: [],
       affectedPaths: [relativePath],
