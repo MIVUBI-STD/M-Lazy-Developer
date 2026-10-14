@@ -1177,6 +1177,28 @@ function mappedConstructorCapacity(
   const readOnlyAlias = (scope: ts.Node, name: string): boolean => {
     let safe = true;
     const visit = (node: ts.Node): void => {
+      // The entire callback must be read-only, not only occurrences
+      // of its first parameter. Array.some supplies the input array as a
+      // third argument, and an unrelated call can mutate it indirectly.
+      const assignment = ts.isBinaryExpression(node) &&
+        node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+        node.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+      const update = (ts.isPrefixUnaryExpression(node) ||
+                      ts.isPostfixUnaryExpression(node)) &&
+        (node.operator === ts.SyntaxKind.PlusPlusToken ||
+         node.operator === ts.SyntaxKind.MinusMinusToken);
+      if (assignment || update ||
+          ts.isDeleteExpression(node) ||
+          ts.isCallExpression(node) ||
+          ts.isNewExpression(node) ||
+          ts.isAwaitExpression(node) ||
+          ts.isYieldExpression(node) ||
+          ts.isFunctionLike(node))
+        safe = false;
+      if (ts.isIdentifier(node) && node.text !== name &&
+          !(ts.isPropertyAccessExpression(node.parent) &&
+            node.parent.name === node))
+        safe = false;
       if (ts.isIdentifier(node) && node.text === name) {
         if (ts.isParameter(node.parent) && node.parent.name === node) {
           // declaration
@@ -1238,7 +1260,7 @@ function mappedConstructorCapacity(
       if (!cb || !ts.isArrowFunction(cb) ||
           cb.modifiers?.some((modifier) =>
             modifier.kind === ts.SyntaxKind.AsyncKeyword) ||
-          cb.parameters.length < 1 || !ts.isIdentifier(cb.parameters[0]!.name))
+          cb.parameters.length !== 1 || !ts.isIdentifier(cb.parameters[0]!.name))
         valid = false;
       else if (p.name.text === "some" ||
           !(ts.isNewExpression(cb.body) &&

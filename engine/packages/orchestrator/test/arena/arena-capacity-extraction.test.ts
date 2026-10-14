@@ -468,6 +468,35 @@ describe("arena concurrency capacity extraction", () => {
     expect(evidence.declaredMaxConcurrentPlayers).toBeUndefined();
   });
 
+  it("does not project third-argument source-array mutation into B3/B5", () => {
+    const sourceRef = {artifactId:"fixture",relativePath:"scripts/array-callback.js"};
+    const base = [
+      "const configs = [0, 1].map(id => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+      "const parties = configs.map(item => new Party(item));",
+    ];
+    const safe = parseScriptFile("safe-array-read", [
+      ...base, "configs.some(item => item.maxPlayers === 5);",
+    ].join("\n"), sourceRef);
+    expect(extractArenaConcurrencyCapacity({
+      tickingAreas:[],scripts:[safe],declaredArenaCount:2,
+    }).evidence.perArenaPlayerCapacity).toBe(5);
+    const unsafe = parseScriptFile("array-parameter-write", [
+      ...base,
+      "configs.some((unused, index, all) => all[index].__defineGetter__('maxPlayers', () => 9));",
+    ].join("\n"), sourceRef);
+    const evidence = extractArenaConcurrencyCapacity({
+      tickingAreas:[],scripts:[unsafe],declaredArenaCount:2,
+    }).evidence;
+    expect(evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+  });
+
   it("keeps B3/B5 numeric capacity UNKNOWN for hidden map-return branches", () => {
     const script = parseScriptFile("branching-config", [
       "const configs = [0, 1].map((id) => {",

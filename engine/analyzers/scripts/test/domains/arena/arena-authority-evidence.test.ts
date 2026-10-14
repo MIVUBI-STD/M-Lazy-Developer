@@ -444,6 +444,44 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("rejects foreign callback effects and aliased source-array parameters", () => {
+    const common = [
+      "const configs = [0, 1].map(id => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(p) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(p), true); }",
+      "};",
+      "const parties = configs.map(item => new Party(item));",
+    ];
+    for (const safe of [
+      "configs.some(item => item.maxPlayers === 5);",
+      "configs.some(item => item.id === 0 || item.maxPlayers === 5);",
+    ]) {
+      const parsed = parseScriptFile("read-only-callback", [
+        ...common, safe,
+      ].join("\n"), source);
+      expect(parsed.arenaAuthorityPaths?.find(path =>
+        path.capacityAuthorityProven
+      )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+    }
+    for (const mutation of [
+      "configs.some((unused, index, all) => all[index].__defineGetter__('maxPlayers', () => 9));",
+      "configs.some(item => unknownSideEffect());",
+      "configs.some(item => { const mutate = () => 9; return item.maxPlayers === 5; });",
+      "configs.some(item => (globalCounter++, item.maxPlayers === 5));",
+      "configs.some((item, index) => item.maxPlayers === 5);",
+    ]) {
+      const parsed = parseScriptFile("effectful-callback", [
+        ...common, mutation,
+      ].join("\n"), source);
+      expect(parsed.arenaAuthorityPaths?.some(path =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
   it("does not prove a map generator with hidden branches or partial execution", () => {
     const configured = (body: string): string => [
       "const configs = [0, 1].map((id) => {",

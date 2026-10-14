@@ -1,3 +1,15 @@
+## FORMALIZE alias callback purity and source-array parameters (2026-10-14)
+
+**Second counterexample:** `Array.prototype.some` passes (element, index, entire input array). Before this fix, `readOnlyAlias()` only checked uses of the first callback argument, and `checkReferences()` accepted more than one parameter. Runtime reproduction shows `configs.some((unused, index, all) => all[index].__defineGetter__('maxPlayers', () => 9))` changes both authored capacities from 5 to 9 while bypassing direct `.maxPlayers =` syntax and the first-argument alias check.
+
+**Correction:** Preserve the existing `mappedConstructorCapacity()` owner. An inspection callback must have one identifier parameter and its **entire body** must be free of calls, constructors, assignments, updates, deletes, await/yield, nested functions, or unknown lexical identifiers. Source data reads like `item.maxPlayers === 5` still qualify. This deliberately abstains on unsupported callbacks (UNKNOWN) rather than claiming a proven player cap.
+
+**Evidence:** The pre-fix callback-arity and alias-usage conditions were reproduced with TypeScript 5.8.3 and native Node 22.16 behavior: effective configuration capacity changed 5 -> 9. New parser and extractor regression cases are **AUTHORED**, not actually executed by the repository's Vitest runner, because the complete SHA-pinned source/dependencies remain unavailable. No second engine/owner/workflow was added.
+
+**Next:** Execute exact-source read-only alias predicate with pure/impure scenarios (retaining SHA/blob identity) and validate that compiler/typecheck, original parser, and complete selected-map audit proof remain separately labeled until performed.
+
+---
+
 ## FORMALIZE alias callback mutation via method calls (2026-10-14)
 
 **Proven counterexample:** The previous `readOnlyAlias()` considered `configs.some(item => item.__defineGetter__('maxPlayers', () => 9))` a safe member read. A Node 22.16 reproduction using its original predicate classified this as read-only, while real JavaScript changed all source configurations from `maxPlayers:5` to 9. No direct `item.maxPlayers = 9` assignment is required, making the existing write detector insufficient.
