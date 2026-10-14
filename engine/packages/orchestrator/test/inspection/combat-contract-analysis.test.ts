@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  analyzeCombatContract,
+  analyzeCombatBehaviorContract,
 } from "../../src/inspection/combat-contract-analysis.js";
 
 const lifecycle = {
@@ -31,7 +31,7 @@ const runtime = {
 
 describe("combat contract analysis", () => {
   it("counts only anomalies that contradict authored revive contract", () => {
-    const result = analyzeCombatContract(
+    const result = analyzeCombatBehaviorContract(
       lifecycle,
       runtime,
       {
@@ -63,7 +63,7 @@ describe("combat contract analysis", () => {
 
   it("does not invent mode-specific contradictions without a combat contract", () => {
     const result =
-      analyzeCombatContract(
+      analyzeCombatBehaviorContract(
         lifecycle,
         runtime,
       );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveScriptArenaLayoutFallback } from "../../../src/arena/script-arena-layout-fallback.js";
+import { deriveScriptArenaLayoutFallback } from "../../src/arena/script-arena-layout-fallback.js";
 
 describe("script arena layout fallback", () => {
   it("builds physical layout and authored region plan from absolute centers", () => {
