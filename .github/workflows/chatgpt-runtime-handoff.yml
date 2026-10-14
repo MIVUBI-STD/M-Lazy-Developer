@@ -1,0 +1,70 @@
+name: ChatGPT Runtime Handoff (temporary)
+
+on:
+  push:
+    branches:
+      - chatgpt-runtime-handoff-20261014
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chatgpt-runtime-handoff-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v7
+      - name: Setup pinned Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+          cache: npm
+      - name: Install locked source dependencies with lifecycle scripts disabled
+        shell: bash
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify portable esbuild helper
+        shell: bash
+        run: node --input-type=module -e "import('esbuild').then(m => { if (!m.transformSync('const x = 1').code.includes('const x')) process.exit(1); })"
+      - name: Run full repository checks and preserve receipts
+        shell: bash
+        run: |
+          mkdir -p .chatgpt-transfer
+          set +e
+          npm run verify:repository > .chatgpt-transfer/repository.log 2>&1
+          echo "repository=$?" >> .chatgpt-transfer/exit-codes.txt
+          npm run typecheck > .chatgpt-transfer/typecheck.log 2>&1
+          echo "typecheck=$?" >> .chatgpt-transfer/exit-codes.txt
+          npm run bug-report-ui:build > .chatgpt-transfer/build.log 2>&1
+          echo "build=$?" >> .chatgpt-transfer/exit-codes.txt
+          npm test > .chatgpt-transfer/vitest.log 2>&1
+          echo "vitest=$?" >> .chatgpt-transfer/exit-codes.txt
+          set -e
+          cat .chatgpt-transfer/exit-codes.txt
+      - name: Package exact checked-out source with node_modules and receipts
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p .chatgpt-transfer
+          printf '{"sourceCommit":"%s","sourceRef":"%s","node":"%s","npm":"%s","lockfileSha256":"%s","notes":"GitHub runner receipt only. Requires ChatGPT-side unpack and verification."}\n' \
+            "$GITHUB_SHA" "$GITHUB_REF_NAME" "$(node --version || true)" "$(npm --version || true)" "$(sha256sum package-lock.json | cut -d ' ' -f1)" \
+            > .chatgpt-transfer/provenance.json
+          tar -czf /tmp/m-lazy-developer-exact-repo.tar.gz \
+            --exclude='./.git' --exclude='./.chatgpt-transfer' --exclude='./dist' --exclude='./coverage' \
+            -C "$GITHUB_WORKSPACE" .
+          mv /tmp/m-lazy-developer-exact-repo.tar.gz .chatgpt-transfer/repository.tar.gz
+          sha256sum .chatgpt-transfer/repository.tar.gz > .chatgpt-transfer/repository.sha256
+          ls -lh .chatgpt-transfer
+      - name: Upload handoff bundle
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lazy-developer-chatgpt-runtime-handoff
+          path: .chatgpt-transfer/
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: error
