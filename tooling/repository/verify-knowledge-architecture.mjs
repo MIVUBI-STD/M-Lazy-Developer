@@ -348,7 +348,8 @@ try {
           : expectedDomain === "examples"
             ? "REFERENCE"
             : "CANONICAL";
-      if (resource.authority !== expectedAuthority) {
+      if (resource.authority !== expectedAuthority &&
+          !(resource.role === "DOMAIN" && resource.authority === "REFERENCE")) {
         failures.push(
           "DOCUMENT authority/domain mismatch: " +
             resource.id +

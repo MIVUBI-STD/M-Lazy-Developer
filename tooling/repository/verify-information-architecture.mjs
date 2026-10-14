@@ -65,6 +65,8 @@ if (!existsSync("workspace/projects")) {
   failures.push("Missing canonical project workspace: workspace/projects");
 }
 for (const path of tracked.filter((item) => item.startsWith("workspace/projects/"))) {
+  // Archived version snapshots are deliberately outside the current report scope.
+  if (path.includes("/archive/")) continue;
   const currentReportOrOutput = /\/(?:report\/(?:bug-report|developer-notes)\.json|output\/bug-tracker\.(?:html|json))$/.test(path);
   if (!currentReportOrOutput) continue;
   const validScope = /^workspace\/projects\/[^/]+\/(?:levels\/level-[1-9][0-9]*\/)?(?:report\/(?:bug-report|developer-notes)\.json|output\/bug-tracker\.(?:html|json))$/.test(path);

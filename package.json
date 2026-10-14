@@ -46,7 +46,7 @@
     "verify:local-ready": "npm run verify:full && npm run audit:source && npm run audit:api",
     "verify:remote-workflow-policy": "node tooling/repository/verify-remote-workflow-policy.mjs",
     "verify:documentation-routing": "node tooling/repository/verify-documentation-routing.mjs",
-    "verify:knowledge-architecture": "node tooling/repository/verify-knowledge-architecture.mjs",
+    "verify:knowledge-architecture": "tsx tooling/repository/verify-knowledge-architecture.mjs",
     "retrieve:repository": "tsx tooling/repository/retrieve.ts",
     "verify:detection-corpus": "node .agents/skills/m-bedrock-detection-benchmark/scripts/validate-corpus.mjs",
     "status:detection-corpus": "node .agents/skills/m-bedrock-detection-benchmark/scripts/corpus-status.mjs",

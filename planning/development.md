@@ -1,3 +1,11 @@
+## Executable repository verifier cleanup (2026-10-14)
+
+Using the authenticated ChatGPT runtime handoff, `npm run capability:truth` regenerated the existing capability index (85,930 bytes; FNV1a32 `2f0f7232`) from the original source owner inventory and `npm run verify:capability-truth` passed. The regenerated snapshot was transferred back to GitHub through a temporary private Library handoff, with byte length/checksum verified before commit; no parallel index authority created.
+
+The previous information-architecture verifier falsely classified files below `workspace/projects/<project>/archive/` as *current* reports. It now skips immutable archived snapshots and the information architecture verifier passed locally. `verify:knowledge-architecture` now uses the repository's installed `tsx` to read a TypeScript module with Node 22 and accepts explicitly marked REFERENCE domain documents. Its local verification passed. After these changes `verify:repository` advanced to pre-existing retired-documentation-path violations (26 notices); the full repository suite is still not green.
+
+---
+
 ## ChatGPT full-source runtime blocker resolved; integrated failing baseline recorded (2026-10-14)
 
 **Significant milestone:** Using a narrow temporary GitHub branch and connected `download_workflow_artifact`, the exact original `Local` source tree plus locked npm dependencies were packaged and **materialized successfully into this ChatGPT container**. Artifact SHA-256 and lockfile SHA-256 matched `provenance.json`. Node 22.16.0, npm 10.9.2, TypeScript 5.8.3, Vitest 3.2.7 and the original project were runnable. Do not claim that an unmodified permanent ChatGPT-only network path exists: this is a verified GitHub artifact handoff that must be refreshed for new commits.
