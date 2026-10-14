@@ -71,10 +71,6 @@ describe("arena native spatial extraction", () => {
         includedVolumes: [{
           min: { x: 0, y: 50, z: 0 },
           max: { x: 15, y: 55, z: 15 },
-          purposes: [],
-          proofRequired: true,
-          requiredSourceKinds: [],
-          sourceIds: [],
         }],
       },
     );

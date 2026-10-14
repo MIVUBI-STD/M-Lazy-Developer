@@ -36,7 +36,7 @@ describe("inventory lifecycle diagnostics", () => {
         lifecycle,
         {
           configured: true,
-          policyId: "items",
+          contractId: "items",
           resolvedItemClasses: 1,
           uncoveredItemClasses: 0,
           unknownIdentityEvidence: 0,
@@ -70,7 +70,7 @@ describe("inventory lifecycle diagnostics", () => {
         },
         {
           configured: true,
-          policyId: "items",
+          contractId: "items",
           resolvedItemClasses: 0,
           uncoveredItemClasses: 1,
           unknownIdentityEvidence: 1,
