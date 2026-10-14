@@ -73,6 +73,10 @@ function compileScenario(
     scenarioId: scenario.id,
     kind: scenario.kind,
   } as const;
+  // Do not pass an explicit undefined when the runtime-lab contract
+  // deliberately models omitted repetition limits as optional.
+  const optionalRuns = input.minimumRunsPerArm === undefined
+    ? {} : { minimumRunsPerArm: input.minimumRunsPerArm };
   const primaryArena = scenario.arenaIds[0];
   const generation =
     primaryArena === undefined
@@ -103,8 +107,7 @@ function compileScenario(
           },
           maxPlayers:
             input.matrix.playersPerArena,
-          minimumRunsPerArm:
-            input.minimumRunsPerArm,
+          ...optionalRuns,
         }),
       ],
       reasons: [
@@ -137,10 +140,9 @@ function compileScenario(
           },
           maxPlayers:
             input.matrix.playersPerArena,
-          attemptedPlayers:
-            scenario.attemptedPlayers,
-          minimumRunsPerArm:
-            input.minimumRunsPerArm,
+          ...(scenario.attemptedPlayers === undefined
+            ? {} : { attemptedPlayers: scenario.attemptedPlayers }),
+          ...optionalRuns,
         }),
       ],
       reasons: [
@@ -192,8 +194,7 @@ function compileScenario(
               arenas,
               playerCountPerArena:
                 input.matrix.playersPerArena,
-              minimumRunsPerArm:
-                input.minimumRunsPerArm,
+              ...optionalRuns,
             })
           : createAllArenaFinishStressExperiment({
               id: scenario.id,
@@ -207,8 +208,7 @@ function compileScenario(
               arenas,
               playerCountPerArena:
                 input.matrix.playersPerArena,
-              minimumRunsPerArm:
-                input.minimumRunsPerArm,
+              ...optionalRuns,
             }),
       ],
       reasons: [
@@ -265,8 +265,7 @@ function compileScenario(
           },
           playerCountStartingArena:
             input.matrix.playersPerArena,
-          minimumRunsPerArm:
-            input.minimumRunsPerArm,
+          ...optionalRuns,
         }),
       ],
       reasons: [
@@ -314,8 +313,7 @@ function compileScenario(
           arenas,
           playerCountPerArena:
             input.matrix.playersPerArena,
-          minimumRunsPerArm:
-            input.minimumRunsPerArm,
+          ...optionalRuns,
         }),
       ],
       reasons: [
@@ -355,8 +353,7 @@ function compileScenario(
       objectiveId: input.objectiveId,
       participant: input.participant,
       subject,
-      minimumRunsPerArm:
-        input.minimumRunsPerArm,
+      ...optionalRuns,
     };
 
     return {
@@ -407,8 +404,7 @@ function compileScenario(
       objectiveId: input.objectiveId,
       participant: input.participant,
       subject,
-      minimumRunsPerArm:
-        input.minimumRunsPerArm,
+      ...optionalRuns,
     };
 
     return {
