@@ -7,7 +7,7 @@ import {
   assessArenaResetClosure,
 } from "../../src/arena/arena-reset-closure-analysis.js";
 
-const clean = {
+const clean: Parameters<typeof assessArenaResetClosure>[0] = {
   cleanup: {
     ledger: { missing: 0, partial: 0 },
     lifecycle: { unresolved: 0 },
@@ -179,6 +179,7 @@ describe("entity identity and multiplicity reset gate", () => {
       assessArenaResetClosure({
         ...clean,
         entityPopulation: {
+          ...clean.entityPopulation,
           registryAuthorities: 1,
           generationBoundAuthorities: 0,
           unresolvedAuthorities: 1,
@@ -199,6 +200,7 @@ describe("entity identity and multiplicity reset gate", () => {
       assessArenaResetClosure({
         ...clean,
         entityPopulation: {
+          ...clean.entityPopulation,
           registryAuthorities: 1,
           generationBoundAuthorities: 1,
           unresolvedAuthorities: 0,

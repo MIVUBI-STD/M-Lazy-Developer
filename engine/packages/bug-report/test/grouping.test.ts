@@ -11,29 +11,32 @@ describe("bug report split and merge policy", () => {
   it("merges multiple symptoms of the same causal defect", () => {
     expect(
       decideBugGrouping({
-        sameCausalDefect: true,
+        relatedCausalLineage: true,
         sameBrokenInvariant: true,
         sameRepairUnit: true,
+        samePrimaryFailure: true,
       }),
     ).toBe("merge");
   });
 
-  it("splits findings with different root causes", () => {
+  it("keeps one invariant and repair unit together despite different lineage", () => {
     expect(
       decideBugGrouping({
-        sameCausalDefect: false,
+        relatedCausalLineage: false,
         sameBrokenInvariant: true,
         sameRepairUnit: true,
+        samePrimaryFailure: true,
       }),
-    ).toBe("split");
+    ).toBe("merge");
   });
 
   it("splits findings that violate different gameplay invariants", () => {
     expect(
       decideBugGrouping({
-        sameCausalDefect: true,
+        relatedCausalLineage: true,
         sameBrokenInvariant: false,
         sameRepairUnit: true,
+        samePrimaryFailure: true,
       }),
     ).toBe("split");
   });
@@ -41,9 +44,10 @@ describe("bug report split and merge policy", () => {
   it("splits findings that require independent repair units", () => {
     expect(
       decideBugGrouping({
-        sameCausalDefect: true,
+        relatedCausalLineage: true,
         sameBrokenInvariant: true,
         sameRepairUnit: false,
+        samePrimaryFailure: true,
       }),
     ).toBe("split");
   });
@@ -51,9 +55,10 @@ describe("bug report split and merge policy", () => {
   it("keeps incomplete arena cleanup symptoms together when one cleanup defect owns them", () => {
     expect(
       decideBugGrouping({
-        sameCausalDefect: true,
+        relatedCausalLineage: true,
         sameBrokenInvariant: true,
         sameRepairUnit: true,
+        samePrimaryFailure: true,
       }),
     ).toBe("merge");
   });
@@ -61,9 +66,10 @@ describe("bug report split and merge policy", () => {
   it("separates inventory reset, friendly fire, and UI feedback defects", () => {
     expect(
       decideBugGrouping({
-        sameCausalDefect: false,
+        relatedCausalLineage: false,
         sameBrokenInvariant: false,
         sameRepairUnit: false,
+        samePrimaryFailure: false,
       }),
     ).toBe("split");
   });
@@ -147,13 +153,13 @@ describe("confirmed defect semantic grouping", () => {
     ).toBe("merge");
   });
 
-  it("does not merge similar defects without causal incident identity", () => {
+  it("merges matching invariant and repair unit even without causal incident identity", () => {
     const groups = groupConfirmedDefects([
       defect("symptom-a"),
       defect("symptom-b"),
     ]);
 
-    expect(groups).toHaveLength(2);
+    expect(groups).toHaveLength(1);
   });
 
   it("splits the same incident when repair units differ", () => {

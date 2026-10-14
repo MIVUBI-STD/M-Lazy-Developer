@@ -9,6 +9,7 @@ import type {
 import {
   collectConfirmedDefects,
   describeAuditReportCandidate,
+  type AuditReportCandidate,
 } from "../../src/reporting/report-defect-collector.js";
 import {
   planReportCandidateReuse,
@@ -45,9 +46,9 @@ const intent: GameplayIntentModel = {
 function candidate(
   evidenceId: string,
   disposition:
-    | "probable-defect"
-    | "insufficient-evidence" = "probable-defect",
-) {
+    | "design-review"
+    | "insufficient-evidence" = "design-review",
+): AuditReportCandidate {
   return {
     route: "static" as const,
     intent,
@@ -55,13 +56,13 @@ function candidate(
       disposition,
       subjectIds: ["outcome:cleanup"],
       basisInvariantIds:
-        disposition === "probable-defect"
+        disposition === "design-review"
           ? ["inv:cleanup"]
           : [],
       evidenceIds: [evidenceId],
       nextEvidenceNeed:
-        disposition === "probable-defect"
-          ? "authored-intent" as const
+        disposition === "design-review"
+          ? "intent-grounding" as const
           : "contradiction-proof" as const,
       reasons: ["More evidence is required."],
     },
@@ -106,7 +107,7 @@ describe("report candidate reuse", () => {
       route: descriptor.route,
       semanticKey: descriptor.semanticKey,
       evidenceIds: descriptor.evidenceIds,
-      nextEvidenceNeed: "authored-intent" as const,
+      nextEvidenceNeed: descriptor.nextEvidenceNeed,
       reasons: ["Need authored intent."],
     }];
 
