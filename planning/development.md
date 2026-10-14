@@ -1,3 +1,11 @@
+## Multi-requirement orchestrator provenance migration (2026-10-14)
+
+**Contract repair:** Migrated `map-audit-candidate-grouping`, `map-audit-model-task`, and `map-audit-validation-projection` away from obsolete single `knowledgeRequirementId` to canonical `knowledgeRequirementIds` arrays, preserving all matched requirement IDs and receipt evidence. Candidate grouping uses a deterministic sorted multi-domain signature and no longer collapses multiple knowledge owners to one. Updated a stale PROVEN candidate-group test fixture to include mandatory evidence/impact fields; did not weaken the public types.
+
+**Executed:** Under the authenticated ChatGPT runtime, the full TypeScript diagnostics reduced from **480 to 464** errors. The original candidate-grouping Vitest **2/2 PASS**. The complete TypeScript suite remains FAILED and many old fixture contracts remain outdated. Do not claim gameplay causality from a mere knowledge ID, and do not promote FORMALIZE/EVALUATE/PROVE/REPORT to accepted based on these source-only repairs.
+
+---
+
 ## Analysis-phase and gameplay-intent source contract batch (2026-10-14)
 
 **Executed in ChatGPT against the original locked project:** Full `tsc --noEmit` errors decreased from **501 to 480** after aligning analysis-planner test fixtures to the required `executionPhase`, importing the canonical `ScriptTerminalPrecedenceEvidence` type, correcting stale domain metric fields, and deriving `bundledExecutable` from a selected JS source path before evaluating minified predicates. The original JS gameplay-intent implementation previously threw `ReferenceError: bundledExecutable is not defined`; this particular failure is fixed.

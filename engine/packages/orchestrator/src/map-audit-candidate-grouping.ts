@@ -41,7 +41,7 @@ function intersection(
 ): string[] {
   if (values.length === 0) return [];
   const [first, ...rest] = values;
-  return unique(first).filter((value) =>
+  return unique(first ?? []).filter((value) =>
     rest.every((items) => items.includes(value))
   );
 }
@@ -63,12 +63,10 @@ export function groupReadyAuditIssuesForCandidateCoverage(
           ".",
       );
     }
-    const requirement =
-      link.knowledgeRequirementId === undefined
-        ? undefined
-        : graph.knowledgeRequirements.find(
-            (item) => item.id === link.knowledgeRequirementId,
-          );
+    const requirementDomains = unique(graph.knowledgeRequirements
+      .filter((item) => link.knowledgeRequirementIds.includes(item.id))
+      .map((item) => item.domain));
+    const knowledgeDomainKey = requirementDomains.join("+") || "intent";
     const technicalOwnerId = link.fromComponentId;
     // Root-cause identity must be structural. Player-visible symptoms and
     // failure domains can differ even when the same authoritative component
@@ -76,13 +74,13 @@ export function groupReadyAuditIssuesForCandidateCoverage(
     // because it manifests through multiple report domains.
     const rootCauseSignature = hash([
       technicalOwnerId,
-      requirement?.domain ?? "intent",
+      knowledgeDomainKey,
       link.intentEdgeKind ?? "runtime-domain",
       ...link.componentIds,
     ]);
     const key = [
       defect.issueType,
-      requirement?.domain ?? "intent",
+      knowledgeDomainKey,
       technicalOwnerId,
       rootCauseSignature,
     ].join("|");
@@ -96,20 +94,16 @@ export function groupReadyAuditIssuesForCandidateCoverage(
       const firstLink = graph.causalLinks.find(
         (link) => link.id === items[0]!.causalLinkId,
       )!;
-      const requirement =
-        firstLink.knowledgeRequirementId === undefined
-          ? undefined
-          : graph.knowledgeRequirements.find(
-              (item) =>
-                item.id === firstLink.knowledgeRequirementId,
-            );
+      const requirementDomains = unique(graph.knowledgeRequirements
+        .filter((item) => firstLink.knowledgeRequirementIds.includes(item.id))
+        .map((item) => item.domain));
       return {
         issueType:
           items[0]!.issueType,
         candidateGroupKey: "candidate-group:" + key,
-        ...(requirement === undefined
+        ...(requirementDomains.length === 0
           ? {}
-          : { knowledgeDomain: requirement.domain }),
+          : { knowledgeDomain: requirementDomains.join("+") }),
         technicalOwnerId: firstLink.fromComponentId,
         causalLinkIds: unique(
           items.map((item) => item.causalLinkId),
