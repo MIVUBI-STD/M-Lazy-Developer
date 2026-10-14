@@ -158,8 +158,8 @@ const DEFECT_DISPOSITIONS =
   new Set<
     IntentDiagnosticDisposition
   >([
+    // Design review is not a proven defect for precision/recall scoring.
     "confirmed-defect",
-    "probable-defect",
   ]);
 
 function unique(

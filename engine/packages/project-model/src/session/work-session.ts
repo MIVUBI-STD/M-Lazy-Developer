@@ -30,8 +30,10 @@ export interface WorkSessionAuditBinding {
     | "TARGET"
     | "DISCOVERY"
     | "UNDERSTAND"
-    | "MODEL"
-    | "STRESS"
+    | "FORMALIZE"
+    | "EVALUATE"
+    | "MODEL" // historical checkpoint compatibility only
+    | "STRESS" // historical checkpoint compatibility only
     | "PROVE"
     | "REPORT"
     | "COMPLETE";

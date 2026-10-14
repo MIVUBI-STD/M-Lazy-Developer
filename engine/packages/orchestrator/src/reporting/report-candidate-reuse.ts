@@ -11,7 +11,6 @@ const REUSABLE_WITH_UNCHANGED_EVIDENCE = new Set<
   ReportCandidateNextEvidenceNeed
 >([
   "intent-grounding",
-  "authored-intent",
   "contradiction-proof",
   "runtime-proof",
   "runtime-evidence-integrity",
