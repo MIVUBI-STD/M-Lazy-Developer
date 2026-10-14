@@ -24,7 +24,7 @@ describe("cross-domain runtime probe compiler", () => {
       [{
         probeId:"chunk-ready",
         predicate:"target-chunk-ready",
-        query:{kind:"chunk-loaded",dimension:"overworld",x:0,y:64,z:0},
+        query:{kind:"chunk-loaded",dimension:"overworld",location:{x:0,y:64,z:0}},
         outcomeByState:{present:"yes",absent:"no",unknown:"unknown"},
       }],
     );

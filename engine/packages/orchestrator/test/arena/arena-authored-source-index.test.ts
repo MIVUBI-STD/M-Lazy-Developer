@@ -39,6 +39,7 @@ describe("arena authored spatial source index", () => {
         scripts: [],
         scriptSpatial: {
           resolvedEffects: [],
+          resolvedEffectSources: [],
           structurePlacements: [],
           failures: [],
           extractedMutations: 0,

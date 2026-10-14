@@ -16,6 +16,7 @@ describe("entity AI navigation diagnostics", () => {
           navigationWithoutMovement: 0,
           targetedWithoutNavigation: 1,
           movementGoalWithoutNavigation: 0,
+          goalPriorityConflictStates: 0,
           assessments: [],
         },
         {
@@ -47,6 +48,7 @@ describe("entity AI navigation diagnostics", () => {
           navigationWithoutMovement: 0,
           targetedWithoutNavigation: 0,
           movementGoalWithoutNavigation: 0,
+          goalPriorityConflictStates: 0,
           assessments: [],
         },
         {
