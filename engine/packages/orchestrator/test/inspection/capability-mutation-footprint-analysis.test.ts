@@ -15,6 +15,8 @@ describe("capability mutation footprint analysis", () => {
         privilegedBypassReturns: 0,
         protectionDefinitions: [],
         inactiveProtectionDefinitions: 0,
+        implicitDeveloperAuthorityRisks: 0,
+        explicitDeveloperGuardEvidence: 0,
       },
       inventory: {
         regions: 1,
@@ -22,6 +24,10 @@ describe("capability mutation footprint analysis", () => {
         completeResets: 0,
         partialResets: 1,
         copyMutationRisks: 0,
+        grantVerificationGaps: 0,
+        loadoutTransactions: [],
+        completeLoadoutTransactions: 0,
+        unresolvedLoadoutTransactions: 0,
         grantRegions: 0,
         dropRegions: 0,
         knownEquipmentSlots: ["Head","Chest","Legs","Feet","Offhand"],
@@ -51,6 +57,8 @@ describe("capability mutation footprint analysis", () => {
         privilegedBypassReturns: 2,
         protectionDefinitions: [],
         inactiveProtectionDefinitions: 0,
+        implicitDeveloperAuthorityRisks: 0,
+        explicitDeveloperGuardEvidence: 0,
       },
     });
 
@@ -74,6 +82,8 @@ describe("capability mutation footprint analysis", () => {
         privilegedBypassReturns: 0,
         protectionDefinitions: [],
         inactiveProtectionDefinitions: 0,
+        implicitDeveloperAuthorityRisks: 0,
+        explicitDeveloperGuardEvidence: 0,
       },
       arenaCleanup: {
         acquiredSurfaces: 1,
@@ -81,6 +91,7 @@ describe("capability mutation footprint analysis", () => {
         partial: 0,
         unresolved: 0,
         terminalAssessments: [],
+        lifecycle: { declared: false, complete: 0, unresolved: 0, assessments: [] },
         ledger: {
           resources: 1,
           complete: 1,
