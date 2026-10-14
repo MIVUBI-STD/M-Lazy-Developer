@@ -230,7 +230,7 @@ export function resolveGameplayAuthority(
     domain,
     scope,
     disposition: "resolved",
-    value: values[0],
+    value: values[0]!,
     basisClaimIds: strongest.map((claim) => claim.id),
     historicalHintIds,
     reasons: [

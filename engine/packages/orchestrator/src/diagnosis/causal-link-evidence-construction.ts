@@ -177,7 +177,7 @@ export function constructCausalLinkEvidence(input: {
             ? "runtime-conflict"
             : "runtime-probe",
           exchanges.map((exchange) =>
-            exchange.response.evidence.id
+            exchange.response.requestId
           ),
         ),
         domain: "runtime",

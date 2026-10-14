@@ -142,7 +142,7 @@ export function findGameplayReachability(
         reachable: true,
         resolution: "reachable",
         targetId,
-        originId: nodeIds[0],
+        originId: nodeIds[0]!,
         nodeIds,
         edgeKinds: edges.map(edge => edge.kind),
         evidenceIds: [...new Set([

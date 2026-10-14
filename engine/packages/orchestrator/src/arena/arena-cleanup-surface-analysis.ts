@@ -380,9 +380,9 @@ function extractMutations(
         scriptId: script.identifier,
         region,
         surface: "player-capability",
-        key: ability[1] + ":" + ability[2].toLowerCase(),
+        key: ability[1]! + ":" + ability[2]!.toLowerCase(),
         action:
-          ability[3].toLowerCase() === "true"
+          ability[3]!.toLowerCase() === "true"
             ? "acquire"
             : "release",
         precision: "exact",

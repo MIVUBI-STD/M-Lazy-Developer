@@ -29,7 +29,7 @@ import type {
   GameplayJourneyInterpretation,
 } from "./gameplay-scenario-model.js";
 import {
-  semanticIrExecutionTraces, type SemanticIr,
+  semanticIrExecutionTraces, type ObservedBranchPoint, type SemanticIr,
 } from "../../../semantic-ir/src/index.js";
 import {
   reconcileSourceGuardedStateTransitions,
@@ -631,7 +631,7 @@ function runtimeEdgeState(
   world: GameplayWorldModel,
   sourceLocators: readonly string[] = [],
   scenarioLabel?: string,
-): Pick<GameplayCausalLink, "status" | "reason"> {
+): Pick<GameplayCausalLink, "status" | "reason" | "runtimeNativeReason"> {
   switch (componentId) {
     case "runtime:world-rules": {
       if (
