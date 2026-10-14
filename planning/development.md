@@ -1,3 +1,13 @@
+## FORMALIZE exported map-configuration ownership (2026-10-14)
+
+**Finding:** The same-file `mappedConstructorCapacity()` generator collected `export const/var configs = [..].map(...)` as if `configs` could not be changed outside the selected source. An importing module may mutate `configs[0].maxPlayers`. The source can therefore establish an authored literal but **cannot** safely establish closed-world numeric arena authority.
+
+**Change:** Reuse the existing `staticModuleCapacity()` policy: skip exported map-generators entirely. Keep ordinary unexported `var/const` acceptance. Add positive local-vs-exported negative tests at the existing parser and B3/B5 extractor ownership boundaries. No map names, platform-specific constants, or new detector.
+
+**Execution:** 4/4 TypeScript AST predicate checks were executed on isolated local/exported `const/var` examples. Production parser/whole-repo Vitest/typecheck, selected archived maps and Minecraft runtime **NOT EXECUTED**. FORMALIZE acceptance remains blocked; extracted numeric capacity must remain UNKNOWN without source-identity proof.
+
+---
+
 ## FORMALIZE numeric constructor property shadowing (2026-10-14)
 
 **Finding:** Two existing source producers, `staticConstructorCapacity()` and `mappedConstructorCapacity()`, could consider `{maxPlayers:5, ["maxPlayers"]:9}` a certain 5-player capacity. TypeScript AST inspection of the original predicate and actual JavaScript object evaluation reproduced this mismatch (synthetic fixture: old admission true, runtime 9). Dynamic computed names and unrelated computed property assignments are now rejected rather than promoted to a numeric source. A strictly literal `{maxPlayers:5, id:1}` remains eligible; this is a generic JS soundness fix, not a map-specific signature.

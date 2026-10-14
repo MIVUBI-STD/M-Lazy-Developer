@@ -885,7 +885,12 @@ function mappedConstructorCapacity(
     elementCount: number;
   }>();
   for (const statement of file.statements) {
-    if (!ts.isVariableStatement(statement)) continue;
+    if (!ts.isVariableStatement(statement) ||
+        // An importer can mutate an exported collection or its elements.
+        // This source has no closed same-file identity authority.
+        statement.modifiers?.some((modifier) =>
+          modifier.kind === ts.SyntaxKind.ExportKeyword ||
+          modifier.kind === ts.SyntaxKind.DefaultKeyword)) continue;
     for (const d of statement.declarationList.declarations) {
       if (!ts.isIdentifier(d.name) || !d.initializer ||
           !ts.isCallExpression(d.initializer) ||

@@ -552,6 +552,27 @@ describe("arena concurrency capacity extraction", () => {
     }
   });
 
+  it("does not promote externally mutable exported map configuration into B3/B5", () => {
+    const script = parseScriptFile("exported-config", [
+      "export const configs = [0, 1].map((id) => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(player), true); }",
+      "};",
+      "const party = new Party(configs[0]);",
+      "party.join('one');",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/exported-config.js",
+    });
+    const output = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [script], declaredArenaCount: 2,
+    });
+    expect(output.evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(output.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+  });
+
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {
     const script = {
       arenaAuthorityPaths: [{

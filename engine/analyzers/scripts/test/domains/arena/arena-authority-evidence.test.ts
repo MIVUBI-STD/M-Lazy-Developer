@@ -460,6 +460,30 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("does not prove numeric capacity from an exported map config collection", () => {
+    const build = (prefix: string) => [
+      prefix + " configs = [0, 1].map((id) => ({maxPlayers:5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(player), true); }",
+      "};",
+      "const party = new Party(configs[0]);",
+      "party.join('one');",
+    ].join("\n");
+    const local = parseScriptFile("local-config", build("const"), source);
+    expect(local.arenaAuthorityPaths?.find((path) =>
+      path.capacityAuthorityProven
+    )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+    for (const prefix of ["export const", "export var"]) {
+      const exported = parseScriptFile("exported-config", build(prefix), source);
+      expect(exported.arenaAuthorityPaths?.some((path) =>
+        path.capacityCheck?.resolvedCapacityValue !== undefined
+      )).toBe(false);
+    }
+  });
+
   it("rejects an out-of-range direct generated-config index", () => {
     const configured = (index: number): string => [
       "const configs = [0, 1].map((id) => ({maxPlayers:5, id}));",
