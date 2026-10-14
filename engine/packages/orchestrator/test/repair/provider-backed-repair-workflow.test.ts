@@ -17,6 +17,7 @@ import {
 import type {
   RepairStrategyProviderRegistry,
 } from "../../src/repair/repair-strategy-provider.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 function source(relativePath: string) {
   return { artifactId: "art-1", relativePath };
@@ -129,6 +130,7 @@ function fixture() {
   const transaction = createPatchTransaction({
     title: "repair",
     sourceFingerprint: "source",
+    authorization: fixtureRepairAuthorization("source"),
     operations: [{
       kind: "replace-command",
       source: {

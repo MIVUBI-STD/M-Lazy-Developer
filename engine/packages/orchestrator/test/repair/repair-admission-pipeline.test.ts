@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SemanticGraph } from "../../../graph/src/index.js";
 import { createPatchTransaction } from "../../../repair/src/index.js";
 import { evaluateRepairAdmissionPipeline } from "../../src/repair/repair-admission-pipeline.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 function source(relativePath: string) {
   return { artifactId: "art-1", relativePath };
@@ -66,6 +67,7 @@ function fixture() {
   const transaction = createPatchTransaction({
     title: "demo",
     sourceFingerprint: "abc",
+    authorization: fixtureRepairAuthorization("abc"),
     operations: [{
       kind: "replace-text",
       source: source("functions/target.mcfunction"),

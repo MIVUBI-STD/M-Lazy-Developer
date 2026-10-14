@@ -10,11 +10,13 @@ import type { RepairProofBundle } from "../../src/repair/repair-proof-bundle.js"
 import {
   CONTRACT_REGISTRY_REVISION,
 } from "../../../project-model/src/index.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 function transaction(validation = true) {
   return createPatchTransaction({
     title: "demo",
     sourceFingerprint: "abc",
+    authorization: fixtureRepairAuthorization("abc"),
     operations: [{
       kind: "replace-text",
       source: {
@@ -143,6 +145,7 @@ describe("authorized repair mutation", () => {
     const tx = createPatchTransaction({
       title: "transform-bound",
       sourceFingerprint: "abc",
+      authorization: fixtureRepairAuthorization("abc"),
       requiredProofs: ["post-transform"],
       operations: [{
         kind: "replace-text",
@@ -231,6 +234,7 @@ describe("authorized repair mutation", () => {
     const txA = createPatchTransaction({
       title: "transform-a",
       sourceFingerprint: "abc",
+      authorization: fixtureRepairAuthorization("abc"),
       requiredProofs: ["post-transform"],
       operations: [{
         kind: "replace-text",
@@ -252,6 +256,7 @@ describe("authorized repair mutation", () => {
     const txB = createPatchTransaction({
       title: "transform-b",
       sourceFingerprint: "abc",
+      authorization: fixtureRepairAuthorization("abc"),
       requiredProofs: ["post-transform"],
       operations: [{
         kind: "replace-text",
