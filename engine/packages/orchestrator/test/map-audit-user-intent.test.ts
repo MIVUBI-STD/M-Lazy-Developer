@@ -4,9 +4,9 @@ import {
 } from "../src/map-audit-obligations.js";
 import {
   auditUserIntentAuthorityNote,
-  auditUserIntentFingerprint,
+  fingerprintAuditUserIntent,
   createAuditUserIntentConfirmationRequest,
-  createAuditUserIntentConfirmation,
+  confirmAuditUserIntent,
   createFallbackAuditUserIntent,
   deriveAuditUserIntentKnowledgeDemand,
   deriveAuditUserIntentSearchPressure,
@@ -312,12 +312,15 @@ describe("map audit user intent", () => {
           },
           arenas: {
             detected: false,
+            isolation: { observations: [] },
+            replicaProof: [],
           },
           platformKnowledge: {
             claims: [],
           },
         } as any,
         userIntent,
+        capabilityDelivery: [],
         gameplayClosure: {
           status: "CLOSED",
           surfaces: [],
@@ -423,10 +426,11 @@ describe("map audit user intent", () => {
         } as any,
         gameplayWorld: {
           surfaceDiscovery: { surfaceIds: [] },
-          arenas: { detected: false },
+          arenas: { detected: false, isolation: { observations: [] }, replicaProof: [] },
           platformKnowledge: { claims: [] },
         } as any,
         userIntent: normalized,
+        capabilityDelivery: [],
         gameplayClosure: {
           status: "CLOSED",
           surfaces: [],
@@ -514,16 +518,16 @@ describe("map audit user intent", () => {
         undefined,
       ),
     ).toContain(
-      "User confirmation is required before production audit.",
+      "User audit intent must be confirmed in chat before production audit.",
     );
 
     const confirmation =
-      createAuditUserIntentConfirmation(input);
+      confirmAuditUserIntent(input, true);
 
     expect(
       confirmation.intentFingerprint,
     ).toBe(
-      auditUserIntentFingerprint(input),
+      fingerprintAuditUserIntent(input),
     );
     expect(
       validateAuditUserIntentConfirmation(
@@ -564,7 +568,7 @@ describe("map audit user intent", () => {
         confirmation,
       ),
     ).toContain(
-      "User intent confirmation is stale or belongs to a different prompt interpretation.",
+      "User audit intent changed after confirmation; show the updated interpretation in chat and confirm again.",
     );
   });
 
@@ -582,11 +586,11 @@ describe("map audit user intent", () => {
       .toBe(
         fingerprintAuditUserIntent(normalized),
       );
-    expect(request.summary.symptoms)
+    expect(request.summary.reportedSymptoms)
       .toContain(
         "possible progression stall during wave completion",
       );
-    expect(request.summary.suspicions)
+    expect(request.summary.suspectedCauses)
       .toContain(
         "suspected chunk/residency mechanism",
       );

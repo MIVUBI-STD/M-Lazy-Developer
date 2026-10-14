@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bridgeArenaRepairLocalization } from "../../src/arena/arena-repair-bridge.js";
 
 describe("arena repair bridge", () => {
-  it("allows deterministic repair only when exact localization matches an existing planned candidate", () => {
+  it("keeps an exactly matching authored repair proposal non-executable", () => {
     const bridge =
       bridgeArenaRepairLocalization(
         {
@@ -38,27 +38,36 @@ describe("arena repair bridge", () => {
           sourcePath:
             "functions/setup.mcfunction",
           line: 4,
-          status: "planned",
-          transaction: {
-            id: "patch-1",
-            sourceFingerprint:
-              "fingerprint",
-            operations: [],
+          status: "proposal",
+          proposal: {
+            title: "candidate only",
+            sourceFingerprint: "fingerprint",
+            operation: {
+              kind: "replace-command",
+              source: {
+                artifactId: "fixture",
+                relativePath: "functions/setup.mcfunction",
+                range: { lineStart: 4, lineEnd: 4 },
+              },
+              expected: "setblock 1 2 3 stone",
+              replacement: "setblock 2 2 3 stone",
+            },
             validation: [],
           },
         }],
       );
 
     expect(bridge).toMatchObject({
-      deterministicRepairs: 1,
-      proposalOnly: 0,
+      deterministicRepairs: 0,
+      proposalOnly: 1,
       unresolved: 0,
     });
     expect(
       bridge.items[0]?.status,
     ).toBe(
-      "deterministic-repair-available",
+      "proposal-only",
     );
+    expect(bridge.items[0]?.transactionId).toBeUndefined();
   });
 
   it("keeps region-only localization proposal-only", () => {

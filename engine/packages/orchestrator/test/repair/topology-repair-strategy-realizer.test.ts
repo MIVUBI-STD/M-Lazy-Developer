@@ -96,7 +96,7 @@ const registry: InvariantRegistrySnapshot = {
 };
 
 describe("topology repair strategy realizer", () => {
-  it("realizes analyzed topology evidence into a deterministic proposal-only transaction", () => {
+  it("blocks conversion of a source proposal into an unauthorized transaction", () => {
     const envelope = deriveRepairOpportunityEnvelope(
       incident,
       [chain],
@@ -192,37 +192,8 @@ describe("topology repair strategy realizer", () => {
       },
     );
 
-    expect(result.status).toBe("realized");
-    if (result.status !== "realized") return;
-
-    expect(result.proposal).toMatchObject({
-      providerId: "linear-topology-repair",
-      providerVersion: "1",
-      relatedDiagnosticIds: ["diag-topology"],
-      realizerProvenance: {
-        realizerId:
-          "linear-topology-repair-realizer",
-        realizerVersion: "1",
-        sourceKind: "provider",
-        sourceId: "linear-topology-repair",
-      },
-      strategy: {
-        addressesCandidateIds: ["cause-topology"],
-        repairClass: "implementation-repair",
-        reversible: true,
-        idempotent: false,
-        changedNodeIds: [
-          "command:p:arena:3",
-          "function:p:arena",
-        ],
-      },
-    });
-    expect(
-      result.proposal.strategy.transaction.operations[0],
-    ).toMatchObject({
-      kind: "replace-command",
-      expected: "fill 198 0 0 201 2 3 stone",
-      replacement: "fill 200 0 0 203 2 3 stone",
-    });
+    expect(result.status).toBe("blocked");
+    if (result.status !== "blocked") return;
+    expect(result.reasons.join(" ")).toContain("proposal-only");
   });
 });
