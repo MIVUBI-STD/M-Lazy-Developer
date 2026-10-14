@@ -1,3 +1,13 @@
+## FORMALIZE mapped collection identity — executable fragment proof (2026-10-14)
+
+**Exact source:** After commit `dd40260b6c04`, GitHub blob `acf2db0d01cc`, I executed the unchanged 1515-character `scanMappedInstanceCollections`/unique-binding fragment using Node 22.16 and TypeScript 5.8.3. FNV1a32 `8952651d` and SHA-256 `88de1ab49cc1...` verified the selected source. **13/13 `node:test` cases passed, 0 failures**, including direct methods, mutation, index bounds, escapes and aliasing. Full metadata and harness/TAP checksums are stored in `engine/reliability/history/audit-runs/learning/chatgpt-mapped-collection-ownership-fragment-2026-10-14.json`.
+
+**Not proven:** Entire owning function, `parseScriptFile`, `extractArenaConcurrencyCapacity`, whole-repo `tsc` or Vitest, FORMALIZE B3/B5 on authentic worlds, or Minecraft runtime. All remain **NOT EXECUTED**; no complete stage acceptance.
+
+**Remaining source-ownership risk:** Mapped results stored in ordinary class property declarations still need exact-owner mutation/escape scrutiny before closed-world numeric claims. Do not read the bounded fragment receipt as covering those class-property cases.
+
+---
+
 ## FORMALIZE mapped instance-result ownership (2026-10-14)
 
 **Observed issue:** An admitted `configs.map(item => new Party(item))` could be bound to `const parties` and later have `parties[0].definition.maxPlayers` overwritten or the entire collection passed to an uninspected caller, yet the original source prover inspected only the input `configs` references. On a standalone Node 22.16 / TS 5.8.3 AST fixture the result is an owned `VariableDeclaration`; JavaScript runtime confirmed effective config changed from 5 to 9. Original `mappedConstructorCapacity()` and whole-repo Vitest were not executed in this observation.
