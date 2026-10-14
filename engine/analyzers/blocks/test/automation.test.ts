@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { analyzeBlockAutomation, parseBlockDefinition } from "../src/index.js";
 
-const source = { path: "blocks/example.json" };
+const source = { artifactId: "fixture-blocks", relativePath: "blocks/example.json" };
 
 describe("block automation analysis", () => {
   it("preserves minecraft:tick scheduling semantics", () => {
