@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createScriptTickingAreaManagerExperiment } from "../../src/domains/chunk/script-ticking-area-experiment.js";
-import { validateRuntimeExperimentDefinition } from "../../src/index.js";
+import { createScriptTickingAreaManagerExperiment } from "../../../src/domains/chunk/script-ticking-area-experiment.js";
+import { validateRuntimeExperimentDefinition } from "../../../src/index.js";
 
 describe("script ticking-area experiment", () => {
   it("uses dedicated Script API fixture actions and teardown", () => {

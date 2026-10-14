@@ -3,8 +3,8 @@ import {
   createEntityActiveRegionExperiment,
   createTickingAreaPolicyExperiment,
   createUnloadedDestinationExperiment,
-} from "../../src/domains/chunk/chunk-probe-experiments.js";
-import { validateRuntimeExperimentDefinition } from "../../src/index.js";
+} from "../../../src/domains/chunk/chunk-probe-experiments.js";
+import { validateRuntimeExperimentDefinition } from "../../../src/index.js";
 
 const base = {
   id: "fixture",

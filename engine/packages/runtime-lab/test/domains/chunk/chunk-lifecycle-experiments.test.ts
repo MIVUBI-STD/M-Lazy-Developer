@@ -4,8 +4,8 @@ import {
   createDimensionGeometryExperiment,
   createEntityPersistenceLifecycleExperiment,
   createSimulationBoundaryExperiment,
-} from "../../src/domains/chunk/chunk-lifecycle-experiments.js";
-import { validateRuntimeExperimentDefinition } from "../../src/index.js";
+} from "../../../src/domains/chunk/chunk-lifecycle-experiments.js";
+import { validateRuntimeExperimentDefinition } from "../../../src/index.js";
 
 const base = {
   id: "fixture",
