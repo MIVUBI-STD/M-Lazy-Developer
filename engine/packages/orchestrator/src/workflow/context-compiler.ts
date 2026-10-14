@@ -902,9 +902,9 @@ export function compileContextPack(
           combat:
             worldModel.combat.hurtOnlyTerminalRisk +
             worldModel.combat.policy
-              .revivePolicyContradictions +
+              .reviveContractContradictions +
             worldModel.combat.policy
-              .projectileCleanupPolicyGap +
+              .projectileCleanupContractGap +
             worldModel.combat.runtime
               .scopedLifeGenerationMissing +
             worldModel.combat.runtime
@@ -923,19 +923,19 @@ export function compileContextPack(
             (worldModel.persistence?.unknownLifetime ?? 0),
           economy:
             worldModel.economy.policy
-              .deathRewardOverlapPolicyConflicts +
+              .deathRewardOverlapContractConflicts +
             worldModel.economy.policy
               .deathRewardOverlapUnresolved +
             worldModel.economy.policy
               .pickupCurrencyConsumeCoverageGaps +
             worldModel.economy.policy
-              .pickupCurrencyPolicyMismatch +
+              .pickupCurrencyContractMismatch +
             worldModel.economy.policy
               .idempotencyCoverageGaps +
             worldModel.economy.policy
               .staleDropCleanupCoverageGaps +
             worldModel.economy.policy
-              .inventoryFullPolicyGaps +
+              .inventoryFullContractGaps +
             worldModel.economy.policy
               .pickupScopeValidationUnproven +
             worldModel.economy.policy

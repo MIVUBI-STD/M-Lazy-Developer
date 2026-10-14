@@ -33,6 +33,8 @@ function templateConfidence(
     case "open-assumption":
     case undefined:
       return "conditional";
+    default:
+      return "conditional";
   }
 }
 

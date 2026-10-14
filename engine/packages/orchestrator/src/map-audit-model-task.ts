@@ -628,22 +628,19 @@ function provePackets(
       const scenario = graph.scenarios.find(
         (item) => item.id === link.scenarioId,
       );
-      const requirement = link.knowledgeRequirementId === undefined
-        ? undefined
-        : graph.knowledgeRequirements.find(
-            (item) => item.id === link.knowledgeRequirementId,
-          );
+      const requirements = graph.knowledgeRequirements.filter(
+        (item) => link.knowledgeRequirementIds.includes(item.id),
+      );
       const needsTranslation =
         gate.gameplayTranslationRequiredIds.includes(link.id);
-      const requirementIds =
-        requirement === undefined ? [] : [requirement.id];
+      const requirementIds = unique(link.knowledgeRequirementIds);
       const ids = unique([
         ...link.evidenceIds,
-        ...(requirement === undefined ? [] : graph.knowledgeReceipts
+        ...graph.knowledgeReceipts
           .filter((receipt) =>
-            receipt.requirementId === requirement.id
-          )
-          .flatMap((receipt) => receipt.evidenceIds)),
+            requirements.some((requirement) =>
+              requirement.id === receipt.requirementId))
+          .flatMap((receipt) => receipt.evidenceIds),
       ]);
       const evidence = evidenceContext(ids, intent);
       return {
@@ -797,22 +794,16 @@ export function deriveAuditModelTaskPackets(input: {
           causalLinkId: finding.causalLinkId,
           subjectIds: [...finding.subjectIds],
           componentIds: [...finding.componentIds],
-          requiredKnowledgeIds:
-            finding.knowledgeRequirementId === undefined
-              ? []
-              : [finding.knowledgeRequirementId],
+          requiredKnowledgeIds: unique(finding.knowledgeRequirementIds ?? []),
           evidenceIds: [...finding.evidenceIds],
           evidenceContext: evidence.context,
           unresolvedEvidenceIds:
             evidence.unresolved,
-          knowledgeContext:
-            finding.knowledgeRequirementId === undefined
-              ? []
-              : knowledgeContextFor(
-                  [finding.knowledgeRequirementId],
-                  input.graph,
-                  input.world,
-                ),
+          knowledgeContext: knowledgeContextFor(
+            unique(finding.knowledgeRequirementIds ?? []),
+            input.graph,
+            input.world,
+          ),
           unresolvedObligationIds: [],
           proofGoal: navigation.proofGoal,
           provenClaims: [

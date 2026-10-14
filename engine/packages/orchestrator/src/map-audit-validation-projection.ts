@@ -136,12 +136,9 @@ export function projectNeedValidationAuditIssues(
             ...(resolution.counterProofSearch?.evidenceIds ?? []),
           ]),
         ].sort(),
-        ...(resolution.knowledgeRequirementId === undefined
-          ? {}
-          : {
-              knowledgeRequirementId:
-                resolution.knowledgeRequirementId,
-            }),
+        ...(resolution.knowledgeRequirementIds?.length
+          ? { knowledgeRequirementIds: [...new Set(resolution.knowledgeRequirementIds)].sort() }
+          : {}),
         validationReason:
           "The gameplay defect is causally translated and blocking counter-proof is cleared, but minimum sufficient proof is not yet saturated.",
         missingProof:
@@ -158,8 +155,9 @@ export function projectNeedValidationAuditIssues(
           scenario.id +
           ":" +
           (
-            resolution.knowledgeRequirementId ??
-            classification.failureDomain
+            (resolution.knowledgeRequirementIds?.length
+              ? [...new Set(resolution.knowledgeRequirementIds)].sort().join("+")
+              : classification.failureDomain)
           ),
       }];
     }),

@@ -183,7 +183,8 @@ export function assessCapabilityExposure(
   if (
     input.authorization ===
       "required-but-missing" &&
-    input.releaseEnabled !== "disabled"
+    // Disabled releases already returned a blocked assessment above.
+    (input.releaseEnabled === "enabled" || input.releaseEnabled === "unknown")
   ) {
     reasons.push("Authorization is missing, but prerequisite reachability is not yet proven.");
     return {

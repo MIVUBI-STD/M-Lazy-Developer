@@ -166,11 +166,13 @@ export function derivePersistentDataLifecycleEvidence(
         // A broad clearDynamicProperties() has no literal key and must NOT
         // be silently attributed to an individual property.
         const sequence = directStatementSequence(
-          node, node.expression.expression.getText(file), file, source,
+          node, ts.isPropertyAccessExpression(node.expression)
+            ? node.expression.expression.getText(file) : "$unknown", file, source,
         );
         current.resetSites.push({
           propertyKey: writtenKey,
-          receiverHint: node.expression.expression.getText(file),
+          receiverHint: ts.isPropertyAccessExpression(node.expression)
+            ? node.expression.expression.getText(file) : "$unknown",
           executionRegion: persistenceExecutionRegion(node, file),
           kind: value === undefined ||
               (ts.isIdentifier(value) && value.text === "undefined")
@@ -200,14 +202,14 @@ export function derivePersistentDataLifecycleEvidence(
       appends: item.appends,
       writes: item.writes,
       clears: item.clears,
-      growth:
+      growth: (
         item.appends === 0
           ? "no-append"
           : item.writes === 0
             ? "unknown"
             : item.clears > 0
               ? "append-with-clear"
-              : "append-without-clear",
+              : "append-without-clear") as PersistentDataLifecycleEvidence["growth"],
       source: firstSource.get(propertyKey)!,
       ...(item.resetSites.length > 0 ? {
         resetSites: item.resetSites.sort((a, b) =>

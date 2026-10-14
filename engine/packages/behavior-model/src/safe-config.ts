@@ -396,10 +396,20 @@ export function evaluateSafeConfig(
         );
       }
 
-      if (node.operator === "<") return left < (right as never);
-      if (node.operator === "<=") return left <= (right as never);
-      if (node.operator === ">") return left > (right as never);
-      return left >= (right as never);
+      if (typeof left === "number" && typeof right === "number") {
+        if (node.operator === "<") return left < right;
+        if (node.operator === "<=") return left <= right;
+        if (node.operator === ">") return left > right;
+        return left >= right;
+      }
+      // The same-type guard above excludes all values except strings.
+      if (typeof left === "string" && typeof right === "string") {
+        if (node.operator === "<") return left < right;
+        if (node.operator === "<=") return left <= right;
+        if (node.operator === ">") return left > right;
+        return left >= right;
+      }
+      throw new SafeConfigEvaluationError("TYPE_MISMATCH", "Ordered comparison has incompatible operands.");
     }
 
     if (node.kind === "binary") {
@@ -476,8 +486,7 @@ export function evaluateSafeConfig(
           depth + 1,
           {
             bindings,
-            functions:
-              activeEnvironment.functions,
+            ...(activeEnvironment.functions === undefined ? {} : { functions: activeEnvironment.functions }),
           },
         );
       });
@@ -581,8 +590,7 @@ export function evaluateSafeConfig(
           depth + 1,
           {
             bindings,
-            functions:
-              activeEnvironment.functions,
+            ...(activeEnvironment.functions === undefined ? {} : { functions: activeEnvironment.functions }),
           },
         );
       } finally {

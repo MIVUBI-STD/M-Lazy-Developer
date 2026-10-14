@@ -709,7 +709,8 @@ function stablePlayerSpawnEventParameter(
          ts.isBindingElement(node)) &&
         ts.isIdentifier(node.name) && node.name.text === name) changed = true;
     if (ts.isBinaryExpression(node) &&
-        ts.isAssignmentOperator(node.operatorToken.kind) &&
+        (node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+         node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) &&
         (ts.isIdentifier(node.left) && node.left.text === name ||
          ts.isPropertyAccessExpression(node.left) &&
            ts.isIdentifier(node.left.expression) &&
@@ -837,7 +838,8 @@ function uniqueSpawnPlayerForward(
           ts.isIdentifier(node.name) && node.name.text === name) uncertain = true;
       if (ts.isBinaryExpression(node) &&
           ts.isIdentifier(node.left) && node.left.text === name &&
-          ts.isAssignmentOperator(node.operatorToken.kind)) uncertain = true;
+          (node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+         node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)) uncertain = true;
       if ((ts.isPrefixUnaryExpression(node) ||
            ts.isPostfixUnaryExpression(node)) &&
           ts.isIdentifier(node.operand) && node.operand.text === name &&

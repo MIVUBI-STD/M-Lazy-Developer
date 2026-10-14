@@ -26,6 +26,10 @@ const graph: GameplayScenarioGraph = {
       "runtime:chunks",
       "runtime:entities",
     ],
+    knowledgeRequirementIds: [],
+    impactPathComponentIds: [],
+    impactPathEvidenceIds: [],
+    dimensionEvidence: {},
     status: "CONTRADICTED",
     reason: "Remote wave actors can stop simulating.",
   }],
@@ -39,6 +43,9 @@ const graph: GameplayScenarioGraph = {
 };
 
 const issue: ReadyAuditIssueProjection = {
+  status: "PROVEN",
+  informationMismatch: false,
+  playerFacingEvidenceIds: ["e:entity"],
   issueType: "BUG",
   failureDomain:
     "progression-wave-objective",
