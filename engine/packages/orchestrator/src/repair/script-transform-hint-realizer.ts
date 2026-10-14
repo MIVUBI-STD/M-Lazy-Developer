@@ -12,6 +12,7 @@ import {
 } from "../../../project-model/src/index.js";
 import {
   createPatchTransaction,
+  type RepairAuthorizationReceipt,
 } from "../../../repair/src/index.js";
 import type {
   ValidationStep,
@@ -131,6 +132,7 @@ function realizeGenerationGuardHint(
     | "arena-capacity-guard",
   sourceId: string,
   label: string,
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   const enumerated =
     enumeration.applicableSources.find(
@@ -284,7 +286,22 @@ function realizeGenerationGuardHint(
     };
   }
 
+  // A source transform hint is only a proposed change. It cannot mint
+  // a PatchTransaction without the existing approved diagnosis receipt.
+  if (
+    authorization === undefined ||
+    authorization.sourceFingerprint !== enumeration.envelope.sourceFingerprint ||
+    !enumeration.envelope.invariantIds.every((id) => authorization.invariantIds.includes(id))
+  ) {
+    return {
+      status: "blocked",
+      sourceId,
+      reasons: ["Exact source transform requires an authorized repair receipt for the selected source and invariants."],
+    };
+  }
+
   const transaction = createPatchTransaction({
+    authorization,
     title:
       "insert " +
       label.toLowerCase(),
@@ -378,6 +395,7 @@ export function realizeSchedulerGenerationGuardHint(
   sourceRegistry: RepairStrategySourceRegistry,
   realizerRegistry: RepairRealizerRegistry,
   hint: RepairSourceTransformHint,
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   return realizeGenerationGuardHint(
     graph,
@@ -388,6 +406,7 @@ export function realizeSchedulerGenerationGuardHint(
     "scheduler-generation-guard",
     "scheduler-generation-guard-template",
     "Scheduler generation guard",
+    authorization,
   );
 }
 
@@ -397,6 +416,7 @@ export function realizeSessionGenerationGuardHint(
   sourceRegistry: RepairStrategySourceRegistry,
   realizerRegistry: RepairRealizerRegistry,
   hint: RepairSourceTransformHint,
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   return realizeGenerationGuardHint(
     graph,
@@ -407,6 +427,7 @@ export function realizeSessionGenerationGuardHint(
     "session-generation-guard",
     "session-generation-guard-template",
     "Session generation guard",
+    authorization,
   );
 }
 
@@ -417,6 +438,7 @@ export function realizePersistenceIdempotencyGuardHint(
   sourceRegistry: RepairStrategySourceRegistry,
   realizerRegistry: RepairRealizerRegistry,
   hint: RepairSourceTransformHint,
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   return realizeGenerationGuardHint(
     graph,
@@ -427,6 +449,7 @@ export function realizePersistenceIdempotencyGuardHint(
     "persistence-idempotency-guard",
     "persistence-idempotency-guard-template",
     "Persistence idempotency guard",
+    authorization,
   );
 }
 
@@ -437,6 +460,7 @@ export function realizeArenaCapacityGuardHint(
   sourceRegistry: RepairStrategySourceRegistry,
   realizerRegistry: RepairRealizerRegistry,
   hint: RepairSourceTransformHint,
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   return realizeGenerationGuardHint(
     graph,
@@ -447,6 +471,7 @@ export function realizeArenaCapacityGuardHint(
     "arena-capacity-guard",
     "arena-capacity-guard-template",
     "Arena capacity guard",
+    authorization,
   );
 }
 
@@ -457,6 +482,7 @@ export function realizeArenaStartOwnershipGuardHint(
   sourceRegistry: RepairStrategySourceRegistry,
   realizerRegistry: RepairRealizerRegistry,
   hint: RepairSourceTransformHint,
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   return realizeGenerationGuardHint(
     graph,
@@ -467,5 +493,6 @@ export function realizeArenaStartOwnershipGuardHint(
     "arena-ownership-guard",
     "arena-ownership-guard-template",
     "Arena start ownership guard",
+    authorization,
   );
 }

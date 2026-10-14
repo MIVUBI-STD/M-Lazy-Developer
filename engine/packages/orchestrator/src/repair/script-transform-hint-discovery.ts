@@ -2,6 +2,7 @@ import type {
   ParsedScriptFile,
 } from "../../../../analyzers/scripts/src/index.js";
 import type { SemanticGraph } from "../../../graph/src/index.js";
+import type { RepairAuthorizationReceipt } from "../../../repair/src/index.js";
 import type {
   RepairSourceTransformHint,
   SourceRef,
@@ -136,6 +137,7 @@ export function realizeSchedulerGenerationGuardFromParsedScripts(
   parsedScripts: readonly {
     parsed: ParsedScriptFile;
   }[],
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   const discovery =
     discoverApplicableRepairTransformHints(
@@ -180,6 +182,7 @@ export function realizeSchedulerGenerationGuardFromParsedScripts(
     sourceRegistry,
     realizerRegistry,
     schedulerHints[0]!,
+    authorization,
   );
 }
 
@@ -192,6 +195,7 @@ export function realizeSessionGenerationGuardFromParsedScripts(
   parsedScripts: readonly {
     parsed: ParsedScriptFile;
   }[],
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   const discovery =
     discoverApplicableRepairTransformHints(
@@ -236,6 +240,7 @@ export function realizeSessionGenerationGuardFromParsedScripts(
     sourceRegistry,
     realizerRegistry,
     sessionHints[0]!,
+    authorization,
   );
 }
 
@@ -248,6 +253,7 @@ export function realizePersistenceIdempotencyGuardFromParsedScripts(
   parsedScripts: readonly {
     parsed: ParsedScriptFile;
   }[],
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   const discovery =
     discoverApplicableRepairTransformHints(
@@ -292,6 +298,7 @@ export function realizePersistenceIdempotencyGuardFromParsedScripts(
     sourceRegistry,
     realizerRegistry,
     persistenceHints[0]!,
+    authorization,
   );
 }
 
@@ -304,6 +311,7 @@ export function realizeArenaCapacityGuardFromParsedScripts(
   parsedScripts: readonly {
     parsed: ParsedScriptFile;
   }[],
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   const discovery =
     discoverApplicableRepairTransformHints(
@@ -354,6 +362,7 @@ export function realizeArenaCapacityGuardFromParsedScripts(
     sourceRegistry,
     realizerRegistry,
     capacityHints[0]!,
+    authorization,
   );
 }
 
@@ -366,6 +375,7 @@ export function realizeArenaStartOwnershipGuardFromParsedScripts(
   parsedScripts: readonly {
     parsed: ParsedScriptFile;
   }[],
+  authorization?: RepairAuthorizationReceipt,
 ): RepairTransformHintRealization {
   const discovery =
     discoverApplicableRepairTransformHints(
@@ -416,5 +426,6 @@ export function realizeArenaStartOwnershipGuardFromParsedScripts(
     sourceRegistry,
     realizerRegistry,
     startHints[0]!,
+    authorization,
   );
 }

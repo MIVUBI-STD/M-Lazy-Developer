@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SemanticGraph } from "../../../graph/src/index.js";
+import { authorizeRepair } from "../../../repair/src/index.js";
 import {
   deriveSchedulerGenerationGuardTransformHints,
   parseScriptFile,
@@ -200,6 +201,15 @@ const invariants: InvariantRegistrySnapshot = {
   }],
 };
 
+const approvedReceipt = authorizeRepair({
+  confirmedDefect: true,
+  diagnosisEvidenceIds: ["diag-scheduler"],
+  invariantIds: ["invariant::scheduler-generation"],
+  sourceFingerprint: "source-a",
+  sourceFingerprintMatches: true,
+  evidenceFreshness: "fresh",
+}).receipt!;
+
 const emptyProviders: RepairStrategyProviderRegistry = {
   schemaVersion: 1,
   providers: [],
@@ -251,6 +261,19 @@ function graph() {
 }
 
 describe("script transform hint realizer", () => {
+  it("refuses a transaction when the approved repair receipt is absent", () => {
+    const result = realizeSchedulerGenerationGuardHint(
+      graph(),
+      enumeration(),
+      BUILTIN_REPAIR_STRATEGY_SOURCES,
+      BUILTIN_REPAIR_REALIZERS,
+      hint,
+    );
+    expect(result).toMatchObject({
+      status: "blocked",
+      reasons: expect.arrayContaining([expect.stringMatching(/authorized repair receipt/i)]),
+    });
+  });
   it("realizes a scheduler generation guard only from an analyzer-owned exact hint", () => {
     const result =
       realizeSchedulerGenerationGuardHint(
@@ -259,6 +282,7 @@ describe("script transform hint realizer", () => {
         BUILTIN_REPAIR_STRATEGY_SOURCES,
         BUILTIN_REPAIR_REALIZERS,
         hint,
+        approvedReceipt,
       );
 
     expect(result.status).toBe("realized");
@@ -340,6 +364,7 @@ describe("script transform hint realizer", () => {
         BUILTIN_REPAIR_STRATEGY_SOURCES,
         BUILTIN_REPAIR_REALIZERS,
         hint,
+        approvedReceipt,
       );
 
     expect(realization.status).toBe("realized");
@@ -403,6 +428,7 @@ describe("script transform hint realizer", () => {
         scriptText,
         fileSource,
         hint,
+        approvedReceipt,
       );
     expect(bound.status).toBe("bound");
     if (bound.status !== "bound") return;
@@ -491,6 +517,7 @@ describe("script transform hint realizer", () => {
         BUILTIN_REPAIR_STRATEGY_SOURCES,
         BUILTIN_REPAIR_REALIZERS,
         hint,
+        approvedReceipt,
       );
     expect(realization.status).toBe("realized");
     if (realization.status !== "realized") return;
@@ -502,6 +529,7 @@ describe("script transform hint realizer", () => {
         scriptText,
         fileSource,
         hint,
+        approvedReceipt,
       );
     expect(bound.status).toBe("bound");
     if (bound.status !== "bound") return;
@@ -567,6 +595,7 @@ describe("script transform hint realizer", () => {
         BUILTIN_REPAIR_STRATEGY_SOURCES,
         BUILTIN_REPAIR_REALIZERS,
         [{ parsed }],
+        approvedReceipt,
       );
 
     expect(result.status).toBe("realized");
@@ -582,6 +611,7 @@ describe("script transform hint realizer", () => {
         BUILTIN_REPAIR_STRATEGY_SOURCES,
         BUILTIN_REPAIR_REALIZERS,
         [{ parsed }, { parsed }],
+        approvedReceipt,
       );
 
     expect(ambiguous).toMatchObject({
