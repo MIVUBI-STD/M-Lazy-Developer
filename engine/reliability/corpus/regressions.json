@@ -39,7 +39,7 @@
     {
       "id": "reg_build_decode_1_1_0_closed_barrier_blocks_escape_claim",
       "status": "candidate",
-      "sourceRef": "engine/reliability/history/2026-10-05-build-decode-v1.1.0-runtime-feedback.json#closed-barrier-enclosure",
+      "sourceRef": "engine/reliability/history/audit-runs/manual/build-decode-v1.1.0-runtime-feedback-2026-10-05.json#closed-barrier-enclosure",
       "artifactFile": "Build & Decode v1.1.0.mcworld",
       "readiness": {
         "minimizedFixture": "missing",
@@ -56,7 +56,7 @@
     {
       "id": "reg_build_decode_1_1_0_domobspawning_not_manual_spawn_proof",
       "status": "candidate",
-      "sourceRef": "engine/reliability/history/2026-10-05-build-decode-v1.1.0-runtime-feedback.json#systemLessons",
+      "sourceRef": "engine/reliability/history/audit-runs/manual/build-decode-v1.1.0-runtime-feedback-2026-10-05.json#systemLessons",
       "artifactFile": "Build & Decode v1.1.0.mcworld",
       "readiness": {
         "minimizedFixture": "missing",
@@ -73,7 +73,7 @@
     {
       "id": "reg_build_decode_1_1_0_inactive_guard_not_blocking_proof",
       "status": "candidate",
-      "sourceRef": "engine/reliability/history/2026-10-05-build-decode-v1.1.0-runtime-feedback.json#systemLessons",
+      "sourceRef": "engine/reliability/history/audit-runs/manual/build-decode-v1.1.0-runtime-feedback-2026-10-05.json#systemLessons",
       "artifactFile": "Build & Decode v1.1.0.mcworld",
       "readiness": {
         "minimizedFixture": "missing",
@@ -90,7 +90,7 @@
     {
       "id": "reg_build_decode_1_1_0_loading_bounds_not_escape_proof",
       "status": "candidate",
-      "sourceRef": "engine/reliability/history/2026-10-05-build-decode-v1.1.0-runtime-feedback.json#systemLessons",
+      "sourceRef": "engine/reliability/history/audit-runs/manual/build-decode-v1.1.0-runtime-feedback-2026-10-05.json#systemLessons",
       "artifactFile": "Build & Decode v1.1.0.mcworld",
       "readiness": {
         "minimizedFixture": "missing",
@@ -122,7 +122,7 @@
     {
       "id": "reg_defense_async_reset_lease_reuse_race",
       "status": "ready",
-      "sourceRef": "workspace/reports/Defense-Challenge-v1.1.1-BugReport.json",
+      "sourceRef": "engine/reliability/history/audit-runs/real-map-notes/defense-challenge-v1.1.1.md",
       "readiness": {
         "minimizedFixture": "external-verified-artifact",
         "artifactFingerprint": "edb6fa56834279210f85de15637c4a980b9e6e9eafce93bcde5fd1ade9c729ee",
@@ -144,7 +144,7 @@
     {
       "id": "reg_defense_challenge_1_1_1_bug_def_preload_inventory",
       "status": "ready",
-      "sourceRef": "workspace/reports/Defense-Challenge-v1.1.1-BugReport.json",
+      "sourceRef": "engine/reliability/history/audit-runs/real-map-notes/defense-challenge-v1.1.1.md",
       "artifactFile": "Defense Challenge v1.1.1.mcworld",
       "readiness": {
         "minimizedFixture": "external-verified-artifact",
@@ -165,7 +165,7 @@
     {
       "id": "reg_defense_challenge_1_1_1_bug_def_respawn_reconnect",
       "status": "ready",
-      "sourceRef": "workspace/reports/Defense-Challenge-v1.1.1-BugReport.json",
+      "sourceRef": "engine/reliability/history/audit-runs/real-map-notes/defense-challenge-v1.1.1.md",
       "artifactFile": "Defense Challenge v1.1.1.mcworld",
       "readiness": {
         "minimizedFixture": "external-verified-artifact",
@@ -186,7 +186,7 @@
     {
       "id": "reg_defense_challenge_1_1_1_bug_def_wave_retry",
       "status": "ready",
-      "sourceRef": "workspace/reports/Defense-Challenge-v1.1.1-BugReport.json",
+      "sourceRef": "engine/reliability/history/audit-runs/real-map-notes/defense-challenge-v1.1.1.md",
       "artifactFile": "Defense Challenge v1.1.1.mcworld",
       "readiness": {
         "minimizedFixture": "external-verified-artifact",

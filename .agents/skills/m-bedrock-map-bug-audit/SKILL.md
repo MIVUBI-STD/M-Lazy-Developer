@@ -8,6 +8,22 @@ description: >
 
 **Lane:** OPERATIONAL / MAP USE
 
+## Purpose
+
+Inspect one selected Minecraft Bedrock/Education artifact and preserve evidence/unknown boundaries before admitting gameplay defects.
+
+## Entry criteria
+
+Select one exact map artifact and verify its identity; user symptoms prioritize inspection but do not define game-design truth.
+
+## Allowed actions
+
+Inspect the selected artifact read-only, derive evidence-backed gameplay contracts, record Audit Obligations, and report appropriately bounded findings.
+
+## Forbidden actions
+
+Do not patch the target, promote assumptions to proven defects, substitute old versions for current evidence, or invent test receipts.
+
 ## Actual operating environment — ChatGPT-native checker
 
 **No M-Lazy-Developer application has been built or run.** ChatGPT is the actual map checker. Use the current ChatGPT session's accessible files/connectors and analysis tools to examine the selected `.mcworld` directly; use GitHub `Local` as the canonical source/knowledge/reference authority. Do not require Node 24, a local app, npm, a checkout, a runner, CI, an emulator, or PC testing to analyze the map.
@@ -465,7 +481,7 @@ Severity:
 - Major — core gameplay/state/fairness is materially wrong;
 - Minor — limited but real player-visible impact.
 
-## Output Contract
+## Output contract
 
 Primary audit output uses Map Audit Output V2. Approved gameplay findings use Production Bug Report V2. Concrete developer/release work that is not justified as BUG or DESIGN_MISMATCH uses the separate canonical Developer Note lane.
 

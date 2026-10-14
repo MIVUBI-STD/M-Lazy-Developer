@@ -724,7 +724,7 @@ Gameplay Model Closure is `CLOSED` only when:
 
 ## Detection Coverage Assurance
 
-The executable coverage-accounting rules are owned by `detection-coverage-assurance.md`.
+The executable coverage-accounting rules are owned by `master-selected-map-audit-workflow.md`.
 
 Mandatory integration points:
 
@@ -2305,7 +2305,7 @@ The target is the **minimum complete procedure**, not maximum checklist size.
 Developer Notes are part of the canonical audit/report flow, not a parallel scanner.
 
 Authority:
-- `docs/03-analysis/developer-note-coverage.md`
+- `docs/analysis/developer-note-coverage.md`
 
 After gameplay/design proof and before final report publication, route the existing Coverage Ledger through the applicable Developer Note categories.
 
@@ -2341,7 +2341,7 @@ Audit closure now requires both:
 
 ## Proof Escalation requirement
 
-The PROVE lane must enforce the `Proof Escalation Gate` owned by `detection-coverage-assurance.md`.
+The PROVE lane must enforce the `Proof Escalation Gate` owned by `master-selected-map-audit-workflow.md`.
 
 Before any `NEED_VALIDATION` publication:
 
@@ -2368,7 +2368,7 @@ Audit closure targets:
 # Proof Escalation Requirement
 
 Authority:
-- `docs/03-analysis/detection-coverage-assurance.md#proof-escalation-gate`
+- `docs/analysis/master-selected-map-audit-workflow.md#60-proof-promotion-rule`
 
 Within PROVE, a contradiction with a missing claim must pass the Proof Escalation Gate before it can become NEED_VALIDATION.
 
@@ -2403,7 +2403,7 @@ The engine must maximize PROVEN through stronger evidence and proof, never throu
 
 Machine-readable scenario records must conform to `.agents/schemas/multi-scenario-check-ledger.schema.json`. This is the single schema authority for multi-scenario records.
 
-The EVALUATE lane must execute the canonical multi-scenario checks defined in `detection-coverage-assurance.md`.
+The EVALUATE lane must execute the canonical multi-scenario checks defined in `master-selected-map-audit-workflow.md`.
 
 When applicable, use only these canonical check names:
 

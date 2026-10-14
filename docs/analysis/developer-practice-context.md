@@ -15,8 +15,8 @@ for evolving map-developer experience from the user-supplied
 during UNDERSTAND without creating a gameplay contract, runtime fact, defect
 finding, installed agent skill, or new analyzer.
 
-**Machine-readable candidate data:** [Developer practice signals](./developer-practice-signals.json)
-(`docs/analysis/developer-practice-signals.json`).
+**Machine-readable candidate data:** [Developer practice signals](../../experiments/developer-practice-signals.json)
+(`experiments/developer-practice-signals.json`).
 **Original source inventory/provenance:** [ZIP reference](../examples/bedrock-developer-agent-skills-reference.md).
 Stable document identity is this frontmatter `id`; update in place.
 

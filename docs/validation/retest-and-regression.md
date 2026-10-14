@@ -24,7 +24,7 @@ historical defect knowledge → engine/reliability/catalogs/
 benchmark expectations      → engine/reliability/corpus/
 minimal reproducer          → engine/fixtures/regressions/
 execution history           → engine/reliability/history/
-current issue truth         → workspace/reports/
+current issue truth         → workspace/projects/<project>/report/
 ```
 
 Do not create another regression/history owner in docs.

@@ -1,11 +1,44 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, normalize, relative, resolve, sep } from "node:path";
+import ts from "typescript";
 
 const ROOT = process.cwd();
 const SOURCE_ROOTS = ["apps", "engine/packages", "engine/analyzers", "engine/adapters"];
 const LOGICAL_SOURCE_ROOTS = ["apps", "packages", "analyzers", "adapters"];
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs"];
-const IMPORT_RE = /(?:import|export)\s+(?:type\s+)?(?:[^"'()]*?\s+from\s+)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)/g;
+// Derive actual imports from AST, never from text in comments, template strings
+// or generated source examples (which previously produced phantom edges).
+function importSpecifiers(filePath, content) {
+  const kind = filePath.endsWith(".tsx") ? ts.ScriptKind.TSX :
+    /\.[cm]?js$/.test(filePath) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const file = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true, kind);
+  const found = [];
+  const visit = (node) => {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)) {
+      const typeOnly = ts.isImportDeclaration(node)
+        ? (node.importClause?.isTypeOnly === true ||
+           (node.importClause?.namedBindings &&
+            ts.isNamedImports(node.importClause.namedBindings) &&
+            node.importClause.namedBindings.elements.length > 0 &&
+            node.importClause.namedBindings.elements.every(item => item.isTypeOnly)))
+        : node.isTypeOnly;
+      found.push({ specifier: node.moduleSpecifier.text, runtime: !typeOnly });
+    }
+    if (ts.isImportEqualsDeclaration(node) &&
+        ts.isExternalModuleReference(node.moduleReference) &&
+        node.moduleReference.expression && ts.isStringLiteralLike(node.moduleReference.expression)) {
+      found.push({specifier: node.moduleReference.expression.text, runtime: !node.isTypeOnly});
+    }
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        node.arguments.length === 1 && ts.isStringLiteralLike(node.arguments[0])) {
+      found.push({specifier: node.arguments[0].text, runtime: true});
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return found;
+}
 
 function walk(dir) {
   const output = [];
@@ -83,9 +116,7 @@ for (const rootName of SOURCE_ROOTS) {
     if (!moduleGraph.has(fromModule)) moduleGraph.set(fromModule, new Set());
 
     const text = readFileSync(file, "utf8");
-    for (const match of text.matchAll(IMPORT_RE)) {
-      const specifier = match[1] ?? match[2];
-      if (!specifier) continue;
+    for (const {specifier, runtime} of importSpecifiers(file, text)) {
 
       if (!specifier.startsWith(".")) {
         if (!specifier.startsWith("node:")) {
@@ -110,7 +141,9 @@ for (const rootName of SOURCE_ROOTS) {
       }
 
       const toModule = moduleId(target);
-      if (!toModule || toModule === fromModule) continue;
+      // Type-only references contribute to schema validation but not the
+      // runtime module dependency DAG/cycle count.
+      if (!runtime || !toModule || toModule === fromModule) continue;
 
       moduleGraph.get(fromModule).add(toModule);
       const edgeKey = fromModule + " -> " + toModule;

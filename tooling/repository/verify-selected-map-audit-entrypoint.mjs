@@ -70,7 +70,7 @@ const ADMISSION_PATH =
 const PROCEDURE_SUPPORT_PATH =
   "engine/packages/orchestrator/src/inspection/mandatory-audit-support.ts";
 const ROUTING_DOC_PATH =
-  "docs/analysis/map-audit-routing.md";
+  "docs/analysis/README.md";
 
 function requireText(path, fragments) {
   const source = readFileSync(path, "utf8");
@@ -194,7 +194,7 @@ requireText(PROCEDURE_SUPPORT_PATH, [
 ]);
 
 requireText(ROUTING_DOC_PATH, [
-  "This file is a router only. It does not define a second audit workflow.",
+  "there is one canonical semantic procedure",
   "Master Selected-Map Audit Workflow",
 ]);
 

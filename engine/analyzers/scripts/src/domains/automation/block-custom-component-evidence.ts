@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { SourceRef } from "../../../../packages/project-model/src/index.js";
+import type { SourceRef } from "../../../../../packages/project-model/src/index.js";
 
 export type BlockCustomComponentCallback =
   | "onTick"

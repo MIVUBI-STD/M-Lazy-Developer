@@ -6,15 +6,15 @@ import type {
   InventoryLifecycleAnalysis,
 } from "./inventory-lifecycle-analysis.js";
 import type {
-  InventoryPolicyAnalysis,
-} from "../inventory-policy-analysis.js";
+  InventoryContractAnalysis,
+} from "./inventory-contract-analysis.js";
 import type {
   InventoryRestoreOwnershipAnalysis,
 } from "./inventory-restore-ownership-analysis.js";
 
 export function inventoryLifecycleDiagnostics(
   lifecycle: InventoryLifecycleAnalysis,
-  policy: InventoryPolicyAnalysis,
+  policy: InventoryContractAnalysis,
   restore: InventoryRestoreOwnershipAnalysis,
 ): DiagnosticFinding[] {
   const findings: DiagnosticFinding[] = [];
@@ -30,7 +30,7 @@ export function inventoryLifecycleDiagnostics(
         message:
           "One or more statically resolved item-drop paths contradict authored inventory item policy.",
         data: {
-          policyId: policy.policyId,
+          policyId: policy.contractId ?? "unconfigured",
           deniedDrops: policy.deniedDrops,
         },
       }),

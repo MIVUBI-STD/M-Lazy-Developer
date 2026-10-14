@@ -34,7 +34,7 @@ const canonicalRevision = createHash("sha256")
   .digest("hex");
 
 const revisionOwner =
-  "engine/packages/project-model/src/contract-registry-revision.ts";
+  "engine/packages/project-model/src/contracts/contract-registry-revision.ts";
 if (!existsSync(revisionOwner)) {
   console.error(
     "Missing generated contract registry revision owner: " +
@@ -65,6 +65,13 @@ if (revisionMatch[1] !== canonicalRevision) {
 if (registry.schemaVersion !== 1 || !Array.isArray(registry.contracts)) {
   console.error("Invalid contract registry root.");
   process.exit(1);
+}
+
+// Registry stores logical package paths, while source physically lives under engine/.
+// Resolve consistently without rewriting canonical contract identities.
+function physicalPath(path) {
+  return path.startsWith("packages/") || path.startsWith("analyzers/") ||
+    path.startsWith("adapters/") ? "engine/" + path : path;
 }
 
 const ids = new Set();
@@ -159,7 +166,7 @@ for (const contract of registry.contracts) {
     }
 
     for (const root of contract[field]) {
-      if (!existsSync(root)) {
+      if (!existsSync(physicalPath(root))) {
         console.error(
           "Contract " + contract.id + " " + field +
             " root does not exist: " + root,
@@ -180,12 +187,12 @@ for (const contract of registry.contracts) {
   }
   ids.add(contract.id);
 
-  if (!existsSync(contract.owner)) {
+  if (!existsSync(physicalPath(contract.owner))) {
     console.error("Contract " + contract.id + " owner file does not exist: " + contract.owner);
     process.exit(1);
   }
 
-  const ownerText = readFileSync(contract.owner, "utf8");
+  const ownerText = readFileSync(physicalPath(contract.owner), "utf8");
   const escaped = contract.symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const exportPattern = new RegExp("export\\s+(?:type|interface|class|const|function)\\s+" + escaped + "\\b");
   if (!exportPattern.test(ownerText)) {
@@ -194,7 +201,7 @@ for (const contract of registry.contracts) {
   }
 
   if (contract.status === "canonical") {
-    const entrypoint = publicEntrypointForOwner(contract.owner);
+    const entrypoint = publicEntrypointForOwner(physicalPath(contract.owner));
     if (!entrypoint || !existsSync(entrypoint)) {
       console.error(
         "Canonical contract " + contract.id +
@@ -202,7 +209,7 @@ for (const contract of registry.contracts) {
       );
       process.exit(1);
     }
-    if (!isReachableFromEntrypoint(entrypoint, contract.owner)) {
+    if (!isReachableFromEntrypoint(entrypoint, physicalPath(contract.owner))) {
       console.error(
         "Canonical contract " + contract.id + " owner " + contract.owner +
           " is not reachable from " + entrypoint + ".",

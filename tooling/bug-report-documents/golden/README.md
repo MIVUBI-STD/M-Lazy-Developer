@@ -52,10 +52,10 @@ Those belong only to generated report artifacts or explicit approved report data
 ## Repository context
 
 The renderer/report must remain compatible with:
-- `workspace/reports/README.md`
+- `workspace/README.md`
 - `engine/packages/bug-report/PREVIEW.md`
 - `engine/packages/bug-report/COPY.md`
-- `docs/03-analysis/master-selected-map-audit-workflow.md`
-- `docs/03-analysis/mandatory-audit-procedure.md`
+- `docs/analysis/master-selected-map-audit-workflow.md`
+- `docs/analysis/mandatory-audit-procedure.md`
 
 Bug Report V2 remains the approved persisted issue authority. Golden UI owns presentation only.

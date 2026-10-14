@@ -107,6 +107,10 @@ node scripts/score-benchmark.mjs result.json
 
 Result classes: pass, false-negative, false-positive, semantic-mismatch, evidence-insufficient, runtime-proof-required, fixture-invalid.
 
+## Output contract
+
+Produce a frozen-expectation comparison with TP/TN/FP/FN classification when ground truth supports it; include denominators, artifact identity, proof tier, scoring limits and next-action ownership. Otherwise return UNSCORABLE without manufacturing metrics.
+
 ## Handoff
 
 Reusable mismatch → bounded handoff to m-bedrock-detection-development. Never auto-resume Map Bug Audit.
