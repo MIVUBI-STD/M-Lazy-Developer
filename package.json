@@ -56,7 +56,6 @@
     "audit": "tsx apps/cli/src/audit.ts"
   },
   "dependencies": {
-    "@8crafter/leveldb-zlib": "1.6.0",
     "@zip.js/zip.js": "2.17.0",
     "fast-check": "4.10.2",
     "prismarine-nbt": "^2.7.0",
@@ -74,5 +73,8 @@
   "allowScripts": {
     "@8crafter/leveldb-zlib@1.6.0": true,
     "esbuild@0.28.2": true
+  },
+  "optionalDependencies": {
+    "@8crafter/leveldb-zlib": "1.6.0"
   }
 }

@@ -243,6 +243,14 @@ if (
   process.exit(1);
 }
 
+if (
+  JSON.stringify(sortedRecord(lockRoot.optionalDependencies)) !==
+  JSON.stringify(sortedRecord(pkg.optionalDependencies))
+) {
+  console.error("package-lock.json optional runtime dependencies are out of sync with package.json.");
+  process.exit(1);
+}
+
 for (const pattern of ["*.mcworld", "*.mcpack", "*.mcaddon"]) {
   const tracked = execFileSync("git", ["ls-files", pattern], { encoding: "utf8" }).trim();
   if (tracked) {

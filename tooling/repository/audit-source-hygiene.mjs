@@ -170,7 +170,11 @@ if (aliasesJsonOnly) {
 }
 
 const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
-const declaredRuntime = Object.keys(pkg.dependencies ?? {}).sort();
+const declaredRuntime = Object.keys({
+  ...(pkg.dependencies ?? {}),
+  ...(pkg.optionalDependencies ?? {}),
+}).sort();
+const declaredOptional = Object.keys(pkg.optionalDependencies ?? {}).sort();
 const declaredDev = Object.keys(pkg.devDependencies ?? {}).sort();
 
 console.log("Source hygiene audit (report-only)");
@@ -232,6 +236,10 @@ console.log("Declared runtime dependencies with no production import:");
 for (const name of declaredRuntime.filter((name) => !externalUsage.has(name))) {
   console.log("  " + name);
 }
+
+console.log("");
+console.log("Declared optional runtime dependencies:");
+for (const name of declaredOptional) console.log("  " + name);
 
 console.log("");
 console.log("Declared dev dependencies:");

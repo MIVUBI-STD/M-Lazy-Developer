@@ -60,7 +60,7 @@ Execution levels must remain distinct: (1) exact GitHub source and selected `.mc
 
 ### Native world DB loading boundary
 
-The canonical Bedrock LevelDB adapter keeps `openBedrockLevelDbSnapshot()` as its only native-reader entrypoint. The `@8crafter/leveldb-zlib` import happens **inside that asynchronous operation**, not at module evaluation time. Importing scripts, parser contracts, the orchestrator source or LevelDB structural helpers must not itself require a compiled native addon. This change does not install any dependency or create an alternate inspection engine.
+The canonical Bedrock LevelDB adapter keeps `openBedrockLevelDbSnapshot()` as its only native-reader entrypoint. `@8crafter/leveldb-zlib@1.6.0` is declared as an **optional runtime dependency**: on a compatible machine it remains the original native LevelDB reader; when its compiled binding cannot be installed it must not prevent package installation of the rest of the source-analysis toolchain. The `@8crafter/leveldb-zlib` import happens **inside that asynchronous operation**, not at module evaluation time. Importing scripts, parser contracts, the orchestrator source or LevelDB structural helpers must not itself require a compiled native addon. This change does not install any dependency or create an alternate inspection engine.
 
 A requested native DB scan still requires the addon, and an unavailable/incompatible binding returns the existing `WorldDbNativeSummary.status = "failed"` with `actorContentComplete = false`. `inspectArtifact()` propagates failed scan into `nativeWorldScanIncomplete`/discovery closure; callers must not report world/chunk/actor coverage as scanned or claim FORMALIZE/EVALUATE closure from source-only evidence. Absence of the `db/` directory is separately `not-present`, not a successful scan.
 
@@ -115,7 +115,7 @@ This is an optional stronger-proof path. It does not define whether ChatGPT remo
 
 ## Dependency execution policy
 
-Production source may import external packages only when they are declared in `dependencies`; test/build-only packages belong in `devDependencies`.
+Production source may import external packages declared in `dependencies` or `optionalDependencies`; a package in `optionalDependencies` must be loaded at the point of use and unavailable-package errors must produce explicit UNKNOWN/failed coverage, never successful evidence. Test/build-only packages belong in `devDependencies`.
 
 Install scripts are deny-by-default under npm's script policy and approved explicitly by exact locked version in `package.json#allowScripts`. The current approved native/build hooks are `@8crafter/leveldb-zlib@1.6.0` and `esbuild@0.28.2`.
 

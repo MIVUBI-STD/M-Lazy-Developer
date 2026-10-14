@@ -168,9 +168,10 @@ const fanIn = [...fanInCounts.entries()]
 const packageJson = JSON.parse(
   readFileSync(resolve(ROOT, "package.json"), "utf8"),
 );
-const runtimeDependencies = new Set(
-  Object.keys(packageJson.dependencies ?? {}),
-);
+const runtimeDependencies = new Set([
+  ...Object.keys(packageJson.dependencies ?? {}),
+  ...Object.keys(packageJson.optionalDependencies ?? {}),
+]);
 const devDependencies = new Set(
   Object.keys(packageJson.devDependencies ?? {}),
 );
