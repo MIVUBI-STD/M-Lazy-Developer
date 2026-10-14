@@ -485,6 +485,50 @@ describe("arena authority evidence", () => {
     }
   });
 
+  it("rejects computed-key capacity overrides for mapped and direct constructor configs", () => {
+    const generated = (value: string) => [
+      "const configs = [0, 1].map((id) => (" + value + "));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(player), true); }",
+      "};",
+      "const party = new Party(configs[0]);",
+      "party.join('one');",
+    ].join("\n");
+    const direct = (value: string) => [
+      "class Party {",
+      "  constructor(definition) { this.definition = definition; this.members = []; }",
+      "  join(player) { return this.members.length >= this.definition.maxPlayers",
+      "    ? false : (this.members.push(player), true); }",
+      "}",
+      "const party = new Party(" + value + ");",
+      "party.join('one');",
+    ].join("\n");
+    for (const makeSource of [generated, direct]) {
+      const safe = parseScriptFile("static-properties", makeSource(
+        "{maxPlayers: 5, id: 1}"
+      ), source);
+      expect(safe.arenaAuthorityPaths?.find((path) =>
+        path.capacityAuthorityProven
+      )?.capacityCheck?.resolvedCapacityValue).toBe(5);
+
+      for (const config of [
+        '{maxPlayers: 5, ["maxPlayers"]: 9}',
+        '{maxPlayers: 5, ["max" + "Players"]: 9}',
+        '{maxPlayers: 5, ["other"]: 9}',
+      ]) {
+        const parsed = parseScriptFile(
+          "computed-properties", makeSource(config), source,
+        );
+        expect(parsed.arenaAuthorityPaths?.some((path) =>
+          path.capacityCheck?.resolvedCapacityValue !== undefined
+        )).toBe(false);
+      }
+    }
+  });
+
   it("does not turn recovery-only over-capacity validation into an admission guard", () => {
     const parsed = parseScriptFile("recovery-only", [
       "var definitions = [0, 1].map((id) => ({maxPlayers: 5}));",

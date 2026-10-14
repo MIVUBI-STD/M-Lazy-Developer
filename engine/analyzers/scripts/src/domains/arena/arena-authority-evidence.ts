@@ -720,7 +720,12 @@ function staticConstructorCapacity(
         if (properties.length !== 1 ||
             !property || !ts.isPropertyAssignment(property) ||
             !ts.isNumericLiteral(property.initializer) ||
-            !arg.properties.every(ts.isPropertyAssignment)) {
+            // Computed keys can overwrite maxPlayers at runtime, even
+            // when an earlier literal numeric property appears canonical.
+            !arg.properties.every((candidate) =>
+              ts.isPropertyAssignment(candidate) &&
+              (ts.isIdentifier(candidate.name) ||
+                ts.isStringLiteralLike(candidate.name)))) {
           valid=false;
         } else {
           const value=Number(property.initializer.text);
@@ -902,9 +907,14 @@ function mappedConstructorCapacity(
       const returned = ts.isParenthesizedExpression(result)
         ? result.expression : result;
       if (!ts.isObjectLiteralExpression(returned) ||
+          // Computed names can evaluate to the same numeric capacity key
+          // (e.g. {maxPlayers:5, ["maxPlayers"]:9}). Unknown keys must
+          // not be promoted as uniform authored configuration.
           !returned.properties.every((p) =>
-            ts.isPropertyAssignment(p) ||
-            ts.isShorthandPropertyAssignment(p))) continue;
+            (ts.isPropertyAssignment(p) ||
+              ts.isShorthandPropertyAssignment(p)) &&
+            (ts.isIdentifier(p.name) ||
+              ts.isStringLiteralLike(p.name)))) continue;
       // A shorthand of the same capacity key is also a duplicate and
       // prevents inferring that the numeric property is authoritative.
       const props = returned.properties.filter((p) =>

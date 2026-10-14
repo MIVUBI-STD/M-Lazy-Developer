@@ -513,6 +513,45 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.evidence.unresolvedRosterCapacityPaths).toBe(1);
   });
 
+  it("does not promote computed-key constructor overrides into B3/B5 numeric proof", () => {
+    for (const config of [
+      '{maxPlayers:5, ["maxPlayers"]:9}',
+      '{maxPlayers:5, ["max" + "Players"]:9}',
+    ]) {
+      for (const mapped of [false, true]) {
+        const sourceText = mapped
+          ? [
+              "const configs = [0, 1].map((id) => (" + config + "));",
+              "var Party = class {",
+              "  constructor(definition) { this.definition = definition; }",
+              "  join(player) { return this.members.length >= this.definition.maxPlayers",
+              "    ? false : (this.members.push(player), true); }",
+              "};",
+              "const party = new Party(configs[0]);",
+              "party.join('one');",
+            ].join("\n")
+          : [
+              "class Party {",
+              "  constructor(definition) { this.definition = definition; this.members = []; }",
+              "  join(player) { return this.members.length >= this.definition.maxPlayers",
+              "    ? false : (this.members.push(player), true); }",
+              "}",
+              "const party = new Party(" + config + ");",
+              "party.join('one');",
+            ].join("\n");
+        const script = parseScriptFile(
+          "computed-key", sourceText,
+          { artifactId: "fixture", relativePath: "scripts/computed-key.js" },
+        );
+        const result = extractArenaConcurrencyCapacity({
+          tickingAreas: [], scripts: [script], declaredArenaCount: 2,
+        });
+        expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+        expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+      }
+    }
+  });
+
   it("does not convert a guarded but unresolved config property into numeric capacity", () => {
     const script = {
       arenaAuthorityPaths: [{

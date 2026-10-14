@@ -1,3 +1,15 @@
+## FORMALIZE numeric constructor property shadowing (2026-10-14)
+
+**Finding:** Two existing source producers, `staticConstructorCapacity()` and `mappedConstructorCapacity()`, could consider `{maxPlayers:5, ["maxPlayers"]:9}` a certain 5-player capacity. TypeScript AST inspection of the original predicate and actual JavaScript object evaluation reproduced this mismatch (synthetic fixture: old admission true, runtime 9). Dynamic computed names and unrelated computed property assignments are now rejected rather than promoted to a numeric source. A strictly literal `{maxPlayers:5, id:1}` remains eligible; this is a generic JS soundness fix, not a map-specific signature.
+
+**Implementation:** Updated the existing `arena-authority-evidence.ts` canonical producers only. Added both positive and negative scenarios to the existing `parseScriptFile` tests and negative parser-to-`extractArenaConcurrencyCapacity()` B3/B5 regression coverage. No new engine, parser, manager, workflow or route was created.
+
+**Executed proof:** Node 22.16.0 / TypeScript 5.8.3, standalone AST predicate and real JavaScript object evaluation confirmed the falsifying example. Seven out of seven isolated *proposed predicate* cases passed. Original full-repository `parseScriptFile`, Vitest, whole-tree TypeScript, archive transport, LevelDB and `runSelectedMapAudit` were **NOT EXECUTED**. FORMALIZE B3/B5 and downstream EVALUATE/PROVE/REPORT acceptance remain **BLOCKED**; neither the runtime value nor a static numeric source can be projected as a tested player cap.
+
+**Next:** Preserve the semantic guard and execute the exact owning producer function with a Git-SHA-verifiable complete dependency slice if available. Then exercise original `parseScriptFile` and extractor against preserved real map sources with the authentic repo test toolchain, recording verified/proven/unknown separately.
+
+---
+
 ## FORMALIZE mapped constructor provenance hardening — 2026-10-14
 
 **Scope:** Existing canonical `engine/analyzers/scripts/src/domains/arena/arena-authority-evidence.ts` and its existing Vitest tests; no new parser, runner, detector or map-specific rule.
