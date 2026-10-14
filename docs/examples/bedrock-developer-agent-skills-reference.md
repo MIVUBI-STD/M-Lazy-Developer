@@ -37,7 +37,7 @@ The source ZIP was inspected as data. No installer, checker script, imported
 **not copied into GitHub**. All paths below are locators **inside that exact
 uploaded ZIP**. The separately routed [Developer-Practice Interpretation
 Reference](../analysis/developer-practice-context.md) and its linked
-`developer-practice-signals.json` provide the deliberately noncanonical,
+`experiments/developer-practice-signals.json` provide the deliberately noncanonical,
 machine-readable intake for selectively useful design-interpretation hints.
 Future updates to the material require an updated source or
 an independently located verified upstream. Git history tracks changes to
