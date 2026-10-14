@@ -48,9 +48,6 @@ function storeStub() {
   return {
     listReports: vi.fn(async () => []),
     loadReport: vi.fn(),
-    createReport: vi.fn(async () => ({
-      revision: "created",
-    })),
     saveReport: vi.fn(),
     completeClosedRepair: vi.fn(async () => ({ revision: "closed" })),
   } as unknown as GitHubBugReportStore;
@@ -74,7 +71,7 @@ describe("bug report handler", () => {
     );
 
     expect(response.status).toBe(404);
-    expect(store.createReport).not.toHaveBeenCalled();
+    expect(store.saveReport).not.toHaveBeenCalled();
   });
 
 

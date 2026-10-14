@@ -109,19 +109,20 @@ describe("Golden Bug Tracker renderer", () => {
 
   it("preserves unknown information as absent UI instead of inventing content", () => {
     const level = fixture.games[0]!.levels[0]!;
+    const sparseIssue = {
+      ...level.issues[0]!,
+      reproduction: [],
+      observed: "",
+      expected: "",
+    };
+    delete sparseIssue.resolution;
     const sparse: BugTrackerDocument = {
       ...fixture,
       games: [{
         ...fixture.games[0]!,
         levels: [{
           ...level,
-          issues: [{
-            ...level.issues[0]!,
-            reproduction: [],
-            observed: "",
-            expected: "",
-            resolution: undefined,
-          }],
+          issues: [sparseIssue],
         }],
       }],
     };

@@ -48,12 +48,15 @@ describe("Bug Tracker information quality", () => {
 
   it("reports missing information without inventing replacements", () => {
     const sparse: TrackerIssue = {
-      ...baseIssue,
+      id: baseIssue.id,
+      type: baseIssue.type,
+      severity: baseIssue.severity,
+      verification: baseIssue.verification,
+      title: baseIssue.title,
+      issue: baseIssue.issue,
       reproduction: [],
       observed: "",
       expected: "",
-      resolution: undefined,
-      technicalAnalysis: undefined,
     };
     expect(auditBugTrackerInformation(document(sparse)).map((x) => x.code)).toEqual([
       "NO_TEST_STEPS",
