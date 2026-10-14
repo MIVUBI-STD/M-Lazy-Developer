@@ -10,6 +10,7 @@ import {
 import {
   recordRepairStrategySelection,
 } from "../../src/workflow/decision-ledger-recording.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 function source(relativePath: string) {
   return { artifactId: "art-1", relativePath };
@@ -22,6 +23,7 @@ function transaction(
   return createPatchTransaction({
     title,
     sourceFingerprint: "source",
+    authorization: fixtureRepairAuthorization("source"),
     operations: [{
       kind: "replace-text",
       source: source(relativePath),
@@ -349,6 +351,7 @@ describe("repair strategy selection", () => {
     const fewNodesMoreOps = createPatchTransaction({
       title: "few-nodes-more-ops",
       sourceFingerprint: "source",
+      authorization: fixtureRepairAuthorization("source"),
       operations: [{
         kind: "replace-text",
         source: source("functions/caller.mcfunction"),
@@ -801,6 +804,7 @@ describe("repair strategy selection", () => {
     const bigger = createPatchTransaction({
       title: "bigger-causal-fix",
       sourceFingerprint: "source",
+      authorization: fixtureRepairAuthorization("source"),
       operations: [{
         kind: "replace-text",
         source: source("functions/target.mcfunction"),

@@ -10,6 +10,7 @@ import type {
 import {
   evaluateRuntimeClassifiedRepairPipeline,
 } from "../../src/index.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 function source(relativePath: string) {
   return {
@@ -62,6 +63,7 @@ function fixture() {
   const transaction = createPatchTransaction({
     title: "demo",
     sourceFingerprint: "abc",
+    authorization: fixtureRepairAuthorization("abc"),
     operations: [{
       kind: "replace-text",
       source: source(

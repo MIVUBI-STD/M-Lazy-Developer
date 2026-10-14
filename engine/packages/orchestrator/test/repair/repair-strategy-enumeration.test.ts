@@ -24,6 +24,7 @@ import {
   type RepairStrategyProviderRegistry,
   type RepairStrategySourceRegistry,
 } from "../../src/index.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 const source = {
   artifactId: "art-1",
@@ -215,6 +216,7 @@ function transaction(title: string, fingerprint = "source-a") {
   return createPatchTransaction({
     title,
     sourceFingerprint: fingerprint,
+    authorization: fixtureRepairAuthorization(fingerprint),
     operations: [{
       kind: "replace-text",
       source,
@@ -337,6 +339,7 @@ describe("repair strategy enumeration and realization", () => {
     const wrongSourceTx = createPatchTransaction({
       title: "wrong source",
       sourceFingerprint: "source-a",
+      authorization: fixtureRepairAuthorization("source-a"),
       operations: [{
         kind: "replace-text",
         source: {
@@ -589,6 +592,7 @@ describe("repair strategy enumeration and realization", () => {
     const changedTx = createPatchTransaction({
       title: "different validation",
       sourceFingerprint: "source-a",
+      authorization: fixtureRepairAuthorization("source-a"),
       operations: [{
         kind: "replace-text",
         source,

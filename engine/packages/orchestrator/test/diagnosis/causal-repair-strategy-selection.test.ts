@@ -11,6 +11,7 @@ import type {
 import {
   selectRepairStrategyForIncident,
 } from "../../src/diagnosis/causal-repair-strategy-selection.js";
+import { fixtureRepairAuthorization } from "../../../repair/test/fixture-authorization.js";
 
 function source(relativePath: string) {
   return { artifactId: "art-1", relativePath };
@@ -128,6 +129,7 @@ function fixture() {
   const transaction = createPatchTransaction({
     title: "fix ready",
     sourceFingerprint: "source",
+    authorization: fixtureRepairAuthorization("source"),
     operations: [{
       kind: "replace-text",
       source: source("functions/target.mcfunction"),
