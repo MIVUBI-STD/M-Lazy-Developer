@@ -2357,13 +2357,21 @@ export function parseScriptFile(
     return undefined;
   };
 
-  const STATE_TARGET_PATTERN = /(?:^|[_$.-])(state|status|phase|stage|mode)(?:$|[_$.-])/i;
+  const STATE_TARGET_PATTERN =
+    /(?:^|[_$.-])(?:state|status|phase|stage|mode)(?:$|[_$.-])/i;
+  // Ordinary JavaScript camelCase state owners (e.g. residencyState)
+  // also qualify. Preserve word boundaries: statement or estate must not.
+  const CAMEL_CASE_STATE_TARGET_PATTERN =
+    /(?:State|Status|Phase|Stage|Mode)(?:$|[A-Z_$.-])/;
+  const isStateTargetName = (name: string): boolean =>
+    STATE_TARGET_PATTERN.test(name) ||
+    CAMEL_CASE_STATE_TARGET_PATTERN.test(name);
 
   const stateMutationTarget = (
     expression: ts.Expression,
   ): { target: string; targetName: string } | undefined => {
     if (ts.isIdentifier(expression)) {
-      if (!STATE_TARGET_PATTERN.test(expression.text)) return undefined;
+      if (!isStateTargetName(expression.text)) return undefined;
       return {
         target: expression.text,
         targetName: expression.text,
@@ -2372,7 +2380,7 @@ export function parseScriptFile(
     if (ts.isPropertyAccessExpression(expression)) {
       const target = expression.getText(file);
       const targetName = expression.name.text;
-      if (!STATE_TARGET_PATTERN.test(targetName)) return undefined;
+      if (!isStateTargetName(targetName)) return undefined;
       return { target, targetName };
     }
     return undefined;

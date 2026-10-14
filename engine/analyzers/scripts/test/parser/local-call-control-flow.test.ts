@@ -68,6 +68,36 @@ describe("local function call control flow", () => {
       .toEqual(expected);
   });
 
+  it("keeps camelCase state mutations and rejects incidental state substrings", () => {
+    const parsed = parseScriptFile(
+      "main",
+      [
+        'let residencyState = "RESIDENT";',
+        'let roundStatus = "OPEN";',
+        'let gamePhase = "WAITING";',
+        'let statement = "none";',
+        'let estate = "private";',
+        'world.afterEvents.entityRemove.subscribe(() => {',
+        '  residencyState = "DEAD";',
+        '  roundStatus = "CLOSED";',
+        '  gamePhase = "ENDED";',
+        '  statement = "DEAD";',
+        '  estate = "DEAD";',
+        '});',
+      ].join("\n"),
+      { artifactId: "fixture", relativePath: "scripts/main.ts" },
+    );
+    const event = parsed.events.find((item) => item.event === "entityRemove");
+    expect(event?.callbackRegion).toBeDefined();
+    const writes = parsed.stateMutations?.filter(
+      (item) => item.executionRegion === event?.callbackRegion,
+    ) ?? [];
+    expect(writes.map((item) => item.targetName).sort()).toEqual([
+      "gamePhase", "residencyState", "roundStatus",
+    ]);
+    expect(writes.every((item) => item.value.kind === "literal")).toBe(true);
+  });
+
   it("respects else-only exits and refuses nested uncertain exits", () => {
     const source = { artifactId: "artifact:flow", relativePath: "scripts/branch.ts" };
     const parsed = parseScriptFile("branch", [
