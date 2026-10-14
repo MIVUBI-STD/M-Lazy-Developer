@@ -433,7 +433,7 @@ describe("cross-file call resolution", () => {
     expect(calls).toEqual([expect.objectContaining({
       status: "resolved",
       localName: "DatabaseService.init",
-      targetRegion: expect.stringMatching(/^function:DatabaseService\\.init@/),
+      targetRegion: expect.stringMatching(/^function:DatabaseService\.init@/),
     })]);
     const parsed = parseScriptFile(service.path, service.text, source);
     expect(parsed.sourceClassMethods).toEqual(expect.arrayContaining([

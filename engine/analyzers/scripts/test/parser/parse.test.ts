@@ -937,12 +937,12 @@ class Session {
 
     expect(parsed.returnOutcomes).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        executionRegion: "function:decideReconnect",
+        executionRegion: expect.stringMatching(/^function:Session\.decideReconnect@/),
         propertyName: "kind",
         value: "cleanup",
       }),
       expect.objectContaining({
-        executionRegion: "function:decideReconnect",
+        executionRegion: expect.stringMatching(/^function:Session\.decideReconnect@/),
         propertyName: "kind",
         value: "resume",
       }),
@@ -950,12 +950,12 @@ class Session {
 
     expect(parsed.guardedOutcomes).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        executionRegion: "function:decideReconnect",
+        executionRegion: expect.stringMatching(/^function:Session\.decideReconnect@/),
         propertyName: "kind",
         value: "cleanup",
       }),
       expect.objectContaining({
-        executionRegion: "function:decideReconnect",
+        executionRegion: expect.stringMatching(/^function:Session\.decideReconnect@/),
         propertyName: "kind",
         value: "resume",
         predicate: expect.objectContaining({

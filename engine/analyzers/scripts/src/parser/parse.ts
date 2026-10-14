@@ -454,7 +454,7 @@ function hasPriorPossibleFunctionExit(
   let current: ts.Node | undefined = node;
 
   while (current?.parent) {
-    const parent = current.parent;
+    const parent: ts.Node = current.parent;
 
     if (
       ts.isBlock(parent) &&
@@ -2102,8 +2102,9 @@ export function parseScriptFile(
     derivePersistentReconciliationEvidence(text, source);
   // A module-level name is safe to resolve only if its binding is unique.
   const moduleBindings = new Map<string, number>();
-  const addBinding = (name: string): void =>
+  const addBinding = (name: string): void => {
     moduleBindings.set(name, (moduleBindings.get(name) ?? 0) + 1);
+  };
   for (const statement of file.statements) {
     if (ts.isFunctionDeclaration(statement) && statement.name) {
       addBinding(statement.name.text);
@@ -2701,6 +2702,7 @@ export function parseScriptFile(
       const module = literalModule ??
         (specifier?.getText(file).slice(0, 240) ??
           "<missing dynamic import expression>");
+      const dynamicImportSequence = sourceSequentialSite(node, file, source);
       imports.push({
         module,
         kind: literalModule !== undefined
@@ -2712,8 +2714,8 @@ export function parseScriptFile(
         executionRegion: localExecutionRegionId(node, file),
         lexicalGuards: lexicalBranchGuards(node, file, source),
         precedenceGuards: precedingEarlyExitGuards(node, file, source),
-        ...(sourceSequentialSite(node, file, source) === undefined ? {} : {
-          sourceSequence: sourceSequentialSite(node, file, source),
+        ...(dynamicImportSequence === undefined ? {} : {
+          sourceSequence: dynamicImportSequence,
         }),
       });
     }
@@ -2935,10 +2937,11 @@ export function parseScriptFile(
       const target = localCallableDeclarations.get(node.expression.text)!;
       const bindings = inferExactCallArgumentParameterBindings(
         node, file, source,
-        { parameters: target.parameters, body: target.body! },
+        { region: "function:" + node.expression.text, parameters: target.parameters, body: target.body! },
         file, source);
       const lexicalGuards = lexicalBranchGuards(node, file, source);
       const precedenceGuards = precedingEarlyExitGuards(node, file, source);
+      const localCallSequence = sourceSequentialSite(node, file, source);
       localFunctionCalls.push({
         callerRegion: localExecutionRegionId(node, file),
         targetRegion: "function:" + node.expression.text,
@@ -2949,8 +2952,8 @@ export function parseScriptFile(
         lexicalGuards,
         precedenceGuards,
         source: lineSource(file, node, source),
-        ...(sourceSequentialSite(node, file, source) === undefined ? {} : {
-          sourceSequence: sourceSequentialSite(node, file, source),
+        ...(localCallSequence === undefined ? {} : {
+          sourceSequence: localCallSequence,
         }),
       });
     }
@@ -2969,10 +2972,11 @@ export function parseScriptFile(
         const target = targets.length === 1 ? targets[0] : undefined;
         const bindings = target
           ? inferExactCallArgumentParameterBindings(node, file, source,
-              {parameters:target.parameters,body:target.body!},file,source)
+              {region:sourceMethodRegion(target, file),parameters:target.parameters,body:target.body!},file,source)
           : [];
         const lexicalGuards = lexicalBranchGuards(node, file, source);
         const precedenceGuards = precedingEarlyExitGuards(node, file, source);
+        const methodCallSequence = sourceSequentialSite(node, file, source);
         if (target) localFunctionCalls.push({
           callerRegion: localExecutionRegionId(node, file),
           targetRegion: sourceMethodRegion(target, file),
@@ -2984,8 +2988,8 @@ export function parseScriptFile(
           lexicalGuards,
           precedenceGuards,
           source: lineSource(file, node, source),
-          ...(sourceSequentialSite(node, file, source) === undefined ? {} : {
-            sourceSequence: sourceSequentialSite(node, file, source),
+          ...(methodCallSequence === undefined ? {} : {
+            sourceSequence: methodCallSequence,
           }),
         });
       }
@@ -3044,7 +3048,9 @@ export function parseScriptFile(
             : namedScheduledCallback
               ? {
                   callbackRegion: "function:" + namedScheduledCallback,
-                  callbackSource: topLevelCallbackSources.get(namedScheduledCallback),
+                  ...(topLevelCallbackSources.get(namedScheduledCallback) === undefined ? {} : {
+                    callbackSource: topLevelCallbackSources.get(namedScheduledCallback)!,
+                  }),
                 }
               : {}),
           guardEvidence: guardIdentifiers.length > 0
@@ -3053,7 +3059,9 @@ export function parseScriptFile(
           guardIdentifiers,
           ...(generationGuard === undefined ? {} : {
             generationGuardSource: generationGuard.guardSource,
-            generationGuardOperands: generationGuard.operands,
+            ...(generationGuard.operands === undefined ? {} : {
+              generationGuardOperands: generationGuard.operands,
+            }),
           }),
           ...(delayTicks === undefined
             ? {}
@@ -3126,7 +3134,9 @@ export function parseScriptFile(
               : namedEventCallback
                 ? {
                     callbackRegion: "function:" + namedEventCallback,
-                    callbackSource: topLevelCallbackSources.get(namedEventCallback),
+                    ...(topLevelCallbackSources.get(namedEventCallback) === undefined ? {} : {
+                      callbackSource: topLevelCallbackSources.get(namedEventCallback)!,
+                    }),
                   }
                 : {}),
             source: eventSource,
