@@ -1,3 +1,17 @@
+## ChatGPT toolchain preflight and exact proof ceiling (2026-10-14)
+
+**Purpose:** Close the source-level Node/npm compatibility issues before resuming canonical selected-map FORMALIZE. Existing GitHub and ChatGPT are the only authorized development tools; there is no new runner, second parser, cloud service or mandatory user-PC step. `Local` remains the active authority.
+
+**Applied:** Node 22.16.0 and npm 10.9.2 remain pinned. `@types/node` is now exactly 22.15.30 with verified package SRI and its `undici-types@6.21.0` lock dependency. `@8crafter/leveldb-zlib` remains optional/lazy; native DB coverage stays FAILED/UNKNOWN when unavailable. Remove ineffective npm 10 `allowScripts` metadata. Both manual GitHub workflows and optional `DEV.cmd setup` now use `npm ci --ignore-scripts --no-audit --no-fund`, retaining optional esbuild binaries. Windows setup explicitly fails on a non-zero npm exit code. The existing repository policy verifier rejects version/install-mode drift. The manual portable snapshot workflow verifies the esbuild helper, preserves commit/lockfile provenance, and retains an artifact for seven days.
+
+**Proof in this ChatGPT session:** authenticated exact-HEAD GitHub readback confirmed manifest/lockfile/toolchain/workflow/Windows/doc alignment and published integrity strings. The locally available npm 10.9.2 command was exercised against a deliberately local fixture: `npm ci --ignore-scripts --offline` did not execute its install lifecycle hook. No source archive or locked `node_modules` was mounted, and no full-repo `npm ci`, `tsc`, Vitest, `runSelectedMapAudit()`, or live Minecraft was executed. The GitHub Actions workflows are `workflow_dispatch` only; no new exact-HEAD run was triggered or asserted.
+
+**Remaining bounded blocker:** Make a *supported, authenticated* exact-commit `lazy-developer-portable` artifact handoff available to the ChatGPT working filesystem; check artifact commit and lock SHA before any full execution claim. A GitHub artifact listing or connector file reference alone does not establish a mounted checkout. The source-only preflight may be accepted as complete without falsely promoting integrated runtime acceptance.
+
+**Next canonical work:** exercise the existing original-source `mappedConstructorCapacity()` and its extractor wiring using actual available ChatGPT execution evidence; keep Defense and Pillager joins UNKNOWN where source provenance/constructor escapes remain unresolved. Only then attempt FORMALIZE B3/B5 and downstream EVALUATE/PROVE/REPORT acceptance against SHA-pinned original maps. Do not hardcode samples or create a parallel detector.
+
+---
+
 ## Bounded uniform mapped capacity source join (2026-10-14)
 
 **Work:** reusable arena capacity binding via same-source `.map()` generator → class-expression constructor → membership guard. **Scope:** existing `arena-authority-evidence.ts` only, consumed by the current extractor/B3/B5; no second parser/manager.

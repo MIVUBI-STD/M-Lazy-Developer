@@ -232,7 +232,8 @@ if (!requiredNpmVersion || pkg.packageManager !== `npm@${requiredNpmVersion}`) {
 }
 
 const windowsSetup = readFileSync("tooling/windows-toolchain/dev.ps1", "utf8");
-if (!windowsSetup.includes("npm ci --ignore-scripts --no-audit --no-fund")) {
+if (!windowsSetup.includes("npm ci --ignore-scripts --no-audit --no-fund") ||
+    !windowsSetup.includes("Script-free npm ci failed (exit code $LASTEXITCODE).")) {
   console.error("DEV.cmd setup must use script-free npm 10 installs.");
   process.exit(1);
 }

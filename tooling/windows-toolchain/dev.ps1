@@ -47,6 +47,7 @@ try {
                 throw "package-lock.json is required by repository policy."
             }
             npm ci --ignore-scripts --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "Script-free npm ci failed (exit code $LASTEXITCODE)." }
         }
         "doctor" {
             $toolchain = Get-Content "toolchain.json" -Raw | ConvertFrom-Json
