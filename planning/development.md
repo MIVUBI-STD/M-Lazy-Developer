@@ -1,3 +1,13 @@
+## Analysis-phase and gameplay-intent source contract batch (2026-10-14)
+
+**Executed in ChatGPT against the original locked project:** Full `tsc --noEmit` errors decreased from **501 to 480** after aligning analysis-planner test fixtures to the required `executionPhase`, importing the canonical `ScriptTerminalPrecedenceEvidence` type, correcting stale domain metric fields, and deriving `bundledExecutable` from a selected JS source path before evaluating minified predicates. The original JS gameplay-intent implementation previously threw `ReferenceError: bundledExecutable is not defined`; this particular failure is fixed.
+
+**Regression:** planner, analysis capability registry and context compiler: **25/25 PASS** across three source test files. Broader gameplay-intent run: 21/30 PASS, 9/30 FAIL due to source semantic classification/owner identity differences; full `arena-lifecycle-analysis` has six existing failures. Do not call full suite PASS or mask semantic failures by loosening tests. The context compiler fixture was updated to the canonical metric property names, keeping nonzero domain signals and the explicit zero persistence signal.
+
+**Remaining:** **480** compiler errors, further semantic tests and full Vitest completion. Full typecheck still FAILS. Continue resolving source-owner contracts without creating a second parser or fabricating game-runtime evidence.
+
+---
+
 ## Executable strict contract repair batch (2026-10-14)
 
 **Source identity:** The ChatGPT runtime was unpacked from the GitHub artifact representing exact Local SHA `a9432bb195d845ee5888dc90fec4dbee75adb74a` (Node 22.16.0, npm 10.9.2, TypeScript 5.8.3, locked dependencies; archive and lockfile SHA-256 verified). After applying eleven source-owner fixes, `npm run typecheck` changed from **529** errors to **501** errors. Both results are actual full-tree compiler executions; **typecheck still FAILS**.

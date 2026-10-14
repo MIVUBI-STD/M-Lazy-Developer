@@ -654,8 +654,8 @@ describe("context compiler", () => {
         combat: {
           hurtOnlyTerminalRisk: 0,
           policy: {
-            revivePolicyContradictions: 1,
-            projectileCleanupPolicyGap: 0,
+            reviveContractContradictions: 1,
+            projectileCleanupContractGap: 0,
           },
           runtime: {
             scopedLifeGenerationMissing: 0,
@@ -674,13 +674,13 @@ describe("context compiler", () => {
         },
         economy: {
           policy: {
-            deathRewardOverlapPolicyConflicts: 0,
+            deathRewardOverlapContractConflicts: 0,
             deathRewardOverlapUnresolved: 1,
             pickupCurrencyConsumeCoverageGaps: 0,
-            pickupCurrencyPolicyMismatch: 0,
+            pickupCurrencyContractMismatch: 0,
             idempotencyCoverageGaps: 0,
             staleDropCleanupCoverageGaps: 0,
-            inventoryFullPolicyGaps: 0,
+            inventoryFullContractGaps: 0,
             pickupScopeValidationUnproven: 0,
             terminalRewardResultCommitUnproven: 0,
           },
@@ -702,6 +702,7 @@ describe("context compiler", () => {
         entityAiNavigation: 1,
         combat: 1,
         chunks: 2,
+        persistence: 0,
         economy: 1,
       });
   });

@@ -3,6 +3,7 @@ import type {
   ParsedScriptFile,
   ScriptArenaAuthorityPath,
   ScriptTerminalIdempotencyEvidence,
+  ScriptTerminalPrecedenceEvidence,
 } from "../../../../analyzers/scripts/src/index.js";
 import {
   composeQualifiedScriptLifecycleProjectGraph,

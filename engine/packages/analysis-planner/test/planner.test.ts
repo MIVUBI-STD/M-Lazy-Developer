@@ -11,6 +11,7 @@ import {
 
 const capabilities: AnalysisCapability[] = [{
   id: "manifest",
+  executionPhase: "discovery-core",
   evidenceLevel: "metadata",
   cost: "cheap",
   tags: ["artifact"],
@@ -23,6 +24,7 @@ const capabilities: AnalysisCapability[] = [{
   ],
 }, {
   id: "source-graph",
+  executionPhase: "discovery-core",
   evidenceLevel: "static",
   cost: "cheap",
   tags: ["session", "state"],
@@ -35,6 +37,7 @@ const capabilities: AnalysisCapability[] = [{
   ],
 }, {
   id: "semantic-lifecycle",
+  executionPhase: "discovery-core",
   evidenceLevel: "semantic",
   cost: "moderate",
   tags: ["session", "state"],
@@ -51,6 +54,7 @@ const capabilities: AnalysisCapability[] = [{
   ],
 }, {
   id: "intent-authorship",
+  executionPhase: "discovery-core",
   evidenceLevel: "semantic",
   cost: "moderate",
   tags: ["session", "state"],
@@ -64,6 +68,7 @@ const capabilities: AnalysisCapability[] = [{
   ],
 }, {
   id: "expensive-semantic",
+  executionPhase: "rig-directed",
   evidenceLevel: "semantic",
   cost: "expensive",
   tags: ["session"],
@@ -72,6 +77,7 @@ const capabilities: AnalysisCapability[] = [{
   contexts: ["LOCAL_ARTIFACT"],
 }, {
   id: "formal-search",
+  executionPhase: "rig-directed",
   evidenceLevel: "formal",
   cost: "expensive",
   tags: ["session", "state"],
@@ -85,6 +91,7 @@ const capabilities: AnalysisCapability[] = [{
   ],
 }, {
   id: "runtime-probe",
+  executionPhase: "rig-directed",
   evidenceLevel: "runtime",
   cost: "expensive",
   tags: ["session", "state"],
@@ -96,6 +103,7 @@ const capabilities: AnalysisCapability[] = [{
   ],
 }, {
   id: "runtime-integrity-check",
+  executionPhase: "rig-directed",
   evidenceLevel: "runtime",
   cost: "moderate",
   tags: ["session", "state"],
@@ -108,6 +116,7 @@ const capabilities: AnalysisCapability[] = [{
   ],
 }, {
   id: "controlled-intervention",
+  executionPhase: "rig-directed",
   evidenceLevel: "intervention",
   cost: "very-expensive",
   tags: ["session"],
@@ -116,6 +125,7 @@ const capabilities: AnalysisCapability[] = [{
   contexts: ["LIVE_MINECRAFT"],
 }, {
   id: "dialogue-analyzer",
+  executionPhase: "discovery-core",
   evidenceLevel: "semantic",
   cost: "cheap",
   tags: ["dialogue"],

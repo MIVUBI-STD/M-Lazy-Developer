@@ -1087,6 +1087,10 @@ export function extractGameplayIntentSignals(
 
     const normalizedPath =
       "/" + path.replaceAll("\\", "/");
+    // A one-letter predicate root in a compiled JS module is not stable
+    // state identity; never promote it to a known runtime guard.
+    const bundledExecutable = normalizedPath.includes("/scripts/") &&
+      normalizedPath.endsWith(".js");
     // Bundled class members are authored source facts regardless of how
     // many executable modules/chunks belong to the map. Reject members
     // attributed to another file or artifact instead of disabling entire

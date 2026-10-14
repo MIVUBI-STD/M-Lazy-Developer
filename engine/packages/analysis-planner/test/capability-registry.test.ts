@@ -12,6 +12,7 @@ function capability(
 ): AnalysisCapability {
   return {
     id,
+    executionPhase: "discovery-core",
     evidenceLevel: "static",
     cost: "cheap",
     tags: ["session"],

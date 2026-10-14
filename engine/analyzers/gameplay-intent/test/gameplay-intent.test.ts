@@ -143,6 +143,7 @@ describe("gameplay intent analyzer", () => {
       entityEventTriggers: [], commandLiterals: [],
       lifecycleMemberExposures: [], moduleMemberAccesses: [],
       importedSymbols: [], enumValueComparisons: [],
+      capabilities: [],
     };
     const fromPathOnly = extractGameplayIntentSignals([empty]);
     expect(fromPathOnly.signals).toEqual([]);
