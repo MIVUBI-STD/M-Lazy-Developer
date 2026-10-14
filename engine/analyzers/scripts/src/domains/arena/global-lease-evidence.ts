@@ -165,18 +165,10 @@ export function deriveScriptGlobalLeaseEvidence(
         const operation =
           operationFor(method);
         if (operation) {
+          const resource = literalResource(node.arguments[0]);
           output.push({
             operation,
-            ...(literalResource(
-              node.arguments[0],
-            ) === undefined
-              ? {}
-              : {
-                  resource:
-                    literalResource(
-                      node.arguments[0],
-                    ),
-                }),
+            ...(resource === undefined ? {} : { resource }),
             executionRegion:
               executionRegion(node, file),
             source:

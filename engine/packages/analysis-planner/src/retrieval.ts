@@ -409,7 +409,7 @@ export function scoreTextDocuments(
   if (maximum <= 0) return {};
   return Object.fromEntries(
     [...raw.entries()]
-      .map(([id, score]) => [id, score / maximum])
+      .map(([id, score]): [string, number] => [id, score / maximum])
       .sort(([left], [right]) => left.localeCompare(right)),
   );
 }

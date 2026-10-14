@@ -1,3 +1,13 @@
+## Executable strict contract repair batch (2026-10-14)
+
+**Source identity:** The ChatGPT runtime was unpacked from the GitHub artifact representing exact Local SHA `a9432bb195d845ee5888dc90fec4dbee75adb74a` (Node 22.16.0, npm 10.9.2, TypeScript 5.8.3, locked dependencies; archive and lockfile SHA-256 verified). After applying eleven source-owner fixes, `npm run typecheck` changed from **529** errors to **501** errors. Both results are actual full-tree compiler executions; **typecheck still FAILS**.
+
+**Changes:** Add explicit analysis execution phase for diagnosis capabilities, preserve correct unknown handling for unsupported knowledge/probe discriminants, use canonical optional metadata omission, narrow TypeScript AST checks to available compiler APIs, check numeric vs string ordering strictly in safe-config, and preserve source evidence without inventing proof. No change to `tsconfig` strictness, no `as any` shortcuts. The selected regression suite (`diagnosis-pipeline`, `safe-config`, `telemetry`, `analysis-planner/retrieval`) ran **31/31 PASS (five test files)**. A broader suite ran 329/337 tests with 8 failures and two import-time failures; not falsely accepted. Full Vitest timed out before completion under the current ChatGPT time budget.
+
+**Remaining:** 501 compiler errors and unresolved broader regressions, concentrated especially in orchestrator. Repair by canonical production contracts and run the full suite before declaring PASS. Additional testing must use a refreshed exact HEAD portable archive; avoid treating prior snapshots as a current commit receipt.
+
+---
+
 ## Executable repository verifier cleanup (2026-10-14)
 
 Using the authenticated ChatGPT runtime handoff, `npm run capability:truth` regenerated the existing capability index (85,930 bytes; FNV1a32 `2f0f7232`) from the original source owner inventory and `npm run verify:capability-truth` passed. The regenerated snapshot was transferred back to GitHub through a temporary private Library handoff, with byte length/checksum verified before commit; no parallel index authority created.

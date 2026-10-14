@@ -36,7 +36,8 @@ export function analyzeScriptSourceRecovery(
     if (ts.isClassDeclaration(node) && node.name) namedClasses++;
     if (ts.isImportDeclaration(node)) imports++;
     if (ts.isExportDeclaration(node) ||
-        (node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false)) exports++;
+        ((ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined)
+          ?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false)) exports++;
     ts.forEachChild(node, visit);
   };
   visit(file);

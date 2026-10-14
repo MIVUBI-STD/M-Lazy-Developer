@@ -16,6 +16,7 @@ const capabilities: readonly RegisteredDiagnosisCapability[] = [{
   owner: "packages/orchestrator/src/inspect-source-index.ts",
   executorId: "diagnosis.source-index",
   cacheRevision: "1",
+  executionPhase: "discovery-core",
   evidenceLevel: "static",
   cost: "cheap",
   tags: [
@@ -39,6 +40,7 @@ const capabilities: readonly RegisteredDiagnosisCapability[] = [{
   owner: "packages/orchestrator/src/diagnosis/semantic-ir-stage.ts",
   executorId: "diagnosis.semantic-ir",
   cacheRevision: "1",
+  executionPhase: "discovery-core",
   evidenceLevel: "semantic",
   cost: "moderate",
   tags: [
@@ -61,6 +63,7 @@ const capabilities: readonly RegisteredDiagnosisCapability[] = [{
   owner: "packages/orchestrator/src/inspection/gameplay-intent-stage.ts",
   executorId: "diagnosis.intent-grounding",
   cacheRevision: "1",
+  executionPhase: "discovery-core",
   evidenceLevel: "semantic",
   cost: "moderate",
   tags: [
@@ -82,6 +85,7 @@ const capabilities: readonly RegisteredDiagnosisCapability[] = [{
   owner: "packages/orchestrator/src/inspection/gameplay-intent-stage.ts",
   executorId: "diagnosis.contract-evidence",
   cacheRevision: "1",
+  executionPhase: "discovery-core",
   evidenceLevel: "semantic",
   cost: "moderate",
   tags: [
@@ -103,6 +107,7 @@ const capabilities: readonly RegisteredDiagnosisCapability[] = [{
   owner: "packages/diagnosis-pipeline/src/contradiction-executor.ts",
   executorId: "diagnosis.contradiction-proof",
   cacheRevision: "1",
+  executionPhase: "rig-directed",
   evidenceLevel: "formal",
   cost: "expensive",
   tags: [
@@ -127,6 +132,7 @@ const capabilities: readonly RegisteredDiagnosisCapability[] = [{
   owner: "packages/runtime-lab/src/index.ts",
   executorId: "diagnosis.runtime-observation",
   cacheRevision: "1",
+  executionPhase: "rig-directed",
   evidenceLevel: "runtime",
   cost: "expensive",
   tags: [
@@ -147,6 +153,7 @@ const capabilities: readonly RegisteredDiagnosisCapability[] = [{
   owner: "packages/orchestrator/src/diagnosis/runtime-evidence-integrity.ts",
   executorId: "diagnosis.runtime-integrity",
   cacheRevision: "1",
+  executionPhase: "rig-directed",
   evidenceLevel: "runtime",
   cost: "moderate",
   tags: [

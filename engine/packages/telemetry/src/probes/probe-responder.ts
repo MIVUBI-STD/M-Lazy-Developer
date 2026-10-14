@@ -81,6 +81,8 @@ function resolveQuery(
       }
       return { state: "present", value };
     }
+    default:
+      return { state: "unknown" };
   }
 }
 

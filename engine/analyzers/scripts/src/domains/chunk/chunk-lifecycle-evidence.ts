@@ -534,10 +534,8 @@ export function deriveScriptChunkLifecycleEvidence(
           "ticking-area-acquire",
           receiver,
           {
-            leaseKey:
-              literalString(
-                node.arguments[0],
-              ),
+            ...(literalString(node.arguments[0]) === undefined
+              ? {} : { leaseKey: literalString(node.arguments[0])! }),
           },
         );
       }
@@ -550,10 +548,8 @@ export function deriveScriptChunkLifecycleEvidence(
           "ticking-area-release",
           receiver,
           {
-            leaseKey:
-              literalString(
-                node.arguments[0],
-              ),
+            ...(literalString(node.arguments[0]) === undefined
+              ? {} : { leaseKey: literalString(node.arguments[0])! }),
           },
         );
       }
