@@ -176,6 +176,7 @@ export async function validatePatchTransaction(
         transaction.sourceFingerprint,
       parsedFunctions:
         sourceIndex.parsedFunctions,
+      tickFunctionRegistrations: sourceIndex.tickFunctionRegistrations,
       parsedDialogueDocuments:
         sourceIndex.parsedDialogueDocuments,
       parsedStructureModels:

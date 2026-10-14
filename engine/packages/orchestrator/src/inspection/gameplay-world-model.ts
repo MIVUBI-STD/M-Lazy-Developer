@@ -1733,18 +1733,18 @@ export function deriveGameplayWorldModel(
     entityEvidence:
       source.entities.definitions > 0,
     boundaryEvidence,
-    teleportEvidence:
-      source.unsupportedSurfaceSignals?.teleport,
-    uiFormEvidence:
-      source.unsupportedSurfaceSignals?.uiForm,
+    ...(source.unsupportedSurfaceSignals?.teleport === undefined
+      ? {} : { teleportEvidence: source.unsupportedSurfaceSignals.teleport }),
+    ...(source.unsupportedSurfaceSignals?.uiForm === undefined
+      ? {} : { uiFormEvidence: source.unsupportedSurfaceSignals.uiForm }),
     environmentEvidence,
     playerCapabilityEvidence,
-    asyncCommandTransactionEvidence:
-      source.unsupportedSurfaceSignals
-        ?.asyncCommandTransaction,
-    dynamicCommandEvidence:
-      source.unsupportedSurfaceSignals
-        ?.dynamicCommand,
+    ...(source.unsupportedSurfaceSignals?.asyncCommandTransaction === undefined
+      ? {} : { asyncCommandTransactionEvidence:
+          source.unsupportedSurfaceSignals.asyncCommandTransaction }),
+    ...(source.unsupportedSurfaceSignals?.dynamicCommand === undefined
+      ? {} : { dynamicCommandEvidence:
+          source.unsupportedSurfaceSignals.dynamicCommand }),
   });
 
   const gameplayClosure =
@@ -2216,6 +2216,24 @@ export function deriveGameplayWorldModel(
         source.persistenceSource?.unknownScope ?? 0,
       unknownLifetime:
         source.persistenceSource?.unknownLifetime ?? 0,
+      resultAuditRecords:
+        source.persistenceSource?.resultAuditRecords.length ?? 0,
+      completeResultAuditRecords:
+        source.persistenceSource?.completeResultAuditRecords ?? 0,
+      partialResultAuditRecords:
+        source.persistenceSource?.partialResultAuditRecords ?? 0,
+      resultAuditRecordDetails:
+        source.persistenceSource?.resultAuditRecords.map((item) => ({
+          scriptId: item.scriptId,
+          propertyKey: item.propertyKey,
+          status: item.status,
+          semanticFields: item.semanticFields,
+          missingRequiredFields: item.missingRequiredFields,
+        })) ?? [],
+      reconnectTransientRestoreRiskCount:
+        source.persistenceSource?.reconnectTransientRestoreRiskCount ?? 0,
+      reconnectTransientRestoreRisks:
+        source.persistenceSource?.reconnectTransientRestoreRisks ?? [],
       propertiesDetail:
         source.persistenceSource?.properties.map((item) => ({
           scriptId: item.scriptId,

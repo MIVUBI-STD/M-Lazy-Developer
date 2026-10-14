@@ -328,8 +328,8 @@ export async function inspectArtifact(
             mode:
               target.arenaProofMode ??
               "progressive",
-            nativeSpatial:
-              arenaNativeSpatial,
+            ...(arenaNativeSpatial === undefined
+              ? {} : { nativeSpatial: arenaNativeSpatial }),
             nativeObservationsTruncated:
               nativeWorldDb
                 .chunkContentObservationsTruncated ??
@@ -342,8 +342,8 @@ export async function inspectArtifact(
               nativeWorldDb.randomTickRecords,
             actorRecords:
               nativeWorldDb.actorRecords,
-            authoredEntityProof:
-              entityPopulationProof,
+            ...(entityPopulationProof === undefined
+              ? {} : { authoredEntityProof: entityPopulationProof }),
             requiredLayers:
               rigRequiredProofLayers,
           });
@@ -851,6 +851,7 @@ export async function inspectArtifact(
         intent: result.gameplayIntent.model,
         arena: finalArenaAnalysis,
         scriptSpatial: result.scriptSpatial,
+        // An absent demand is not evidence that every analysis domain ran.
         ...(result.spatialAuthority === undefined
           ? {}
           : {
@@ -897,8 +898,8 @@ export async function inspectArtifact(
           result.entityAiStack,
         routeNavigationEnvironment:
           result.routeNavigationEnvironment,
-        analysisDemand:
-          result.gameplayWorld.analysisDemand,
+        ...(result.gameplayWorld.analysisDemand === undefined
+          ? {} : { analysisDemand: result.gameplayWorld.analysisDemand }),
         platformKnowledge:
           result.gameplayWorld.platformKnowledge,
         structures: {
@@ -1031,8 +1032,8 @@ export async function inspectArtifact(
     const finalEngineeringAnalyses =
       deriveInspectionEngineeringAnalyses({
         world: finalGameplayWorld,
-        arenaCapacity:
-          finalArenaAnalysis.capacity,
+        ...(finalArenaAnalysis.capacity === undefined
+          ? {} : { arenaCapacity: finalArenaAnalysis.capacity }),
         target: result.targetCompatibility,
       });
     const finalAnalysisPriorities =

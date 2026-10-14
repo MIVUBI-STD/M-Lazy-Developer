@@ -1,8 +1,8 @@
 import {
   exploreInterleavings,
-  type ConcurrencySemantics,
   type ScheduledOperation,
 } from "./interleaving.js";
+import type { ConcurrencySemantics } from "./happens-before.js";
 
 export type MultiplayerInterleavingEventKind =
   | "join-request"
@@ -347,7 +347,7 @@ export function analyzeMultiplayerInterleavings(
       maxSchedules: options.maxSchedules ?? 64,
       maxExploredNodes:
         options.maxExploredNodes ?? 10_000,
-      concurrency: options.concurrency,
+      ...(options.concurrency === undefined ? {} : { concurrency: options.concurrency }),
     },
   );
 

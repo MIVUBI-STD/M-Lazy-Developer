@@ -989,6 +989,10 @@ export function buildInspectionResult(
             item.investigationDirection ===
             "navigation-target-divergence",
         ).length,
+      stallEntityAiStackIncomplete:
+        input.gameplayIntentRuntime.routeStallAssessments.filter(
+          (item) => item.investigationDirection === "entity-ai-stack-incomplete",
+        ).length,
       stallNavigationRuntimeSuspect:
         input.gameplayIntentRuntime.routeStallAssessments.filter(
           (item) =>

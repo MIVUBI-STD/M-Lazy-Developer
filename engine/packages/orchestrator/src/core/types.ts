@@ -166,6 +166,7 @@ export interface InspectDirectoryResult {
   combatRuntime: CombatRuntimeTelemetryAnalysis;
   combatPolicy: CombatBehaviorContractAnalysis;
   chunkLifecycle: ChunkLifecycleAnalysis;
+  persistenceSource: import("../inspection/persistence-source-analysis.js").PersistenceSourceAnalysis;
   rewardSources: RewardSourceAnalysis;
   economyPolicy: EconomyBehaviorContractAnalysis;
   releaseIdentity: ReleaseIdentityAnalysis;

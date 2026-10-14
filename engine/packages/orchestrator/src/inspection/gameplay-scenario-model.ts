@@ -516,7 +516,7 @@ export interface GameplayArchitectureNavigation {
         /** Source-authored scalar values associated with exact guard reads. */
         readonly sourceLocalStateValueHandoffs: SourceEffectSlice["sourceLocalStateValueHandoffs"];
         readonly guardedStateTransitionCandidates: SourceEffectSlice["guardedStateTransitionCandidates"];
-        readonly candidateCallerStateValueHandoffs: SourceStateValueHandoff[];
+        readonly candidateCallerStateValueHandoffs: readonly SourceStateValueHandoff[];
         readonly authoredStateValue: SourceEffectSlice["authoredStateValue"] | null;
         readonly effectKind: SourceEffectSlice["effectKind"];
         readonly worldEffectKind: SourceEffectSlice["worldEffectKind"] | null;
@@ -1146,7 +1146,7 @@ export function deriveGameplayArchitectureNavigation(
       stateOutcomeEvidence,
       resourceOutcomeEvidence,
       worldEffectOutcomeEvidence,
-      semanticIr: observed.semanticIr,
+      ...(observed.semanticIr === undefined ? {} : { semanticIr: observed.semanticIr }),
     },
   );
   const tracedOutcomes = new Set(observedExecution.traces.flatMap(trace =>

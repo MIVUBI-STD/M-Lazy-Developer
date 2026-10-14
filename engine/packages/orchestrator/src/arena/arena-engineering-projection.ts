@@ -212,6 +212,12 @@ export function buildArenaEngineeringProjection(
   const replicas = replicaIds(source).map(
     (arenaId): ArenaEngineeringReplicaProjection => {
       const quality = proofQuality.get(arenaId);
+      const voxel = statusFor(arena.voxelProof, arenaId);
+      const blockEntity = statusFor(arena.blockEntityProof, arenaId);
+      const entityPopulation = statusFor(arena.entityPopulationProof, arenaId);
+      const actorPopulation = statusFor(arena.actorPopulationProof, arenaId);
+      const tickState = statusFor(arena.tickStateProof, arenaId);
+      const structureInstances = statusFor(arena.structureInstanceProof, arenaId);
       return {
         arenaId,
         ...(quality === undefined
@@ -225,57 +231,12 @@ export function buildArenaEngineeringProjection(
               unresolvedBlocks:
                 quality.unresolvedBlocks,
             }),
-        ...(statusFor(arena.voxelProof, arenaId) === undefined
-          ? {}
-          : {
-              voxel:
-                statusFor(arena.voxelProof, arenaId),
-            }),
-        ...(statusFor(arena.blockEntityProof, arenaId) === undefined
-          ? {}
-          : {
-              blockEntity:
-                statusFor(
-                  arena.blockEntityProof,
-                  arenaId,
-                ),
-            }),
-        ...(statusFor(arena.entityPopulationProof, arenaId) === undefined
-          ? {}
-          : {
-              entityPopulation:
-                statusFor(
-                  arena.entityPopulationProof,
-                  arenaId,
-                ),
-            }),
-        ...(statusFor(arena.actorPopulationProof, arenaId) === undefined
-          ? {}
-          : {
-              actorPopulation:
-                statusFor(
-                  arena.actorPopulationProof,
-                  arenaId,
-                ),
-            }),
-        ...(statusFor(arena.tickStateProof, arenaId) === undefined
-          ? {}
-          : {
-              tickState:
-                statusFor(
-                  arena.tickStateProof,
-                  arenaId,
-                ),
-            }),
-        ...(statusFor(arena.structureInstanceProof, arenaId) === undefined
-          ? {}
-          : {
-              structureInstances:
-                statusFor(
-                  arena.structureInstanceProof,
-                  arenaId,
-                ),
-            }),
+        ...(voxel === undefined ? {} : { voxel }),
+        ...(blockEntity === undefined ? {} : { blockEntity }),
+        ...(entityPopulation === undefined ? {} : { entityPopulation }),
+        ...(actorPopulation === undefined ? {} : { actorPopulation }),
+        ...(tickState === undefined ? {} : { tickState }),
+        ...(structureInstances === undefined ? {} : { structureInstances }),
       };
     },
   );

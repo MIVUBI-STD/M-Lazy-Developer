@@ -11,13 +11,14 @@ import {
   historicalRegressionId,
   mergeAndSaveHistoricalRegressions,
   type RegressionCase,
+  type ReliabilityDomain,
 } from "../../../reliability/src/index.js";
 import type {
   ProjectRecord,
 } from "../../../project-model/src/index.js";
 
 const DOMAIN_BY_CATEGORY:
-  Readonly<Record<BugFinderCategory, string>> = {
+  Readonly<Record<BugFinderCategory, ReliabilityDomain>> = {
     "game-flow": "gameplay",
     "player-state": "state",
     "multiplayer-session": "multiplayer",

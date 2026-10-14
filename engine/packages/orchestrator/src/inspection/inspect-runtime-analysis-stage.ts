@@ -846,6 +846,7 @@ export function analyzeInspectionRuntimeState(
     preflightKnowledgeDemand,
     worldRuleAuthority,
     playerCapabilitySurfaces,
+    clientMutationReconciliation,
     entityAiStack,
     entityPopulation,
     interactionLifecycle,
