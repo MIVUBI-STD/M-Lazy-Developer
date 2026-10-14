@@ -72,6 +72,21 @@ export interface BugReportV2Map {
   readonly testedVersion: string;
 }
 
+/** Deterministic and filesystem-safe exported bug-report filename. */
+export function buildBugReportFileName(
+  map: Pick<BugReportV2Map, "name" | "mapVersion">,
+): string {
+  const name = map.name.normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "Map";
+  const version = map.mapVersion.trim()
+    .replace(/^v/i, "")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "unknown";
+  return `${name}-v${version}-BugReport.json`;
+}
+
 export interface BugReportV2RelevantCode {
   readonly file: string;
   readonly reason: string;

@@ -266,7 +266,7 @@ export function evaluateRepairAdmissionPipeline(
               "Mutation-authorizing repair admission requires post-transform proof bound to the exact patch transaction semantics.",
             ],
           }
-        : rawAdmission);
+        : rawAdmission;
 
   const runtimeExperimentContracts =
     runtimeVerificationExperimentContractsFromProvenance(

@@ -76,7 +76,6 @@ const required = [
   "tooling/repository/document-sections.mjs",
   "tooling/repository/lexical-retrieval.mjs",
   "tooling/repository/graph.mjs",
-  "tooling/repository/knowledge-binding-edges.mjs",
   "tooling/repository/verify-remote-workflow-policy.mjs",
   "tooling/repository/verify-documentation-ownership.mjs",
   "tooling/repository/verify-documentation-routing.mjs",
