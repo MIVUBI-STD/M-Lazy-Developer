@@ -247,7 +247,7 @@ function lineageInheritanceEvidence(
 ): number {
   return scripts.reduce(
     (sum, script) => {
-      const text = script.text;
+      const text = script.text ?? "";
       const hasParentChildIdentity =
         /(?:parentEntityId|sourceEntityId|replacementOf|spawnedFrom)/.test(
           text,
@@ -283,7 +283,7 @@ function spawnCommitAssessments(
   for (const script of scripts) {
     const file = ts.createSourceFile(
       script.source.relativePath,
-      script.text,
+      script.text ?? "",
       ts.ScriptTarget.Latest,
       true,
       script.source.relativePath.endsWith(
@@ -481,7 +481,7 @@ function authoredSpawnBudgets(
   for (const script of scripts) {
     const file = ts.createSourceFile(
       script.source.relativePath,
-      script.text,
+      script.text ?? "",
       ts.ScriptTarget.Latest,
       true,
       script.source.relativePath.endsWith(".ts")
@@ -524,7 +524,7 @@ function maxStaticSpawnBurst(
   for (const script of scripts) {
     const file = ts.createSourceFile(
       script.source.relativePath,
-      script.text,
+      script.text ?? "",
       ts.ScriptTarget.Latest,
       true,
       script.source.relativePath.endsWith(".ts")
@@ -680,10 +680,11 @@ export function analyzeEntityPopulationSources(
     scripts.reduce(
       (sum, script) =>
         sum +
-        script.methodCalls.filter(
-          (call) =>
-            call.method ===
-            "spawnEntity",
+        // The script spatial extractor records authored spawnEntity call sites,
+        // including receivers that cannot be typed as methodCalls.
+        // Count each extracted source site once rather than guessing a runtime spawn.
+        (script.spatialMutations ?? []).filter(
+          (mutation) => mutation.kind === "entity-spawn",
         ).length,
       0,
     );
@@ -703,7 +704,7 @@ export function analyzeEntityPopulationSources(
     scripts.reduce(
       (sum, script) =>
         sum +
-        (script.eventSubscriptions ?? []).filter(
+        (script.events ?? []).filter(
           (item) =>
             item.event ===
             "entityDie",
@@ -714,7 +715,7 @@ export function analyzeEntityPopulationSources(
     scripts.reduce(
       (sum, script) =>
         sum +
-        (script.eventSubscriptions ?? []).filter(
+        (script.events ?? []).filter(
           (item) =>
             item.event ===
             "entityRemove",
@@ -725,7 +726,7 @@ export function analyzeEntityPopulationSources(
     scripts.reduce(
       (sum, script) =>
         sum +
-        (script.eventSubscriptions ?? []).filter(
+        (script.events ?? []).filter(
           (item) =>
             item.event ===
             "entityLoad",

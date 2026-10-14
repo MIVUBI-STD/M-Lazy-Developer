@@ -629,6 +629,8 @@ export interface ScriptControlFlowRegion {
 export interface ParsedScriptFile {
   identifier: string;
   source: SourceRef;
+  /** Original source string for source-level inspectors; parser does not copy or normalize it. */
+  text?: string;
   controlFlowRegions?: readonly ScriptControlFlowRegion[];
   /** Nested, source-authored wave recipes; not actual gameplay execution. */
   waveConfigurations?: readonly ScriptWaveStage[];

@@ -28,7 +28,7 @@ function textOf(
 ): string {
   return scripts
     .map((item) =>
-      item.text ?? item.parsed.text,
+      item.text ?? item.parsed.text ?? "",
     )
     .join("\n");
 }

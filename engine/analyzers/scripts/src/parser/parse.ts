@@ -3296,6 +3296,7 @@ export function parseScriptFile(
   return {
     identifier,
     source,
+    text,
     controlFlowRegions: deriveScriptControlFlow(file, source),
     waveConfigurations: extractScriptWaveStages(file, source),
     authoredGameplayCatalog: extractScriptGameplayCatalog(file, source),
