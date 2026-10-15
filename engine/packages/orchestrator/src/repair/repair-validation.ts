@@ -177,6 +177,7 @@ export async function validatePatchTransaction(
       parsedFunctions:
         sourceIndex.parsedFunctions,
       tickFunctionRegistrations: sourceIndex.tickFunctionRegistrations,
+      parsedEntities: sourceIndex.parsedEntities,
       parsedDialogueDocuments:
         sourceIndex.parsedDialogueDocuments,
       parsedStructureModels:
@@ -219,7 +220,8 @@ export async function validatePatchTransaction(
 
     if (step.kind === "rebuild-graph") {
       try {
-        await ensureInspection();
+        // This validation step rebuilds the selected source graph only.
+        // Full gameplay diagnostics remain owned by rerun-diagnostic.
         await ensureRebuiltGraph();
         results.push({ step, ok: true, message: "Integrated semantic graph rebuilt successfully." });
       } catch (error) {

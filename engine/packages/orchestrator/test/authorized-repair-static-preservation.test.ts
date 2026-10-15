@@ -12,6 +12,7 @@ import {
   CONTRACT_REGISTRY_REVISION,
 } from "../../project-model/src/index.js";
 import {
+  authorizeRepair,
   createPatchTransaction,
   patchTransactionSemanticFingerprint,
 } from "../../repair/src/index.js";
@@ -86,12 +87,14 @@ describe("authorized repair static graph preservation", () => {
 
     const aPath = scriptDir + "/a.js";
     const bPath = scriptDir + "/b.js";
+    const cPath = scriptDir + "/c.js";
     const originalA = [
       'import "./b.js";',
       "export const value = 1;",
     ].join("\n");
     const bText =
       "export const dependency = 1;";
+    const cText = "export const alternative = 2;";
 
     for (const base of [
       sourceRoot,
@@ -105,6 +108,7 @@ describe("authorized repair static graph preservation", () => {
         join(base, bPath),
         bText,
       );
+      await writeFile(join(base, cPath), cText);
     }
 
     const sourceFingerprint =
@@ -116,8 +120,19 @@ describe("authorized repair static graph preservation", () => {
     const graphFingerprint =
       semanticGraphFingerprint(beforeGraph);
 
+    const authorization = authorizeRepair({
+      confirmedDefect: true,
+      diagnosisEvidenceIds: ["fixture:proven-topology-defect"],
+      invariantIds: ["fixture:preserve-unaffected-source-topology"],
+      sourceFingerprint,
+      sourceFingerprintMatches: true,
+      evidenceFreshness: "fresh",
+    }).receipt;
+    if (!authorization) throw new Error("Fixture authorization was rejected.");
+
     const transaction =
       createPatchTransaction({
+        authorization,
         title:
           "unsafe import topology transform",
         sourceFingerprint,
@@ -138,7 +153,7 @@ describe("authorized repair static graph preservation", () => {
           expected:
             'import "./b.js";',
           replacement:
-            'import "./missing.js";',
+            'import "./c.js";',
         }],
         preconditions: [{
           kind: "source-fingerprint",
@@ -211,6 +226,10 @@ describe("authorized repair static graph preservation", () => {
         transactionId: transaction.id,
         transactionFingerprint,
       },
+      workflowAuthorityKind: "approved-bug",
+      approvedBugSemanticKey: "bug:approved",
+      mustChangeInvariantIds: ["invariant::change"],
+      mustPreserveInvariantIds: ["invariant::preserve"],
       supportingInvariantIds: [],
       changedNodeIds: beforeGraph
         .allNodes()
@@ -249,6 +268,29 @@ describe("authorized repair static graph preservation", () => {
       beforeGraph,
       {},
       {
+        repairAuthority: {
+          kind: "approved-bug",
+          approved: {
+            map: {
+              name: "Repair Test",
+              mapVersion: "1.0.0",
+              drive: "https://drive.google.com/file/d/map/view",
+              baseVersion: "1.26.20",
+              testedVersion: "1.26.32",
+            },
+            approvedSemanticKeys: ["bug:approved"],
+            rejectedSemanticKeys: [],
+            decisions: [{ semanticKey: "bug:approved", decision: "approve" }],
+          },
+          bugSemanticKey: "bug:approved",
+          preservationContract: {
+            schemaVersion: 1,
+            id: "preserve:" + transaction.id,
+            transactionId: transaction.id,
+            mustChangeInvariantIds: ["invariant::change"],
+            mustPreserveInvariantIds: ["invariant::preserve"],
+          },
+        },
         decisionBasis: {
           semanticIrRevision:
             "semantic-ir-current",
