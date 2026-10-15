@@ -107,6 +107,20 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("data-map-link=\"2\"");
   });
 
+  it("uses the authored level ID, not display position, for sparse levels", () => {
+    const level = fixture.games[0]!.levels[0]!;
+    const sparse: BugTrackerDocument = {
+      ...fixture,
+      games: [{
+        ...fixture.games[0]!,
+        levels: [{ ...level, level: 3 }],
+      }],
+    };
+    const html = renderBugTrackerHtml(sparse);
+    expect(html).toContain("LEVEL 3");
+    expect(html).not.toContain("LEVEL 1");
+  });
+
   it("preserves unknown information as absent UI instead of inventing content", () => {
     const level = fixture.games[0]!.levels[0]!;
     const sparseIssue = {
