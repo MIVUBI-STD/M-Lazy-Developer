@@ -8,8 +8,8 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
-  indexAuthoredIntentSources,
-} from "../../src/inspection/inspect-authored-intent-source.js";
+  indexSelectedArtifactContractSources,
+} from "../../src/inspection/inspect-contract-source.js";
 
 const roots: string[] = [];
 
@@ -19,7 +19,7 @@ afterEach(async () => {
   }
 });
 
-describe("authored intent source indexing", () => {
+describe("selected-artifact contract source indexing", () => {
   it("indexes behavior-pack src TypeScript without treating runtime scripts as authored source", async () => {
     const root = await mkdtemp(
       join(tmpdir(), "m-bedrock-authored-intent-"),
@@ -61,7 +61,7 @@ export interface SessionToken {
       "utf8",
     );
 
-    const result = await indexAuthoredIntentSources(
+    const result = await indexSelectedArtifactContractSources(
       root,
       "art_test",
       [
@@ -115,7 +115,7 @@ export interface SessionToken {
       "utf8",
     );
 
-    const result = await indexAuthoredIntentSources(
+    const result = await indexSelectedArtifactContractSources(
       root,
       "art_test",
       [{
@@ -148,7 +148,7 @@ export interface SessionToken {
       "utf8",
     );
 
-    const result = await indexAuthoredIntentSources(
+    const result = await indexSelectedArtifactContractSources(
       root,
       "art_test",
       [{
@@ -157,7 +157,7 @@ export interface SessionToken {
         size: 28,
       }],
       {
-        authoredSourceRoots: ["map-source"],
+        contractSourceRoots: ["map-source"],
       },
     );
 
@@ -181,7 +181,7 @@ export interface SessionToken {
       "utf8",
     );
 
-    const result = await indexAuthoredIntentSources(
+    const result = await indexSelectedArtifactContractSources(
       root,
       "art_test",
       [{
@@ -189,7 +189,7 @@ export interface SessionToken {
         size: 28,
       }],
       {
-        authoredSourceRoots: ["map-source"],
+        contractSourceRoots: ["map-source"],
       },
     );
 
@@ -223,7 +223,7 @@ export interface SessionToken {
       "utf8",
     );
 
-    const result = await indexAuthoredIntentSources(
+    const result = await indexSelectedArtifactContractSources(
       root,
       "art_test",
       [
@@ -238,7 +238,7 @@ export interface SessionToken {
         },
       ],
       {
-        authoredSourceRoots: [
+        contractSourceRoots: [
           "behavior_packs/demo",
           "map-source",
         ],
