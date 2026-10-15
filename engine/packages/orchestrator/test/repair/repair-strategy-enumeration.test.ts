@@ -762,7 +762,13 @@ describe("repair strategy enumeration and realization", () => {
 
     expect(report.noImplementationCoverage).toBe(true);
     expect(report.proposalOnlyCount).toBe(1);
-    expect(report.missingRealizerCount).toBe(0);
+    // The two applicable fixture providers are not in the built-in
+    // realizer registry. This must remain visible as missing coverage;
+    // the separate nondeterministic proposal-only template needs none.
+    expect(report.missingRealizerCount).toBe(2);
+    expect(report.items.filter((item) =>
+      item.disposition === "missing-realizer").map((item) =>
+      item.sourceId)).toEqual(["session-guard-a", "session-guard-b"]);
     expect(
       report.items.find(
         (item) =>
