@@ -11,6 +11,7 @@
 - `client.js`: embedded offline interaction for tester results, notes, screenshots, filtering, browser autosave, Save as HTML, Save JSON, Load JSON and Reset. It cannot rewrite canonical report JSON. File downloads are initiated, but browser save completion cannot be proven by JavaScript.
 - `render.test.mjs`: focused built-in Node regression specifications for deterministic generation, schema/provenance rejection, offline script parsing, and combined-map normalization. Tests are evidence only if executed, not merely committed.
 - `golden.json`: the locked SHA-256 baseline of the synthetic example output HTML and JCS JSON. Any later renderer/style/script change that modifies the output bytes must be reviewed against the versioned design instead of silently replacing this baseline.
+- `client.acceptance.test.mjs`: isolated browser-DOM interaction harness using only built-in Node modules. Exercises Passed/Failed, screenshot/caption, Save as HTML embedded tester snapshot, saved-file reopen with independent storage, Reset recovery, malformed JSON import, quota-error fallback, and unverified-issue admission. **This is not a real Chromium/browser run.**
 
 ## API contract
 
@@ -32,4 +33,6 @@ The renderer outputs two data authorities: immutable canonical report and separa
 
 The source commits demonstrate implementation is stored in GitHub, not that a running application was packaged or that Minecraft testing occurred. A JS-only browser mock or source-level test does **not** establish cross-browser interaction, filesystem download persistence, accessibility conformance, or real map report accuracy. The locked reference image/HTML is a static visual guide; final pixel-level acceptance still requires rendered visual comparison.
 
-**Future acceptance boundary:** compare generated HTML with the approved reference and golden fixture; run end-to-end Save as HTML → reopen offline (new browser context) → verify notes/screenshots and persisted tester results; confirm responsive and keyboard behavior. None of those claims may be reported PASS unless actually executed.
+**Recorded source-level acceptance (commit following 50754e7):** the original embedded client JavaScript was run in an isolated V8 DOM mock. Four interaction scenarios passed: portable snapshot Save/reopen/Reset, different-report JSON rejection, browser-storage quota fallback, and NEEDS_VALIDATION exclusion from Passed/Failed. The executable acceptance harness is now source-controlled for reproducibility. This does not establish browser-native download, cross-browser storage, accessibility, or real Minecraft behavior.
+
+**Remaining acceptance boundary:** execute the original new-system Node tests on one exact-head source snapshot, and validate the generated HTML in a real browser against the locked desktop/mobile reference. Independently exercise Save as HTML → reopen offline on another browser context, including image data/notes and failure handling. Do not report these as PASSED without actual execution.
