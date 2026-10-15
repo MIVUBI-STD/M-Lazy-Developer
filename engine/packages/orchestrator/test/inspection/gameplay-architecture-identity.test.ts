@@ -6,6 +6,7 @@ import {
   deriveGameplayArchitectureNavigation,
   type GameplayScenarioGraph,
 } from "../../src/inspection/gameplay-scenario-model.js";
+import { compileGameplayScenarioGraph } from "../../src/inspection/gameplay-scenario-compiler.js";
 
 const emptyGraph: GameplayScenarioGraph = {
   schemaVersion: 1,
@@ -45,6 +46,84 @@ describe("arena identity evidence propagation", () => {
     expect(navigation.architectureReconciliation.arenaMappingUnresolved).toBe(true);
     expect(navigation.architectureReconciliation.status).toBe("GAPS_PRESENT");
   });
+  it("keeps uncertain behavior relations out of exact source-flow activation", () => {
+    const source = { artifactId: "map:flow",
+      relativePath: "behavior_packs/demo/scripts/game.js" };
+    const model = {
+      schemaVersion: 1,
+      execution: {
+        regions: [
+          { id: "event:start", kind: "event-source",
+            ownerId: "game", label: "start", source },
+          { id: "callback:join", kind: "script-callback",
+            ownerId: "game", label: "join", source },
+          { id: "function:apply", kind: "mcfunction",
+            ownerId: "game", label: "apply", source },
+        ],
+        edges: [
+          { id: "edge:unrelated", from: "event:start", to: "callback:join",
+            kind: "event-dispatch", resolution: "resolved",
+            targetLabel: "join", source },
+          { id: "edge:resolved", from: "callback:join", to: "function:apply",
+            kind: "synchronous-call", resolution: "resolved",
+            targetLabel: "apply", source },
+          { id: "edge:missing", from: "callback:join",
+            kind: "synchronous-call", resolution: "unresolved",
+            targetLabel: "dynamic", source },
+        ],
+        authoredBehaviorRelations: [],
+      },
+      state: { surfaces: [], authorityBindings: [], operations: [{
+        id: "state:write", executionRegionId: "callback:join",
+        surfaceId: "state:round", operation: "write", source,
+      }] },
+      temporal: { relations: [] },
+    } as unknown as import("../../../semantic-ir/src/index.js").SemanticIr;
+    const world = {
+      arenas: { detected: false, cleanup: { resourceLedger: { resources: 0 } } },
+      chunks: { tickingAreaAcquires: 0, tickingAreaReadinessStates: 0,
+        capacityUncheckedLeases: 0 }, entities: { definitions: 0 },
+      combat: { hurtHandlers: 0, deathHandlers: 0, damageApplications: 0 },
+      inventory: { regions: 0, grantRegions: 0 },
+      structures: { loads: 0, runtimeLogicLoads: 0 },
+      economy: { sourceKinds: [] }, worldRules: { writes: 0, manualEntitySpawnPaths: 0 },
+      playerCapabilities: { gamemodeWrites: 0, abilityWrites: 0,
+        commandPermissionWrites: 0, privilegedGuardReferences: 0,
+        protectionDefinitions: 0 },
+      capabilityExposure: { exposed: 0, potentiallyExposed: 0, unresolved: 0 },
+      clientReconciliation: { predictedMutationCancellations: 0 },
+      spatial: { resolvedScriptEffects: 0, structurePlacements: 0,
+        authority: { configured: false } },
+    } as unknown as import("../../src/inspection/gameplay-world-model.js").GameplayWorldModel;
+    const intent = { schemaVersion: 1, id: "intent:source", evidence: [],
+      nodes: [], edges: [], invariants: [], unknowns: [] } as
+      import("../../../gameplay-intent/src/index.js").GameplayIntentModel;
+    const observed = (resolution: "EXACT_REFERENCE" | "POSSIBLE_TARGET" | "UNRESOLVED",
+      edgeId: string) => compileGameplayScenarioGraph({
+      intent, world, preset: { scenarios: [] } as unknown as
+        import("../../../diagnostic-reasoning/src/index.js").GameplayAuditScenarioPreset,
+      semanticIr: { ...model, execution: {
+        ...model.execution,
+        authoredBehaviorRelations: [{
+          id: "relation:command", kind: "dialogue-button-command",
+          ownerId: "game", from: "dialogue:join", to: "function apply",
+          resolution, source, reason: "Authored source candidate",
+          stateOperationIds: ["state:write"], executionEdgeIds: [edgeId],
+        }],
+      } },
+    });
+    const ids = (resolution: "EXACT_REFERENCE" | "POSSIBLE_TARGET" | "UNRESOLVED",
+      edgeId: string) => observed(resolution, edgeId)
+        .sourceFlowCandidates?.flatMap(flow => flow.authoredBehaviorRelationIds) ?? [];
+    expect(ids("EXACT_REFERENCE", "edge:resolved")).toContain("relation:command");
+    expect(ids("EXACT_REFERENCE", "edge:missing")).not.toContain("relation:command");
+    expect(ids("POSSIBLE_TARGET", "edge:resolved")).not.toContain("relation:command");
+    expect(ids("UNRESOLVED", "edge:resolved")).not.toContain("relation:command");
+    const unresolved = observed("UNRESOLVED", "edge:missing");
+    expect(unresolved.sourceFlowCandidates?.some(flow =>
+      flow.unresolvedExecutionEdgeIds.includes("edge:missing"))).toBe(true);
+  });
+
   it("reconstructs source-observed event to anonymous callback and state paths without guessing gameplay", () => {
     const source = { artifactId: "world:one",
       relativePath: "behavior_packs/a/scripts/game.js" };

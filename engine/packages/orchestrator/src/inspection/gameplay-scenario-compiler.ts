@@ -2147,16 +2147,26 @@ function sourceFlowCandidates(ir: SemanticIr): readonly GameplaySourceFlowCandid
   }): GameplaySourceFlowCandidate => {
     const steps = ordered(input.regionIds);
     const ids = new Set(steps.map(step => step.id));
+    const resolvedEdges = new Set(input.executionEdgeIds.filter(id =>
+      !input.unresolvedExecutionEdgeIds.includes(id)));
     return {
       id: "source-flow:" + encodeURIComponent(input.entryRegionId),
       ...input,
       sourceSteps: steps,
+      // Unknown/possible targets remain in canonical IR but must not
+      // become an EXACT source activation via another resolved call in
+      // the same broad source trace. A relation with its own /function
+      // edges requires at least one of THOSE edges to be resolved.
       authoredBehaviorRelationIds: relations
-        .filter(relation =>
-          relation.worldEffectIds?.some(id => ids.has(id)) ||
-          relation.stateOperationIds?.some(id => ids.has(id)) ||
-          relation.executionEdgeIds?.some(id =>
-            input.executionEdgeIds.includes(id)))
+        .filter(relation => {
+          if (relation.resolution !== "EXACT_REFERENCE") return false;
+          const relatedEdges = relation.executionEdgeIds ?? [];
+          if (relatedEdges.length > 0 &&
+              !relatedEdges.some(id => resolvedEdges.has(id))) return false;
+          return relation.worldEffectIds?.some(id => ids.has(id)) ||
+            relation.stateOperationIds?.some(id => ids.has(id)) ||
+            relatedEdges.some(id => resolvedEdges.has(id));
+        })
         .map(relation => relation.id).sort(),
       sourceOrderScope: "PER_EXECUTION_REGION_ONLY",
       runtimeStatus: "NOT_OBSERVED",
