@@ -210,6 +210,85 @@ describe("arena authority evidence", () => {
     )).toBe(false);
   });
 
+  it("does not prove a full-roster branch that modifies roster before exit", () => {
+    const safe = [
+      "function join(arena, player) {",
+      "  if (arena.members.length >= 5) {",
+      "    player.sendMessage('Full');",
+      "    return;",
+      "  }",
+      "  arena.members.push(player);",
+      "}",
+    ];
+    const unsafe = [
+      ["return-writes-roster", [
+        "function join(arena, player) {",
+        "  if (arena.members.length >= 5) return arena.members.push(player);",
+        "  arena.members.push(player);",
+        "}",
+      ]],
+      ["branch-writes-length", [
+        "function join(arena, player) {",
+        "  if (arena.members.length >= 5) {",
+        "    arena.members.length += 1;",
+        "    return;",
+        "  }",
+        "  arena.members.push(player);",
+        "}",
+      ]],
+      ["branch-forwards-roster", [
+        "function join(arena, player) {",
+        "  if (arena.members.length >= 5) {",
+        "    mutate(arena.members);",
+        "    return;",
+        "  }",
+        "  arena.members.push(player);",
+        "}",
+      ]],
+      ["return-unknown-call", [
+        "function join(arena, player) {",
+        "  if (arena.members.length >= 5) return mutate(arena);",
+        "  arena.members.push(player);",
+        "}",
+      ]],
+    ] as const;
+    const parse = (name: string, lines: readonly string[]) =>
+      parseScriptFile(name, lines.join("\n"), source);
+    expect(parse("safe-full", safe).arenaAuthorityPaths?.some((item) =>
+      item.capacityAuthorityProven)).toBe(true);
+    for (const [name, lines] of unsafe)
+      expect(parse(name, lines).arenaAuthorityPaths?.some((item) =>
+        item.capacityAuthorityProven), name).toBe(false);
+  });
+
+  it("rejects uncounted effects in successful ternary admission arms", () => {
+    const variants = [
+      ["return-side-effect", [
+        "function join(arena, player) {",
+        "  return arena.members.length >= 5 ? false :",
+        "    (arena.members.push(player), mutate(arena), true);",
+        "}",
+      ]],
+      ["nested-subject-effect", [
+        "function join(arena, player) {",
+        "  return arena.members.length >= 5 ? false :",
+        "    (arena.members.push(makePlayer()), true);",
+        "}",
+      ]],
+      ["second-write-alias", [
+        "function join(arena, player) {",
+        "  return arena.members.length >= 5 ? false :",
+        "    (arena.members.push(player), arena.members[0] = player, true);",
+        "}",
+      ]],
+    ] as const;
+    for (const [name, lines] of variants) {
+      const parsed = parseScriptFile(name, lines.join("\n"), source);
+      expect(parsed.arenaAuthorityPaths?.some((item) =>
+        item.capacityAuthorityProven), name).toBe(false);
+    }
+  });
+
   it("links a guarded join to an immutable module-scope object capacity with its exact declaration", () => {
     const parsed = parseScriptFile("source-config", [
       "const config = { max_member: 5, enabled: true };",

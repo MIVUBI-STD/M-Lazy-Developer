@@ -1727,6 +1727,60 @@ function capacityComparisonEvidence(
   };
 }
 
+/** Reject hidden roster mutation/escape on a capacity-rejection path. */
+function guardHasRosterSideEffects(
+  branch: ts.Statement,
+  file: ts.SourceFile,
+  arenaExpression: string,
+  rosterExpression: string,
+): boolean {
+  let unsafe = false;
+  const owned = (expression: ts.Expression): boolean => {
+    const value = expression.getText(file);
+    return value === rosterExpression ||
+      value.startsWith(rosterExpression + ".") ||
+      value.startsWith(rosterExpression + "[");
+  };
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      if (ts.isPropertyAccessExpression(node.expression) &&
+          owned(node.expression.expression)) unsafe = true;
+      if (node.arguments.some((argument) =>
+        owned(argument) || argument.getText(file) === arenaExpression
+      )) unsafe = true;
+    }
+    const written = ts.isBinaryExpression(node) &&
+      node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+      node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+      owned(node.left);
+    const updated = (ts.isPrefixUnaryExpression(node) ||
+                     ts.isPostfixUnaryExpression(node)) &&
+      (node.operator === ts.SyntaxKind.PlusPlusToken ||
+       node.operator === ts.SyntaxKind.MinusMinusToken) &&
+      owned(node.operand);
+    const deleted = ts.isDeleteExpression(node) && owned(node.expression);
+    const leaked = ts.isVariableDeclaration(node) &&
+      node.initializer !== undefined && owned(node.initializer);
+    if (written || updated || deleted || leaked) unsafe = true;
+    ts.forEachChild(node, visit);
+  };
+  visit(branch);
+  return unsafe;
+}
+
+function scalarAdmissionOutcome(expression: ts.Expression): boolean {
+  if (ts.isParenthesizedExpression(expression))
+    return scalarAdmissionOutcome(expression.expression);
+  return ts.isNumericLiteral(expression) ||
+    ts.isStringLiteralLike(expression) ||
+    expression.kind === ts.SyntaxKind.TrueKeyword ||
+    expression.kind === ts.SyntaxKind.FalseKeyword ||
+    expression.kind === ts.SyntaxKind.NullKeyword ||
+    (ts.isPrefixUnaryExpression(expression) &&
+     expression.operator === ts.SyntaxKind.ExclamationToken &&
+     scalarAdmissionOutcome(expression.operand));
+}
+
 function capacityCheckEvidence(
   node: ts.Node,
   file: ts.SourceFile,
@@ -1752,6 +1806,9 @@ function capacityCheckEvidence(
     terminal === undefined ||
     (!ts.isReturnStatement(terminal) && !ts.isThrowStatement(terminal))
   ) return undefined;
+  // An expression-return can mutate the roster before exiting.
+  if (ts.isReturnStatement(terminal) && terminal.expression &&
+      !scalarAdmissionOutcome(terminal.expression)) return undefined;
   const block = node.parent;
   const next = block.statements[block.statements.indexOf(node) + 1];
   if (next === undefined) return undefined;
@@ -1761,7 +1818,10 @@ function capacityCheckEvidence(
     commit === undefined ||
     check === undefined ||
     commit.arenaExpression !== check.arenaExpression ||
-    commit.membershipExpression !== check.membershipExpression
+    commit.membershipExpression !== check.membershipExpression ||
+    guardHasRosterSideEffects(
+      thenBranch, file, check.arenaExpression, check.membershipExpression!
+    )
   ) return undefined;
   return { ...check, guardedCommitSource: commit.source };
 }
@@ -1865,8 +1925,25 @@ function returnTernaryCapacityEvidence(
     }];
   };
   const commits = committed(node.whenFalse);
-  // Multiple successful writes may exceed the guarded capacity.
-  if (commits.length !== 1) return [];
+  // Comma arms can conceal uncounted calls or assignments after a
+  // membership write. One counted add and inert results are the limit.
+  const safeSuccessArm = (value: ts.Expression): boolean => {
+    const expr = unwrap(value);
+    if (ts.isBinaryExpression(expr) &&
+        expr.operatorToken.kind === ts.SyntaxKind.CommaToken)
+      return safeSuccessArm(expr.left) && safeSuccessArm(expr.right);
+    if (scalarAdmissionOutcome(expr)) return true;
+    if (!ts.isCallExpression(expr) ||
+        !ts.isPropertyAccessExpression(expr.expression) ||
+        !["push", "add", "set"].includes(expr.expression.name.text) ||
+        !membershipCollection(expr.expression.expression) ||
+        expr.arguments.length < 1 ||
+        !expr.arguments.every((argument) =>
+          ts.isIdentifier(argument) || scalarAdmissionOutcome(argument)
+        )) return false;
+    return true;
+  };
+  if (commits.length !== 1 || !safeSuccessArm(node.whenFalse)) return [];
   // Emit only a matched comparison and commit for exactly the same arena
   // membership collection. Never merge two different session owners.
   const supported = checks.flatMap((check) =>

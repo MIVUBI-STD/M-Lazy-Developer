@@ -385,6 +385,22 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.evidence.conflictingPlayerCapacityValues).toEqual([]);
   });
 
+  it("does not project player capacity from a full-roster return that adds a player", () => {
+    const broken = parseScriptFile("side-effect-reject", [
+      "function join(arena, player) {",
+      "  if (arena.members.length >= 5) return arena.members.push(player);",
+      "  arena.members.push(player);",
+      "}",
+    ].join("\n"), {
+      artifactId: "fixture", relativePath: "scripts/join.js",
+    });
+    const result = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [broken], declaredArenaCount: 2,
+    });
+    expect(result.evidence.perArenaPlayerCapacity).toBeUndefined();
+    expect(result.evidence.declaredMaxConcurrentPlayers).toBeUndefined();
+  });
+
   it("accepts matching proven roster caps across independent source owners", () => {
     const scripts = ["alpha", "beta"].map((name) =>
       parseScriptFile(name, [
