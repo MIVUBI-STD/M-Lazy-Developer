@@ -620,6 +620,7 @@ function getterBoundModuleCapacity(
   let configReference: ts.Identifier;
   let keyDeclaration: ts.Identifier | undefined;
   let keyReference: ts.Identifier | undefined;
+  let keySelectorName: ts.Identifier | undefined;
   if (keyed) {
     const result = returned.expression;
     const parameter = getter.parameters[0]!;
@@ -639,6 +640,9 @@ function getterBoundModuleCapacity(
     configReference = result.expression;
     keyDeclaration = parameter.name;
     keyReference = result.argumentExpression;
+    // Property names are also Identifier AST nodes. The admitted
+    // arena.id selector is not a third lexical use of the formal "id".
+    keySelectorName = actual.name;
   } else {
     if (call.arguments.length !== 0 ||
         !ts.isIdentifier(returned.expression)) return undefined;
@@ -732,7 +736,10 @@ function getterBoundModuleCapacity(
       !onlyReferences(aliasName, [alias.name, expression.expression])) return undefined;
   if (keyed &&
       (!keyDeclaration || !keyReference ||
-       !onlyReferences(keyDeclaration.text, [keyDeclaration, keyReference])))
+       !onlyReferences(keyDeclaration.text, [
+         keyDeclaration, keyReference,
+         ...(keySelectorName ? [keySelectorName] : []),
+       ])))
     return undefined;
 
   return {
