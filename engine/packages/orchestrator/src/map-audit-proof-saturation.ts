@@ -276,42 +276,42 @@ export function assessReadyResolutionSaturation(
           (item) => item.id === link.scenarioId,
         );
 
-  // A resolution may explain an existing link, but cannot introduce new
-  // knowledge authority that the selected-artifact causal link never carried.
-  const scopedRequirementIds = (resolution.knowledgeRequirementIds ?? [])
-    .filter((id) => link?.knowledgeRequirementIds.includes(id));
+  // The causal link, not a supplied resolution, owns required knowledge.
+  // Every exact scenario requirement must have one matching satisfied receipt;
+  // a source contradiction/family proof cannot replace missing RIG knowledge.
+  const scopedRequirementIds = [...new Set(
+    link?.knowledgeRequirementIds ?? [],
+  )].sort();
+  const satisfiedKnowledge = scopedRequirementIds.flatMap((id) => {
+    const requirement = graph.knowledgeRequirements.find((item) =>
+      item.id === id && item.scenarioId === link?.scenarioId
+    );
+    if (requirement === undefined) return [];
+    const candidates = graph.knowledgeReceipts.filter((item) =>
+      item.requirementId === requirement.id &&
+      item.scenarioId === requirement.scenarioId &&
+      item.domain === requirement.domain
+    );
+    if (candidates.length !== 1 ||
+        candidates[0]?.status !== "SATISFIED" ||
+        candidates[0].evidenceIds.length === 0) return [];
+    return [{ requirement, receipt: candidates[0] }];
+  });
+  const missingKnowledgeRequirementIds = scopedRequirementIds.filter((id) =>
+    !satisfiedKnowledge.some((item) => item.requirement.id === id)
+  );
   const evidenceIds = [
     ...new Set([
       ...(link?.evidenceIds ?? []),
       ...(resolution.evidenceIds ?? []),
       ...(resolution.counterProofSearch?.evidenceIds ?? []),
       ...(link?.impactPathEvidenceIds ?? []),
-      ...(
-        scopedRequirementIds
-          .flatMap((id) =>
-            graph.knowledgeReceipts.find(
-              (item) => item.requirementId === id,
-            )?.evidenceIds ?? []
-          )
-      ),
+      ...satisfiedKnowledge.flatMap((item) => item.receipt.evidenceIds),
     ]),
   ].sort();
   const knownEvidenceIds = new Set(evidenceIds);
-  // Knowledge declarations cannot ground platform or simulation criteria by
-  // themselves. Only a matching, satisfied, same-scenario RIG receipt can.
   const knowledgeEvidenceByDomain = new Map<string, string[]>();
-  for (const requirementId of scopedRequirementIds) {
-    const requirement = graph.knowledgeRequirements.find((item) =>
-      item.id === requirementId && item.scenarioId === link?.scenarioId
-    );
-    if (requirement === undefined) continue;
-    const receipt = graph.knowledgeReceipts.find((item) =>
-      item.requirementId === requirement.id &&
-      item.scenarioId === requirement.scenarioId &&
-      item.domain === requirement.domain &&
-      item.status === "SATISFIED"
-    );
-    if (receipt === undefined) continue;
+  for (const { requirement, receipt } of satisfiedKnowledge) {
     knowledgeEvidenceByDomain.set(requirement.domain, [
       ...new Set([
         ...(knowledgeEvidenceByDomain.get(requirement.domain) ?? []),
@@ -413,6 +413,14 @@ export function assessReadyResolutionSaturation(
           "At least one selected-artifact/analysis evidence id supports the contradiction.",
         satisfied: evidenceIds.length > 0,
         evidenceIds,
+      },
+      {
+        id: "required-knowledge-satisfied",
+        description:
+          "Every knowledge requirement owned by the causal link has a matching, satisfied scenario receipt.",
+        satisfied: missingKnowledgeRequirementIds.length === 0,
+        evidenceIds: satisfiedKnowledge.flatMap((item) =>
+          item.receipt.evidenceIds),
       },
       {
         id: "counter-proof-cleared",
