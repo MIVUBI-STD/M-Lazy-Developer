@@ -6,13 +6,27 @@ import {
 import {
   SemanticGraph,
 } from "../../../graph/src/index.js";
-import type {
-  PatchTransaction,
+import {
+  authorizeRepair,
+  type PatchTransaction,
 } from "../../../repair/src/index.js";
 import {
   planPatchSemanticAffectedSet,
   planSemanticAffectedSet,
 } from "../../src/workflow/semantic-affected-plan.js";
+
+function authorizedFixture() {
+  const decision = authorizeRepair({
+    confirmedDefect: true,
+    diagnosisEvidenceIds: ["test:changed-source"],
+    invariantIds: ["fixture:changed-function"],
+    sourceFingerprint: "source",
+    sourceFingerprintMatches: true,
+    evidenceFreshness: "fresh",
+  });
+  if (!decision.receipt) throw new Error("Fixture repair authorization rejected.");
+  return decision.receipt;
+}
 
 function graphFixture(): SemanticGraph {
   const graph = new SemanticGraph();
@@ -173,6 +187,7 @@ describe("semantic affected planning", () => {
       id: "patch:1",
       title: "change function",
       sourceFingerprint: "source",
+      authorization: authorizedFixture(),
       operations: [{
         kind: "replace-command",
         source: {
@@ -228,6 +243,7 @@ describe("semantic affected planning", () => {
       id: "patch:missing",
       title: "unknown source",
       sourceFingerprint: "source",
+      authorization: authorizedFixture(),
       operations: [{
         kind: "replace-command",
         source: {
