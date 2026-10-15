@@ -276,6 +276,16 @@ Publication must fail if the rendered HTML loses a promised tester capability. T
 
 A visible control without its canonical behavior is a publication defect, not an acceptable visual placeholder.
 
+### Publication integrity and stale-output detection
+
+Publication is derived from the selected **current** Approved Bug Report V2, its exact project/level source binding, and canonical Developer Notes. The output pair is `bug-tracker.html` and `bug-tracker.json`; neither file independently owns the issue state.
+
+Before writing either file, `exportBugTracker()` validates the document, verifies exact level/source artifact version equality, checks mandatory HTML actions, requires all canonical issue IDs exactly once, and verifies that the entire JSON document embedded inside HTML equals the document serialized to the JSON output. Matching IDs alone cannot validate titles, evidence, source identity or version.
+
+The existing `tooling/bug-report-documents/render.ts` supports `--check` for Approved Bug Report V2 publishing. It rebuilds the expected derived output from the current canonical input and canonical renderer, then compares **both** on-disk output files byte-for-byte. It performs no writes, no auto-repair and no promotion of source-only or unverified map findings. A missing, tampered or outdated HTML/JSON file fails this check with an explicit publication error. The `--check` flag does not apply to Map Audit Output V2 HTML, which has a different publication scope.
+
+A successful static check of these contracts is not proof of executed rendering or browser behavior. A filesystem error between two output writes can still leave a partially updated pair; the read-only check must reject that mismatch. Never claim that the two file writes form one atomic filesystem transaction. Old derived HTML must be regenerated through the canonical publisher, not edited directly or mistaken for current output.
+
 ## Regression requirements
 
 Repository tests must protect at least:
@@ -295,7 +305,9 @@ Repository tests must protect at least:
 - unknown information is omitted rather than synthesized;
 - Developer Notes remain a separate reference lane;
 - verified, needs-validation, and verified-without-procedure cases remain distinct in issue cards and summary; no source-only claim is inferred merely from missing steps;
-- HTML/JSON canonical-ID parity remains exact.
+- HTML/JSON canonical-ID **and complete embedded-document** parity remains exact;
+- source report version must match the source artifact version;
+- read-only publication check rejects missing or stale HTML/JSON and never overwrites tester/source data.
 
 ## Change rule
 

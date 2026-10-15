@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { BugTrackerDocument } from "./model.js";
-import { exportBugTracker } from "./export.js";
+import { exportBugTracker, verifyPublishedBugTracker } from "./export.js";
 import { renderBugTrackerHtml } from "./render-html.js";
 
 const fixture: BugTrackerDocument = {
@@ -67,6 +67,107 @@ describe("Bug Tracker export boundary", () => {
       expect(html).toContain('id="workspace-snapshot"');
       expect(html).toContain('class="files"');
       expect(html).toContain('class="pics"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("checks the entire embedded canonical report instead of accepting matching IDs alone", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bug-tracker-parity-"));
+    try {
+      await expect(exportBugTracker(
+        fixture, dir,
+        (document) => renderBugTrackerHtml(document)
+          .replace('"title":"Export issue"', '"title":"Outdated issue title"'),
+      )).rejects.toThrow(/HTML\/JSON document parity/);
+      await expect(readFile(join(dir, "bug-tracker.json"), "utf8"))
+        .rejects.toThrow();
+      await expect(readFile(join(dir, "bug-tracker.html"), "utf8"))
+        .rejects.toThrow();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects inconsistent report and source artifact versions before writing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bug-tracker-version-"));
+    try {
+      const source = fixture.games[0]!.levels[0]!;
+      const mismatched: BugTrackerDocument = {
+        ...fixture,
+        games: [{
+          ...fixture.games[0]!,
+          levels: [{
+            ...source,
+            source: { ...source.source, version: "9.9.9" },
+          }],
+        }],
+      };
+      await expect(
+        exportBugTracker(mismatched, dir, renderBugTrackerHtml),
+      ).rejects.toThrow(/does not match source artifact version/);
+      await expect(readFile(join(dir, "bug-tracker.json"), "utf8"))
+        .rejects.toThrow();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("checks saved HTML and JSON against the current canonical renderer without writing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bug-tracker-current-"));
+    try {
+      await exportBugTracker(fixture, dir, renderBugTrackerHtml);
+      const htmlPath = join(dir, "bug-tracker.html");
+      const jsonPath = join(dir, "bug-tracker.json");
+      const html = await readFile(htmlPath, "utf8");
+      const json = await readFile(jsonPath, "utf8");
+      await expect(
+        verifyPublishedBugTracker(fixture, dir, renderBugTrackerHtml),
+      ).resolves.toBeUndefined();
+
+      // Old HTML still has the same canonical issue IDs and map version.
+      await writeFile(htmlPath, html.replace('class="lane-nav"', 'class="old-lane-nav"'), "utf8");
+      await expect(
+        verifyPublishedBugTracker(fixture, dir, renderBugTrackerHtml),
+      ).rejects.toThrow(/bug-tracker\.html/);
+      expect(await readFile(htmlPath, "utf8")).toContain("old-lane-nav");
+      expect(await readFile(jsonPath, "utf8")).toBe(json);
+
+      await writeFile(htmlPath, html, "utf8");
+      await writeFile(jsonPath, json.replace('"Export issue"', '"Old Export issue"'), "utf8");
+      await expect(
+        verifyPublishedBugTracker(fixture, dir, renderBugTrackerHtml),
+      ).rejects.toThrow(/bug-tracker\.json/);
+      expect(await readFile(jsonPath, "utf8")).toContain("Old Export issue");
+
+      // A changed canonical source also invalidates previously published bytes.
+      await writeFile(jsonPath, json, "utf8");
+      const changed: BugTrackerDocument = {
+        ...fixture,
+        games: [{
+          ...fixture.games[0]!,
+          levels: [{
+            ...fixture.games[0]!.levels[0]!,
+            issues: fixture.games[0]!.levels[0]!.issues.map(
+              issue => ({ ...issue, issue: "Updated expected provenance statement." }),
+            ),
+          }],
+        }],
+      };
+      await expect(
+        verifyPublishedBugTracker(changed, dir, renderBugTrackerHtml),
+      ).rejects.toThrow(/stale or inconsistent/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports missing publication outputs without creating any files", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bug-tracker-incomplete-"));
+    try {
+      await expect(
+        verifyPublishedBugTracker(fixture, dir, renderBugTrackerHtml),
+      ).rejects.toThrow(/publication is incomplete/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

@@ -19,13 +19,14 @@ import {
   type DeveloperNoteRegistry,
 } from "./tracker/project.js";
 import { renderBugTrackerHtml } from "./tracker/render-html.js";
-import { exportBugTracker } from "./tracker/export.js";
+import { exportBugTracker, verifyPublishedBugTracker } from "./tracker/export.js";
 
 interface Args {
   readonly input: string;
   readonly outDir: string;
   readonly includeFixed: boolean;
   readonly includeMinor: boolean;
+  readonly check: boolean;
 }
 
 type MapAuditHtmlInput = import(
@@ -112,6 +113,7 @@ function parseArgs(argv: readonly string[]): Args {
   let outDir = "";
   let includeFixed = false;
   let includeMinor = true;
+  let check = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     const value = argv[i];
@@ -131,6 +133,10 @@ function parseArgs(argv: readonly string[]): Args {
     }
     if (value === "--include-minor") {
       includeMinor = true;
+      continue;
+    }
+    if (value === "--check") {
+      check = true;
       continue;
     }
     throw new Error("Unknown argument: " + value);
@@ -159,6 +165,7 @@ function parseArgs(argv: readonly string[]): Args {
     outDir: resolve(outDir || inferredOutDir),
     includeFixed,
     includeMinor,
+    check,
   };
 }
 
@@ -738,6 +745,9 @@ async function main(): Promise<void> {
   const raw = JSON.parse(source) as unknown;
 
   if (isMapAuditHtmlInput(raw)) {
+    if (args.check) {
+      throw new Error("--check currently verifies Approved Bug Report V2 HTML/JSON publication only.");
+    }
     const auditIssues =
       mapAuditHtmlInputIssues(raw);
     if (auditIssues.length > 0) {
@@ -924,6 +934,11 @@ async function main(): Promise<void> {
     registry,
     developerNotes,
   );
+  if (args.check) {
+    await verifyPublishedBugTracker(tracker, args.outDir, renderBugTrackerHtml);
+    process.stdout.write("Bug Tracker HTML/JSON publication matches current sources and renderer.\n");
+    return;
+  }
   await mkdir(args.outDir, { recursive: true });
   await exportBugTracker(
     tracker,

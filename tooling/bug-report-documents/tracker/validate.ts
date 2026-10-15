@@ -62,6 +62,10 @@ export function validateBugTrackerDocument(document: BugTrackerDocument): void {
     if (!game.name.trim()) errors.push("Game name is required.");
     for (const level of game.levels) {
       const source = level.source;
+      if (level.version !== source.version) {
+        errors.push(game.name + ": report level version " + level.version +
+          " does not match source artifact version " + source.version + ".");
+      }
       if (!source.driveFolder.trim()) errors.push(game.name + ": Drive Folder is required.");
       if (!source.worldFile.trim()) errors.push(game.name + ": World File is required.");
       if (!source.worldFilename.trim()) errors.push(game.name + ": world filename is required.");
