@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  analyzeEconomyContract,
+  analyzeEconomyBehaviorContract,
 } from "../../src/inspection/economy-contract-analysis.js";
 import type {
   RewardSourceAnalysis,
@@ -29,6 +29,9 @@ const rewards: RewardSourceAnalysis = {
   dropCleanupSurfaces: 0,
   worldDropRewardPathsWithoutCleanup: 1,
   rewardPathsWithoutIdempotency: 2,
+  cleanupAfterRewardJournalProven: 0,
+  cleanupBeforeRewardJournalRisks: 0,
+  cleanupRewardJournalOrderingUnresolved: 0,
   deathRewardPaths: 1,
   pickupCurrencyPaths: 1,
   deathRewardSourceOverlapCandidates: 1,
@@ -40,8 +43,8 @@ const rewards: RewardSourceAnalysis = {
 const baseContract = {
   schemaVersion: 1 as const,
   id: "economy",
-  pickupCurrencyItemContract: "consume" as const,
-  inventoryFullContract:
+  pickupCurrencyItemPolicy: "consume" as const,
+  inventoryFullPolicy:
     "compensate" as const,
   rewardIdempotencyRequired: true,
   pickupScopeValidationRequired: true,
@@ -51,7 +54,7 @@ const baseContract = {
 
 describe("economy contract analysis", () => {
   it("keeps complementary death reward sources out of contract conflict", () => {
-    const result = analyzeEconomyContract(
+    const result = analyzeEconomyBehaviorContract(
       rewards,
       {
         ...baseContract,
@@ -75,7 +78,7 @@ describe("economy contract analysis", () => {
   });
 
   it("surfaces mutually-exclusive death reward overlap as contract conflict, not confirmed defect", () => {
-    const result = analyzeEconomyContract(
+    const result = analyzeEconomyBehaviorContract(
       rewards,
       {
         ...baseContract,
@@ -93,7 +96,7 @@ describe("economy contract analysis", () => {
 
   it("keeps overlap unresolved when no economy contract is configured", () => {
     const result =
-      analyzeEconomyContract(rewards);
+      analyzeEconomyBehaviorContract(rewards);
 
     expect(result.configured).toBe(false);
     expect(
@@ -105,7 +108,7 @@ describe("economy contract analysis", () => {
   });
 
   it("keeps terminal reward ordering unresolved until RESULT_COMMITTED binding is proven", () => {
-    const result = analyzeEconomyContract(
+    const result = analyzeEconomyBehaviorContract(
       rewards,
       {
         ...baseContract,
