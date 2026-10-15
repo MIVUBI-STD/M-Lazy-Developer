@@ -29,6 +29,14 @@ const output = await renderReportNext(newCanonicalReport);
 
 The renderer outputs two data authorities: immutable canonical report and separate tester workspace. A saved offline HTML copy contains both; browser autosave is convenience, not proof the downloaded file is current. Edited copies must be saved again and checked before sharing.
 
+## Portable HTML baseline normalization
+
+Saving the **tester handoff copy** resets presentation-only HTML state: previously open finding/map disclosures are closed, search and severity/result/kind controls default to All, no-matches guidance is hidden, and an old browser-storage warning is replaced by a loading label. It does **not** reset Passed/Failed, Tester Notes, screenshot attachments or captions: those remain in the embedded workspace snapshot.
+
+This fulfills the already locked `ALL_FINDING_CARDS_COLLAPSED` default without changing `layout.lock.json` or either canonical JSON schema. The golden HTML SHA-256 is intentionally recalculated after this narrowly reviewed **functional script correction**; canonical JCS JSON bytes, report digest, UI hierarchy and design version stay identical. Subsequent unapproved visual redesigns are still prohibited.
+
+Chromium executed a minimal native DOM-clone and serialization scenario validating the disclosure and filter reset. The five direct client acceptance tests also passed in an isolated JavaScript DOM mock. These checks are **not** yet the full generated HTML opened/saved/reopened in Chromium and must not be promoted to full-browser release acceptance.
+
 ## Proof and limitations
 
 The source commits demonstrate implementation is stored in GitHub, not that a running application was packaged or that Minecraft testing occurred. A JS-only browser mock or source-level test does **not** establish cross-browser interaction, filesystem download persistence, accessibility conformance, or real map report accuracy. The locked reference image/HTML is a static visual guide; final pixel-level acceptance still requires rendered visual comparison.

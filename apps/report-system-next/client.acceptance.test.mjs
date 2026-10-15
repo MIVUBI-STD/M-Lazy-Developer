@@ -100,11 +100,40 @@ function startPage({ snapshot, copyId = "original", pathname = "/source.html",
       textContent:snap.textContent, dataset:{...snap.dataset}
     });
     const hiddenClones=cards.map(x=>({hidden:x.card.hidden,removeAttribute(){this.hidden=false;}}));
+    const disclosure=new Node(); disclosure.setAttribute("open","");
+    const filterSearch=new Node({value:ids["find-search"].value});
+    filterSearch.setAttribute("value",ids["find-search"].value);
+    const firstOption=new Node();
+    const secondOption=new Node();
+    secondOption.setAttribute("selected","");
+    const select=new Node({value:ids["find-severity"].value,
+      selectors:{"option":firstOption},groups:{"option":[firstOption,secondOption]}});
+    const noMatches=new Node();
+    const recipientStatus=new Node({textContent:ids["save-status"].textContent});
+    recipientStatus.setAttribute("data-error","");
     return {
-      querySelector:id=>id==="#workspace-snapshot"?snapshotClone:null,
-      querySelectorAll:()=>hiddenClones.filter(x=>x.hidden),
+      querySelector:id=>({
+        "#workspace-snapshot":snapshotClone,
+        "#find-search":filterSearch,
+        "#find-severity":select,
+        "#find-kind":new Node({value:ids["find-kind"].value,selectors:{"option":new Node()}}),
+        "#find-result":new Node({value:ids["find-result"].value,selectors:{"option":new Node()}}),
+        "#no-matches":noMatches,
+        "#save-status":recipientStatus
+      })[id]??null,
+      querySelectorAll:selector=>selector==="details[open]"?[disclosure]:
+        selector.includes("[data-finding][hidden]")?hiddenClones.filter(x=>x.hidden):[],
       get outerHTML(){
-        return '<html><script id="workspace-snapshot" data-copy-id="' +
+        return '<html><details class="issue"' +
+          (Object.hasOwn(disclosure.attributes,"open")?' open':'') +
+          '></details><input id="find-search" value="' +
+          filterSearch.attributes.value + '"><select id="find-severity"><option' +
+          (Object.hasOwn(firstOption.attributes,"selected")?' selected':'') +
+          '>ALL</option><option' +
+          (Object.hasOwn(secondOption.attributes,"selected")?' selected':'') +
+          '>MAJOR</option></select><p id="no-matches"' +
+          (Object.hasOwn(noMatches.attributes,"hidden")?' hidden':'') +
+          '></p><script id="workspace-snapshot" data-copy-id="' +
           snapshotClone.dataset.copyId + '" type="application/json">' +
           snapshotClone.textContent + '</script></html>';
       }
@@ -185,6 +214,22 @@ test("tester workflow: result, notes, screenshot, caption and offline handoff sn
   const resetReopen=startPage({snapshot:state,copyId,
     pathname:"/recipient.html",storage:reopened.storage});
   assert.equal(resetReopen.ids["metric-passed"].textContent,"0");
+});
+
+test("portable HTML resets presentation-only expanded and filtered state",()=>{
+  const page=startPage();
+  page.ids["find-search"].value="nonexistent";
+  page.ids["find-severity"].value="MAJOR";
+  page.ids["find-search"].emit("input");
+  assert.equal(page.ids["match-count"].textContent,"Showing 0 of 3 entries");
+  page.ids["save-html"].emit("click");
+  const html=page.downloads[0].contents;
+  assert.doesNotMatch(html,/<details class="issue" open/);
+  assert.match(html,/<input id="find-search" value="">/);
+  assert.match(html,/<option selected>ALL<\/option>/);
+  assert.doesNotMatch(html,/<option selected>MAJOR<\/option>/);
+  assert.match(html,/<p id="no-matches" hidden>/);
+  assert.ok(savedSnapshot(page.downloads[0]).state);
 });
 
 test("invalid or different-report JSON cannot replace current tester work",()=>{

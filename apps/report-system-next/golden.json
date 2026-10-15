@@ -5,8 +5,8 @@
   "layoutBlob": "c958b33054722c2884e791e5b4e811a7987d394d",
   "referenceBlob": "2cce615368348cae8d77137867442f3f793fa584",
   "syntheticExampleBlob": "13b78d7d8f5cde1d015ceda117709289e1feda8e",
-  "htmlSha256": "802a709ca1009f1eff9f2d84016c6c72daa2dda5efb72294584d235ee588c6b4",
+  "htmlSha256": "644856d8deff9ee64cdf473aa61b4ecf30cbc6af44b7df65f65bd70622ba17b4",
   "jsonSha256": "7f6e25b0feccef6c0e963079e5806f6278286bbd7b56dca78ca033623319fd16",
   "digest": "sha256:7f6e25b0feccef6c0e963079e5806f6278286bbd7b56dca78ca033623319fd16",
-  "notes": "Synthetic fixture only. Locked base HTML and JCS JSON; tester-saved snapshots vary."
+  "notes": "Synthetic fixture only. Functional Save as HTML normalization now strips presentation-only open/filter state from portable copies; design lock, canonical JSON and UI section order remain unchanged. Golden HTML rebaselined after explicit source-level review, not a new layout version."
 }

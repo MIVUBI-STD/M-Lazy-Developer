@@ -241,8 +241,28 @@
   });
   document.getElementById("save-html").addEventListener("click", () => {
     const clone = document.documentElement.cloneNode(true);
-    // Filter visibility is view-only; never export a partial report.
+    // Restore the *approved default view* in portable copies. Tester
+    // observations are in the snapshot; expanded cards and active filters
+    // are presentation-only state and must not affect a recipient's layout.
     for (const el of clone.querySelectorAll("[data-finding][hidden], [data-group][hidden], [data-group-container][hidden], [data-level][hidden], [data-map][hidden]")) el.removeAttribute("hidden");
+    for (const details of clone.querySelectorAll("details[open]")) details.removeAttribute("open");
+    const search = clone.querySelector("#find-search");
+    if (search) { search.value = ""; search.setAttribute("value", ""); }
+    for (const id of ["find-kind", "find-severity", "find-result"]) {
+      const select = clone.querySelector("#" + id);
+      if (!select) continue;
+      for (const option of select.querySelectorAll("option")) option.removeAttribute("selected");
+      select.value = "ALL";
+      const first = select.querySelector("option");
+      if (first) first.setAttribute("selected", "");
+    }
+    const noMatches = clone.querySelector("#no-matches");
+    if (noMatches) noMatches.setAttribute("hidden", "");
+    const recipientStatus = clone.querySelector("#save-status");
+    if (recipientStatus) {
+      recipientStatus.textContent = "Loading saved tester results";
+      recipientStatus.removeAttribute("data-error");
+    }
     const newSnapshot = clone.querySelector("#workspace-snapshot");
     newSnapshot.dataset.copyId = Date.now().toString(36) +
       "-" + Math.random().toString(36).slice(2);
