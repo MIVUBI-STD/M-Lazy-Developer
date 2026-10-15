@@ -8,13 +8,6 @@ import {
 import {
   projectAllNeedValidationAuditIssues,
 } from "../src/map-audit-validation-projection.js";
-import {
-  projectSignalNeedValidationAuditIssues,
-  projectClosureNeedValidationAuditIssues,
-} from "../src/map-audit-validation-signals.js";
-import {
-  groupNeedValidationTests,
-} from "../src/map-audit-validation-plan.js";
 import type {
   GameplayScenarioGraph,
 } from "../src/inspection/gameplay-scenario-model.js";
@@ -65,6 +58,10 @@ const graph: GameplayScenarioGraph = {
       ],
       subjectIds: ["policy:arena"],
       componentIds: ["runtime:arena"],
+      knowledgeRequirementIds: [],
+      impactPathComponentIds: [],
+      impactPathEvidenceIds: [],
+      dimensionEvidence: {},
       status: "CONTRADICTED",
       reason: "Six arenas are visible but only two can run concurrently.",
     },
@@ -77,6 +74,10 @@ const graph: GameplayScenarioGraph = {
       evidenceIds: ["source:wave"],
       subjectIds: ["objective:wave"],
       componentIds: ["runtime:entities"],
+      knowledgeRequirementIds: [],
+      impactPathComponentIds: [],
+      impactPathEvidenceIds: [],
+      dimensionEvidence: {},
       status: "CONTRADICTED",
       reason: "Progression advances without the required spawn.",
     },
@@ -148,6 +149,7 @@ const gate: GameplayDefectResolutionGate = {
               "world:arena-count",
               "capacity:safe-concurrency",
             ],
+            exhaustiveWithinScope: true,
           },
           {
             dimension: "scope",
@@ -156,6 +158,7 @@ const gate: GameplayDefectResolutionGate = {
               "world:arena-count",
               "capacity:safe-concurrency",
             ],
+            exhaustiveWithinScope: true,
           },
           {
             dimension: "exclusion",
@@ -164,6 +167,7 @@ const gate: GameplayDefectResolutionGate = {
               "world:arena-count",
               "capacity:safe-concurrency",
             ],
+            exhaustiveWithinScope: true,
           },
           {
             dimension: "owner",
@@ -172,6 +176,7 @@ const gate: GameplayDefectResolutionGate = {
               "world:arena-count",
               "capacity:safe-concurrency",
             ],
+            exhaustiveWithinScope: true,
           }
         ],
         scopeIds: [
@@ -233,6 +238,7 @@ const gate: GameplayDefectResolutionGate = {
               "world:arena-count",
               "capacity:safe-concurrency",
             ],
+            exhaustiveWithinScope: true,
           },
           {
             dimension: "scope",
@@ -241,6 +247,7 @@ const gate: GameplayDefectResolutionGate = {
               "world:arena-count",
               "capacity:safe-concurrency",
             ],
+            exhaustiveWithinScope: true,
           },
           {
             dimension: "exclusion",
@@ -249,6 +256,7 @@ const gate: GameplayDefectResolutionGate = {
               "world:arena-count",
               "capacity:safe-concurrency",
             ],
+            exhaustiveWithinScope: true,
           }
         ],
         scopeIds: [
@@ -378,240 +386,6 @@ describe("EVALUATE to PROVE to issue projection", () => {
 });
 
 describe("map audit issue projection", () => {
-  it("projects unresolved material dependencies as NEED_VALIDATION instead of hiding them", async () => {
-    const module = await import(
-      "../src/map-audit-validation-projection.js"
-    );
-    const unresolvedGraph: GameplayScenarioGraph = {
-      ...graph,
-      causalLinks: [{
-        id: "link:runtime-gap",
-        scenarioId: "scenario:progression",
-        fromComponentId: "runtime:entities",
-        toComponentId: "objective:wave",
-        purpose: "Remote enemy remains simulated until wave completion.",
-        evidenceIds: ["source:wave"],
-        subjectIds: ["objective:wave"],
-        componentIds: ["runtime:entities"],
-        status: "RUNTIME_BLOCKED",
-        reason: "Static evidence cannot prove Minecraft runtime residency.",
-      }],
-    };
-    const unresolvedGate: GameplayDefectResolutionGate = {
-      status: "READY_FOR_PROPOSED_BUG_SET",
-      contradictedCausalLinkIds: [],
-      resolutions: [],
-      confirmedDefectReadyIds: [],
-      blockingCounterProofIds: [],
-      runtimeProofRequiredIds: [],
-      detectionGapIds: [],
-      gameplayTranslationRequiredIds: [],
-      counterProofSearchRequiredIds: [],
-      issues: [],
-    };
-
-    const result =
-      module.projectNeedValidationAuditIssues(
-        unresolvedGraph,
-        unresolvedGate,
-      );
-
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      status: "NEED_VALIDATION",
-      failureDomain:
-        "progression-wave-objective",
-      gameplayFlow: "PROGRESSION",
-    });
-    expect(result[0]?.validationReason).toMatch(
-      /runtime observation/i,
-    );
-    expect(result[0]?.validationTest).toContain(
-      "Remote enemy remains simulated",
-    );
-  });
-
-  it("surfaces missing required knowledge as NEED_VALIDATION instead of hiding it in closure", () => {
-    const knowledgeGraph: GameplayScenarioGraph = {
-      ...graph,
-      causalLinks: [],
-      knowledgeRequirements: [{
-        id: "knowledge:scenario:progression:chunk-simulation",
-        scenarioId: "scenario:progression",
-        domain: "chunk-simulation",
-        reason:
-          "Wave progression requires chunk-simulation evidence.",
-        capabilityIds: ["chunk-lifecycle-integrity"],
-        dependsOnRequirementIds: [],
-        subjectIds: ["objective:wave"],
-        componentIds: ["runtime:entities"],
-      }],
-      knowledgeReceipts: [{
-        requirementId:
-          "knowledge:scenario:progression:chunk-simulation",
-        scenarioId: "scenario:progression",
-        domain: "chunk-simulation",
-        status: "MISSING_REQUIRED_KNOWLEDGE",
-        evidenceIds: [],
-        capabilityIdsUsed: [
-          "chunk-lifecycle-integrity",
-        ],
-        subjectIds: ["objective:wave"],
-        componentIds: ["runtime:entities"],
-        reason:
-          "Chunk analysis executed but returned no decisive scenario-scoped evidence.",
-      }],
-      requiredInspectionGraph: {
-        policy: "required-inspection-graph",
-        nodes: [],
-        receipts: [],
-      },
-    };
-    const emptyGate: GameplayDefectResolutionGate = {
-      status: "READY_FOR_PROPOSED_BUG_SET",
-      contradictedCausalLinkIds: [],
-      resolutions: [],
-      confirmedDefectReadyIds: [],
-      blockingCounterProofIds: [],
-      runtimeProofRequiredIds: [],
-      detectionGapIds: [],
-      gameplayTranslationRequiredIds: [],
-      counterProofSearchRequiredIds: [],
-      issues: [],
-    };
-
-    const result =
-      projectAllNeedValidationAuditIssues(
-        knowledgeGraph,
-        emptyGate,
-      );
-
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      status: "NEED_VALIDATION",
-      knowledgeRequirementId:
-        "knowledge:scenario:progression:chunk-simulation",
-      validationGroupKey:
-        "scenario:progression:chunk-simulation",
-    });
-    expect(result[0]?.missingProof).toMatch(
-      /chunk-simulation/i,
-    );
-  });
-
-  it("surfaces negative-space and high temporal signals instead of leaving them as hidden attention counts", () => {
-    const result =
-      projectSignalNeedValidationAuditIssues(
-        [{
-          id: "negative-space:entry-without-exit:state:round",
-          kind: "entry-without-exit",
-          subjectId: "state:round",
-          evidenceIds: ["state:enter"],
-          reason:
-            "Gameplay state is reachable but has no grounded exit.",
-        }],
-        [{
-          leftSystem: "callback:reward",
-          rightSystem: "arena:cleanup",
-          factors: [
-            "async",
-            "cleanup",
-          ],
-          priority: "high",
-          windows: [
-            "before",
-            "overlap",
-            "after",
-          ],
-        }],
-      );
-
-    expect(result).toHaveLength(2);
-    expect(result.every(
-      (item) => item.status === "NEED_VALIDATION",
-    )).toBe(true);
-    expect(result.map(
-      (item) => item.failureDomain,
-    )).toContain("state-ownership");
-    expect(result.map(
-      (item) => item.failureDomain,
-    )).toContain("temporal-async");
-  });
-
-  it("consolidates multiple unresolved findings into one validation test group", () => {
-    const findings =
-      projectSignalNeedValidationAuditIssues(
-        [{
-          id: "negative-space:producer-without-consumer:state:round",
-          kind: "producer-without-consumer",
-          subjectId: "state:round",
-          evidenceIds: ["state:write"],
-          reason:
-            "State/event is produced but no consuming gameplay path is present.",
-        }, {
-          id: "negative-space:entry-without-exit:state:round",
-          kind: "entry-without-exit",
-          subjectId: "state:round",
-          evidenceIds: ["state:enter"],
-          reason:
-            "Gameplay state is reachable but has no grounded exit.",
-        }],
-        [],
-      );
-
-    const groups = groupNeedValidationTests(
-      findings,
-    );
-
-    expect(groups).toHaveLength(1);
-    expect(groups[0]?.findingIds).toHaveLength(2);
-    expect(groups[0]?.key).toBe(
-      "negative-space:state:round",
-    );
-  });
-
-  it("surfaces gameplay closure gaps as NEED_VALIDATION findings", () => {
-    const result =
-      projectClosureNeedValidationAuditIssues({
-        status: "OPEN",
-        surfaces: [{
-          id: "runtime:arena-capacity",
-          label: "Arena capacity",
-          kind: "runtime-domain",
-          status: "unknown",
-          material: true,
-          reason:
-            "Concurrent capacity is unresolved.",
-          evidenceIds: ["capacity:source"],
-          boundaries: [],
-        }],
-        unaccountedSurfaceIds: [
-          "mechanic:teleport",
-        ],
-        blockingSurfaceIds: [],
-        unknownSurfaceIds: [
-          "runtime:arena-capacity",
-        ],
-        stateModelComplete: false,
-        boundariesExtracted: false,
-        reasons: [
-          "Gameplay model remains incomplete.",
-        ],
-      });
-
-    expect(result.map(
-      (item) => item.causalLinkId,
-    )).toEqual(expect.arrayContaining([
-      "closure-surface:runtime:arena-capacity",
-      "unaccounted-surface:mechanic:teleport",
-      "closure-gap:state-model",
-      "closure-gap:boundaries",
-    ]));
-    expect(result.every(
-      (item) => item.status === "NEED_VALIDATION",
-    )).toBe(true);
-  });
-
   it("keeps confirmation NEED_VALIDATION until family proof receipt is complete", () => {
     const { familyProof: _omittedFamilyProof, ...unprovenResolution } =
       gate.resolutions[1]!;
@@ -649,7 +423,7 @@ describe("map audit issue projection", () => {
           item.causalLinkId ===
           "link:progression",
       )?.missingProof,
-    ).toMatch(/completion-dependency-grounded/i);
+    ).toMatch(/reconciliation-exhausted/i);
   });
 
   it("refuses PROVEN projection when minimum proof saturation is incomplete", () => {

@@ -42,6 +42,10 @@ function baseGraph(status: string) {
       subjectIds: ["objective:wave"],
       componentIds: ["runtime:entities"],
       status,
+      knowledgeRequirementIds: [],
+      impactPathComponentIds: [],
+      impactPathEvidenceIds: [],
+      dimensionEvidence: {},
       reason:
         status === "CONTRADICTED"
           ? "Wave accounting can complete while required enemy work remains."
@@ -99,6 +103,11 @@ describe("audit obligations versus gameplay findings", () => {
           },
           arenas: {
             detected: false,
+            isolation: {
+              isolated: 0, partitionProofRequired: 0,
+              sharedGlobal: 0, unknown: 0, observations: [],
+            },
+            replicaProof: [],
           },
           platformKnowledge: {
             claims: [],
@@ -240,22 +249,21 @@ describe("reusable blind-spot obligations", () => {
 
   const derive = (extra: any) =>
     deriveAuditObligations({
-      graph,
+      graph: extra.graph ?? graph,
       defectResolution: gate,
       gameplayWorld: {
         ...baseWorld,
         ...(extra.gameplayWorld ?? {}),
       },
-      gameplayClosure: closed,
+      gameplayClosure: extra.gameplayClosure ?? closed,
       capabilityDelivery: [],
-      negativeSpace: [],
-      temporalRisks: [],
+      negativeSpace: extra.negativeSpace ?? [],
+      temporalRisks: extra.temporalRisks ?? [],
       discoveryChallenges: [],
       sharedResourceSignals: [],
       compoundBoundaries: [],
       accumulationGrowth: [],
-      capabilityExposure:
-        extra.capabilityExposure,
+      ...(extra.capabilityExposure === undefined ? {} : { capabilityExposure: extra.capabilityExposure }),
     });
 
   it("surfaces incomplete replica proof instead of inheriting baseline safety", () => {
@@ -349,4 +357,95 @@ describe("reusable blind-spot obligations", () => {
       ),
     ).toBe(true);
   });
+  it("keeps missing scenario knowledge as an audit obligation, not a bug", () => {
+    const unresolvedGraph = {
+      ...graph,
+      scenarios: [{
+        id: "scenario:wave", label: "wave", gameplayStage: "PROGRESSION",
+        purpose: "Complete the wave.", sourceSubjectIds: ["objective:wave"],
+        componentIds: ["runtime:entities"], causalLinkIds: [],
+        playerCounts: [1], requiredKnowledgeIds: ["knowledge:wave:chunk"],
+        composedScenarioIds: [],
+      }],
+      knowledgeRequirements: [{
+        id: "knowledge:wave:chunk", scenarioId: "scenario:wave",
+        domain: "chunk-simulation", reason: "Chunk evidence is required.",
+        capabilityIds: ["chunk-lifecycle-integrity"],
+        dependsOnRequirementIds: [], subjectIds: ["objective:wave"],
+        componentIds: ["runtime:entities"],
+      }],
+      knowledgeReceipts: [{
+        requirementId: "knowledge:wave:chunk", scenarioId: "scenario:wave",
+        domain: "chunk-simulation", status: "MISSING_REQUIRED_KNOWLEDGE",
+        evidenceIds: [], knowledgeIds: [],
+        capabilityIdsUsed: ["chunk-lifecycle-integrity"],
+        subjectIds: ["objective:wave"], componentIds: ["runtime:entities"],
+        reason: "No decisive chunk simulation evidence.",
+      }],
+    };
+    const obligations = derive({ graph: unresolvedGraph });
+    expect(obligations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "knowledge-gap:knowledge:wave:chunk",
+        source: "knowledge-gap",
+        stage: "PROVE",
+      }),
+    ]));
+    expect(projectNeedValidationAuditIssues(unresolvedGraph, gate)).toEqual([]);
+  });
+
+  it("preserves lifecycle asymmetry and high temporal risk as distinct obligations", () => {
+    const obligations = derive({
+      negativeSpace: [{
+        id: "negative-space:entry-without-exit:state:round",
+        kind: "entry-without-exit",
+        subjectId: "state:round",
+        evidenceIds: ["state:enter"],
+        reason: "Reachable state lacks a grounded exit.",
+      }],
+      temporalRisks: [{
+        leftSystem: "callback:reward", rightSystem: "arena:cleanup",
+        factors: ["async", "cleanup"], priority: "high",
+        windows: ["before", "overlap", "after"],
+      }],
+    });
+    expect(obligations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "negative-space:entry-without-exit:state:round",
+        source: "negative-space", stage: "EVALUATE",
+      }),
+      expect.objectContaining({
+        id: "temporal-risk:callback:reward:arena:cleanup",
+        source: "temporal-risk", stage: "EVALUATE",
+      }),
+    ]));
+    expect(projectNeedValidationAuditIssues(graph, gate)).toEqual([]);
+  });
+
+  it("retains unaccounted surfaces and incomplete closure as obligations", () => {
+    const obligations = derive({
+      gameplayClosure: {
+        ...closed,
+        status: "OPEN",
+        surfaces: [{
+          id: "runtime:arena-capacity", label: "Arena capacity",
+          kind: "runtime-domain", status: "unknown", material: true,
+          reason: "Concurrent capacity is unresolved.",
+          evidenceIds: ["capacity:source"], boundaries: [],
+        }],
+        unaccountedSurfaceIds: ["mechanic:teleport"],
+        unknownSurfaceIds: ["runtime:arena-capacity"],
+        stateModelComplete: false, boundariesExtracted: false,
+      },
+    });
+    const ids = obligations.map(item => item.id);
+    expect(ids).toEqual(expect.arrayContaining([
+      "closure-surface:runtime:arena-capacity",
+      "unaccounted-surface:mechanic:teleport",
+      "closure-gap:state-model",
+      "closure-gap:boundaries",
+    ]));
+    expect(projectNeedValidationAuditIssues(graph, gate)).toEqual([]);
+  });
+
 });
