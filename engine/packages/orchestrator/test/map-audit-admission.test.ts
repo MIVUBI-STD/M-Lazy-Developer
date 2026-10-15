@@ -162,6 +162,50 @@ describe("selected-map audit admission", () => {
     }, completed)).toBe(false);
   });
 
+  it("fails closed when a blocking checkpoint is missing from the derived blocking index", () => {
+    const base = procedure([]);
+    const C9 = {
+      ...base.checkpoints[3]!,
+      id: "C9",
+      block: "EVALUATE" as const,
+      label: "Cross-System Scenario Coverage",
+      status: "PARTIAL" as const,
+      reasonCode: "OBLIGATION_INCOMPLETE" as const,
+      blocksPublication: true,
+    };
+    const inconsistent: MandatoryAuditProcedureReceipt = {
+      ...base,
+      checkpoints: [...base.checkpoints, C9],
+      blockingCheckpointIds: [],
+      status: "PARTIAL",
+    };
+    const rejected = assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: inconsistent,
+    });
+    expect(rejected.status).toBe("BLOCKED");
+    expect(rejected.firstBlockingStage).toBe("EVALUATE");
+    expect(rejected.issues).toEqual([
+      expect.objectContaining({
+        stage: "EVALUATE",
+        code: "PROCEDURE_BLOCKED",
+      }),
+    ]);
+
+    // Runtime-only residue may legitimately be visible without blocking
+    // report publication; do not conflate PARTIAL with blocksPublication.
+    const runtimeOnly: MandatoryAuditProcedureReceipt = {
+      ...inconsistent,
+      checkpoints: inconsistent.checkpoints.map(item => item.id === "C9"
+        ? { ...item, reasonCode: "RUNTIME_PROOF_REQUIRED", blocksPublication: false }
+        : item),
+    };
+    const allowed = assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: runtimeOnly,
+    });
+    expect(allowed.status).toBe("READY");
+    expect(allowed.issues).toEqual([]);
+  });
+
   it("keeps EVALUATE publication blocked after source-only arena formalization closes", () => {
     const base = procedure([]);
     const B4 = {

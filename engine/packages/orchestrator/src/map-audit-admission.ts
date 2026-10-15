@@ -120,6 +120,24 @@ export function assessSelectedMapAuditAdmission(
           " blocks continuation.",
       });
     }
+
+    // Guard the derived blocking index against stale or inconsistent
+    // checkpoint projections. Publication authority belongs to the actual
+    // checkpoint, not merely to the denormalized list of its IDs.
+    for (const checkpoint of procedure.checkpoints) {
+      if (
+        !checkpoint.blocksPublication ||
+        procedure.blockingCheckpointIds.includes(checkpoint.id)
+      ) continue;
+      issues.push({
+        stage: checkpoint.block,
+        code: "PROCEDURE_BLOCKED",
+        message:
+          "Mandatory Audit Procedure checkpoint " +
+          checkpoint.id +
+          " blocks continuation but is missing from the blocking index.",
+      });
+    }
   }
 
   const firstBlockingStage = SELECTED_MAP_AUDIT_STAGE_ORDER.find((stage) =>
