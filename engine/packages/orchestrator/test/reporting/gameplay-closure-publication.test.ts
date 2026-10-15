@@ -6,6 +6,10 @@ import {
 import type {
   GameplayModelClosureResult,
 } from "../../../gameplay-intent/src/index.js";
+import {
+  assessGameplayDiscoveryClosure,
+  type GameplayDiscoveryClosureStatus,
+} from "../../src/inspection/gameplay-discovery-closure.js";
 
 function closure(
   status: GameplayModelClosureResult["status"],
@@ -23,17 +27,24 @@ function closure(
   };
 }
 
+function discovery(status: GameplayDiscoveryClosureStatus) {
+  const parseFailed = status === "OPEN";
+  return assessGameplayDiscoveryClosure({
+    discoveredSurfaceIds: ["phase:lobby"],
+    sourceRelevantFiles: 1,
+    sourceIndexedFiles: parseFailed ? 0 : 1,
+    sourceCoverageComplete: !parseFailed,
+    sourceParseFailures: parseFailed ? 1 : 0,
+    unsupportedRelevantSourcePaths: [],
+    semanticUnderstandingGapPaths: [],
+    unresolvedReferences: status === "PARTIAL" ? 1 : 0,
+  });
+}
+
 describe("gameplay closure publication gate", () => {
   it("blocks publication while discovery closure is OPEN", () => {
     const issues =
-      gameplayDiscoveryPublicationIssues({
-        status: "OPEN",
-        discoveredSurfaceIds: ["phase:lobby"],
-        sourceCoverageComplete: false,
-        sourceParseFailures: 1,
-        unresolvedReferences: 0,
-        reasons: ["source parse failed"],
-      });
+      gameplayDiscoveryPublicationIssues(discovery("OPEN"));
 
     expect(issues).toHaveLength(1);
     expect(issues[0]?.message).toMatch(
@@ -44,15 +55,7 @@ describe("gameplay closure publication gate", () => {
   it("allows discovery publication gate for COMPLETE or PARTIAL", () => {
     for (const status of ["COMPLETE", "PARTIAL"] as const) {
       expect(
-        gameplayDiscoveryPublicationIssues({
-          status,
-          discoveredSurfaceIds: ["phase:lobby"],
-          sourceCoverageComplete: true,
-          sourceParseFailures: 0,
-          unresolvedReferences:
-            status === "PARTIAL" ? 1 : 0,
-          reasons: [],
-        }),
+        gameplayDiscoveryPublicationIssues(discovery(status)),
       ).toEqual([]);
     }
   });
