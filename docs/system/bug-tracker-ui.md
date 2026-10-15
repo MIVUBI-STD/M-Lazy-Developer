@@ -159,6 +159,25 @@ Why This Is a Bug explains the grounded contract/design contradiction that makes
 
 Missing canonical information stays missing. The renderer must never invent rationale, impact, reproduction, expected behavior, cause, evidence, code ownership, or a fix to make the card look complete.
 
+## Recipient test-readiness and result meaning
+
+The recipient-facing HTML must distinguish **issue evidence**, **guided retest instructions**, and **tester results** without creating a new schema or altering canonical issue approval/completion.
+
+- \`Verified Issue\` is the issue's canonical evidence verification classification; it is **not** a Passed Minecraft retest or \`fixed: true\`.
+- \`Needs Validation\` is an unresolved proof classification and must remain visible. It is not the same as missing instructions.
+- Guided retest controls are enabled only when the existing source contains at least one nonempty \`Test In-Game\` step, all steps are nonempty, and \`Expected\` is nonempty. This is a minimum **presentation-readiness** check, not proof that the instructions are operationally sufficient or a map has run in Minecraft.
+- If these fields are incomplete, show \`TEST PROCEDURE MISSING\` on the collapsed card and an explicit reason in expanded details. Keep all source/developer evidence visible. Disable Passed / Failed; never infer test steps or expected results. Retain old tester state without displaying a current Passed retest for a now-unready issue.
+- \`Passed\` means **after a repair** the tester observed Expected behavior and the prior issue no longer appears. \`Failed\` means the defect persists or Expected behavior is not met. These are tester workspace observations; neither changes canonical repair closure.
+- BUG and DESIGN_MISMATCH use the same after-fix retest semantics. Design Mismatches label their evidence rationale \`Why This Is a Mismatch\`; do not mislabel it \`Why This Is a Bug\`. Developer Notes have no severity or Passed / Failed state.
+
+### Local workspace integrity
+
+- Show \`Saved locally\` only after a successful browser persistence write, never as the default state. When browser storage is unavailable or full, show a visible warning and retain in-memory work so that the recipient can use the existing \`Save as HTML\` or \`Save JSON\` portable workflow before closing the page. Never promise data survived a refresh when the write failed.
+- A screenshot must not be labeled saved if the browser storage write failed. Unsupported or oversized screenshot files require an explanation rather than silent omission.
+- Distinguish malformed/different-artifact Load JSON from browser storage failure. A failed load must not discard current working data.
+- Saved portable HTML/JSON can contain tester notes and screenshots. Advise recipients to review these before sharing. Portable copies do not mutate canonical issue data.
+- These measures apply within the existing renderer; do not create a separate status database, report generator, or browser data authority.
+
 ## Interaction states
 
 Card color communicates tester interaction state; badges communicate canonical classification.

@@ -73,6 +73,9 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("Technical Details ↓");
     expect(html).toContain("Recommended Fix");
     expect(html).toContain("TEST RESULT");
+    expect(html).toContain('data-test-ready="true"');
+    expect(html).toContain("Passed means Expected behavior is restored");
+    expect(html).not.toContain('data-result="SUCCESS" disabled');
     expect(html).toContain("✓ PASSED");
     expect(html).toContain("✕ FAILED");
     expect(html).toContain("Tester Notes");
@@ -178,8 +181,40 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).not.toContain("TEST IN-GAME");
     expect(html).not.toContain("EXPECTED");
     expect(html).not.toContain("Recommended Fix");
-    expect(html).toContain("✓ PASSED");
-    expect(html).toContain("✕ FAILED");
+    expect(html).toContain('data-test-ready="false"');
+    expect(html).toContain("TEST PROCEDURE MISSING");
+    expect(html).toContain("Guided retest unavailable");
+    expect(html).toContain('data-result="SUCCESS" disabled aria-disabled="true"');
+    expect(html).toContain('data-result="FAILED" disabled aria-disabled="true"');
+  });
+
+  it("separates mismatch rationale, unavailable retest, and browser-save failure", () => {
+    const level = fixture.games[0]!.levels[0]!;
+    const mismatch = {
+      ...level.issues[0]!,
+      id: "DM-GOLDEN-NO-TEST",
+      type: "DESIGN_MISMATCH" as const,
+      verification: "VERIFIED" as const,
+      reproduction: [],
+      expected: "",
+    };
+    const modified: BugTrackerDocument = {
+      ...fixture,
+      games: [{ ...fixture.games[0]!, levels: [{ ...level, issues: [mismatch] }] }],
+    };
+    const html = renderBugTrackerHtml(modified);
+    expect(html).toContain("WHY THIS IS A MISMATCH");
+    expect(html).toContain("TEST PROCEDURE MISSING");
+    expect(html).toContain('data-test-ready="false"');
+    expect(html).toContain('data-result="SUCCESS" disabled aria-disabled="true"');
+    expect(html).toContain("This tester result never marks a canonical bug Fixed");
+    expect(html).toContain("Not yet saved locally");
+    const script = html.split("<script>").at(-1)?.split("</script>")[0];
+    expect(script).toBeDefined();
+    expect(script).toContain("try{localStorage.setItem(KEY,JSON.stringify(WS))");
+    expect(script).toContain("markSaveFailed()");
+    expect(script).toContain("Invalid or different-map Bug Tracker JSON");
+    expect(script).toContain("Screenshot held in memory");
   });
 
   it("isolates tester workspace per exact map artifact and version", () => {
