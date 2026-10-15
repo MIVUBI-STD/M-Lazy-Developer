@@ -165,8 +165,8 @@ The recipient-facing HTML must distinguish **issue evidence**, **guided retest i
 
 - \`Verified Issue\` is the issue's canonical evidence verification classification; it is **not** a Passed Minecraft retest or \`fixed: true\`.
 - \`Needs Validation\` is an unresolved proof classification and must remain visible. It is not the same as missing instructions.
-- Guided retest controls are enabled only if the shared `reviewTesterReproductionSteps()` language gate accepts the complete existing Test In-Game procedure and Expected is nonempty. The existing `trackerGuidedRetestReadiness()` projection also checks legacy tracker JSON without changing it. This is **presentation-readiness only**, not proof that the instructions can actually be executed in Minecraft.
-- If tester steps are missing, blank, technically oriented or vague, show TEST PROCEDURE MISSING on the collapsed card and the first concrete reason in expanded details. Show the count of guided retests ready/not ready separately from Needs Validation. Keep all issue/source/developer evidence, but disable Passed / Failed; never invent test steps. Retain older tester state without displaying it as a current successful retest.
+- After-fix Passed / Failed are available only for `VERIFIED` findings with an acceptable Test In-Game procedure under the shared `reviewTesterReproductionSteps()` gate, plus nonempty Expected and Observed evidence text. `NEEDS_VERIFY` findings may still show authored validation steps and accept Tester Notes / Evidence, but cannot claim a successful post-fix retest before their evidence is verified. The existing `trackerGuidedRetestReadiness()` projection derives this without changing tracker JSON. This is **presentation-readiness only**, not proof of Minecraft execution.
+- A `NEEDS_VERIFY` finding shows **Validate Evidence First** independently of the procedure's textual quality. A verified finding with absent, blank, technically oriented or vague steps, missing Expected, or missing Observed shows **Retest Procedure Not Ready** and the specific reason in expanded details. Show the mutually exclusive summary counts **Needs Validation**, **Retest Ready**, and **No Guided Procedure**. The latter means a verified issue lacks acceptable retest instructions; it does **not** prove a source-only origin (a tester finding may also lack recorded instructions). Keep all issue/source/developer evidence and notes accessible; disable Passed / Failed while unready. Preserve older tester state without displaying it as a current successful retest. Never invent steps or runtime proof.
 - \`Passed\` means **after a repair** the tester observed Expected behavior and the prior issue no longer appears. \`Failed\` means the defect persists or Expected behavior is not met. These are tester workspace observations; neither changes canonical repair closure.
 - BUG and DESIGN_MISMATCH use the same after-fix retest semantics. Design Mismatches label their evidence rationale \`Why This Is a Mismatch\`; do not mislabel it \`Why This Is a Bug\`. Developer Notes have no severity or Passed / Failed state.
 
@@ -288,6 +288,7 @@ Repository tests must protect at least:
 - Technical Details only render from available canonical data;
 - unknown information is omitted rather than synthesized;
 - Developer Notes remain a separate reference lane;
+- verified, needs-validation, and verified-without-procedure cases remain distinct in issue cards and summary; no source-only claim is inferred merely from missing steps;
 - HTML/JSON canonical-ID parity remains exact.
 
 ## Change rule

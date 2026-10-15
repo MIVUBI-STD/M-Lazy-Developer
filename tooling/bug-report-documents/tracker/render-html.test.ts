@@ -73,10 +73,11 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("Technical Details ↓");
     expect(html).toContain("Recommended Fix");
     expect(html).toContain("TEST RESULT");
-    expect(html).toContain("Guided Retest: 1 ready / 0 not ready");
-    expect(html).toContain('data-test-ready="true"');
+    expect(html).toContain("Needs Validation: 1 · Retest Ready: 0 · No Guided Procedure: 0");
+    expect(html).toContain("VALIDATE EVIDENCE FIRST");
+    expect(html).toContain('data-test-ready="false"');
     expect(html).toContain("Passed means Expected behavior is restored");
-    expect(html).not.toContain('data-result="SUCCESS" disabled');
+    expect(html).toContain('data-result="SUCCESS" disabled aria-disabled="true"');
     expect(html).toContain("✓ PASSED");
     expect(html).toContain("✕ FAILED");
     expect(html).toContain("Tester Notes");
@@ -183,7 +184,7 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).not.toContain("EXPECTED");
     expect(html).not.toContain("Recommended Fix");
     expect(html).toContain('data-test-ready="false"');
-    expect(html).toContain("TEST PROCEDURE MISSING");
+    expect(html).toContain("VALIDATE EVIDENCE FIRST");
     expect(html).toContain("Guided retest unavailable");
     expect(html).toContain('data-result="SUCCESS" disabled aria-disabled="true"');
     expect(html).toContain('data-result="FAILED" disabled aria-disabled="true"');
@@ -205,7 +206,7 @@ describe("Golden Bug Tracker renderer", () => {
     };
     const html = renderBugTrackerHtml(modified);
     expect(html).toContain("WHY THIS IS A MISMATCH");
-    expect(html).toContain("TEST PROCEDURE MISSING");
+    expect(html).toContain("RETEST PROCEDURE NOT READY");
     expect(html).toContain('data-test-ready="false"');
     expect(html).toContain('data-result="SUCCESS" disabled aria-disabled="true"');
     expect(html).toContain("This tester result never marks a canonical bug Fixed");
@@ -220,7 +221,7 @@ describe("Golden Bug Tracker renderer", () => {
 
   it("uses shared copy-quality rules for legacy HTML guided retest readiness", () => {
     const level = fixture.games[0]!.levels[0]!;
-    const correct = level.issues[0]!;
+    const correct = { ...level.issues[0]!, verification: "VERIFIED" as const };
     const rejected = [
       { ...correct, id: "BUG-GOLDEN-CODE",
         reproduction: ["Inspect the session function.", "Confirm the gate remains closed."] },
@@ -234,14 +235,14 @@ describe("Golden Bug Tracker renderer", () => {
       games: [{ ...fixture.games[0]!, levels: [{ ...level, issues: [correct, ...rejected] }] }],
     };
     const html = renderBugTrackerHtml(changed);
-    expect(html).toContain("Guided Retest: 1 ready / 3 not ready");
+    expect(html).toContain("Needs Validation: 0 · Retest Ready: 1 · No Guided Procedure: 3");
     for (const item of rejected) {
       const start = html.indexOf('data-issue-id="' + item.id + '"');
       const finish = html.indexOf("</article>", start);
       expect(start, item.id).toBeGreaterThanOrEqual(0);
       const card = html.slice(start, finish);
       expect(card).toContain('data-test-ready="false"');
-      expect(card).toContain("TEST PROCEDURE MISSING");
+      expect(card).toContain("RETEST PROCEDURE NOT READY");
       expect(card).toContain("Guided retest unavailable");
       expect(card).toContain('data-result="SUCCESS" disabled aria-disabled="true"');
       expect(card).toContain('data-result="FAILED" disabled aria-disabled="true"');
@@ -251,6 +252,37 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html.slice(goodStart, goodEnd)).toContain('data-test-ready="true"');
     expect(html).toContain("Test In-Game must describe player actions");
     expect(html).toContain("Test In-Game must describe a concrete action");
+  });
+
+  it("keeps validation, after-fix retest, and missing instructions separate", () => {
+    const level = fixture.games[0]!.levels[0]!;
+    const pending = level.issues[0]!;
+    const verified = { ...pending, verification: "VERIFIED" as const, id: "BUG-VALID-01" };
+    const noSteps = { ...verified, id: "BUG-VALID-02", reproduction: [] };
+    const noObservation = { ...verified, id: "BUG-VALID-03", observed: "" };
+    const report: BugTrackerDocument = {
+      ...fixture,
+      games: [{ ...fixture.games[0]!, levels: [
+        { ...level, issues: [pending, verified, noSteps, noObservation] },
+      ] }],
+    };
+    const html = renderBugTrackerHtml(report);
+    expect(html).toContain("Needs Validation: 1 · Retest Ready: 1 · No Guided Procedure: 2");
+    const card = (id: string) => {
+      const i = html.indexOf('data-issue-id="' + id + '"');
+      expect(i).toBeGreaterThanOrEqual(0);
+      return html.slice(i, html.indexOf("</article>", i));
+    };
+    expect(card(pending.id)).toContain("VALIDATE EVIDENCE FIRST");
+    expect(card(pending.id)).toContain('data-result="SUCCESS" disabled');
+    expect(card(pending.id)).toContain("Record observations in Tester Notes");
+    expect(card(verified.id)).toContain('data-test-ready="true"');
+    expect(card(verified.id)).not.toContain('data-result="SUCCESS" disabled');
+    expect(card(noSteps.id)).toContain("RETEST PROCEDURE NOT READY");
+    expect(card(noSteps.id)).toContain("Test In-Game requires a concrete tester-visible route");
+    expect(card(noObservation.id)).toContain("Observed failure evidence has not been provided.");
+    expect(html).not.toContain("SOURCE-ONLY");
+    expect(html).toContain('data-issue-id="DEV-GOLDEN-001"');
   });
 
   it("isolates tester workspace per exact map artifact and version", () => {

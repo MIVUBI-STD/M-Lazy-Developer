@@ -19,11 +19,25 @@ export function trackerGuidedRetestReadiness(issue: TrackerIssue): {
   readonly reason?: string;
 } {
   const problems = reviewTesterReproductionSteps(issue.reproduction, "reproduction");
+  // Evidence verification is independent from the existence of test steps.
+  // A NEEDS_VERIFY issue can collect observations, but cannot claim that a
+  // repaired issue has passed a post-fix retest.
+  if (issue.verification === "NEEDS_VERIFY") {
+    return {
+      ready: false,
+      reason: problems.length > 0
+        ? "Issue evidence needs validation. " + problems[0]!.message
+        : "Issue evidence needs validation. Record observations in Tester Notes; Passed/Failed are for verified issues after repair.",
+    };
+  }
   if (problems.length > 0) {
     return { ready: false, reason: problems[0]!.message };
   }
   if (!issue.expected.trim()) {
     return { ready: false, reason: "Expected behavior has not been provided." };
+  }
+  if (!issue.observed.trim()) {
+    return { ready: false, reason: "Observed failure evidence has not been provided." };
   }
   return { ready: true };
 }
