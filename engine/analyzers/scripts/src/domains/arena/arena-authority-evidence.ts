@@ -593,6 +593,9 @@ function getterBoundModuleCapacity(
       !ts.isIdentifier(alias.initializer.expression) ||
       alias.initializer.arguments.length !== 0) return undefined;
   const call = alias.initializer;
+  // Narrow the saved AST node itself: checking alias.initializer.expression
+  // does not preserve its type through the new const alias in strict TS.
+  if (!ts.isIdentifier(call.expression)) return undefined;
   const getterName = call.expression.text;
   const getters = file.statements.filter((statement): statement is ts.FunctionDeclaration =>
     ts.isFunctionDeclaration(statement) &&
