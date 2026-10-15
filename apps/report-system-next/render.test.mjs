@@ -103,6 +103,39 @@ test("source evidence authority and retest eligibility remain separate", async (
   await assert.rejects(() => renderReportNext(report),/requires its own LIVE_MINECRAFT|runtime claim lacks/);
 });
 
+test("Test In-Game rejects technical copy and requires gameplay witness per step", async () => {
+  const report = clone(example);
+  const finding = issue(report);
+  finding.evidenceLevel = "SOURCE_VERIFIED";
+  finding.observed = "In this synthetic design example, the next wave does not start.";
+  report.maps[0].evidence.push({
+    id:"EV-DESIGN",kind:"AUTHORED_DESIGN",description:"Synthetic intended player flow",
+    locator:{type:"FILE",value:"sample/design.md"}
+  });
+  finding.evidenceRefs.push("EV-DESIGN");
+  finding.testProcedure = {
+    steps:[
+      {instruction:"Enter the sample arena.",evidenceRefs:["EV-DESIGN"]},
+      {instruction:"Observe whether the next wave appears.",evidenceRefs:["EV-DESIGN"]}
+    ],
+    visibleOutcome:"Observe that the next wave does not appear."
+  };
+  const accepted = await renderReportNext(report);
+  assert.match(accepted.html,/data-ready="true"/);
+
+  finding.testProcedure.steps[0].instruction = "Inspect the JavaScript source file.";
+  await assert.rejects(() => renderReportNext(report),/must describe an observable Minecraft action/);
+  finding.testProcedure.steps[0].instruction = "Check the bug.";
+  await assert.rejects(() => renderReportNext(report),/must describe an observable Minecraft action/);
+  finding.testProcedure.steps[0].instruction = "Enter the sample arena.";
+  finding.testProcedure.visibleOutcome = "Review the script event handler.";
+  await assert.rejects(() => renderReportNext(report),/visible outcome must describe gameplay/);
+  finding.testProcedure.visibleOutcome = "Observe that the next wave does not appear.";
+
+  finding.testProcedure.steps[1].evidenceRefs = ["EV-DEMO-01"];
+  await assert.rejects(() => renderReportNext(report),/lacks authored gameplay or directly observed player evidence/);
+});
+
 test("invalid evidence, schema, and injected HTML never yield a publishable report", async () => {
   const wrong = clone(example);
   wrong.schema = "legacy-bug-tracker/v1";

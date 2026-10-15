@@ -94,6 +94,36 @@ export function validateSchema(value, schema) {
   return value;
 }
 
+// A source citation is not, by itself, an actionable Minecraft test step.
+// Keep this gate under the existing new-report contract owner, not the HTML UI.
+const technicalTesterCopy =
+  /\b(?:script|source code|function|method|class|variable|callback|event handler|implementation|stack trace|source file)\b|\.(?:js|ts|json)\b/i;
+const vagueTesterCopy =
+  /\b(?:check the bug|test it|verify the logic|something goes wrong|bug is visible)\b/i;
+const gameplayWitnessKinds = new Set([
+  "AUTHORED_DESIGN", "LIVE_MINECRAFT", "TESTER_OBSERVATION"
+]);
+
+function assertPlayerFollowableTest(finding, evidence) {
+  const procedure = finding.testProcedure;
+  if (!procedure) return;
+  for (const [index, step] of procedure.steps.entries()) {
+    const instruction = step.instruction.trim();
+    if (technicalTesterCopy.test(instruction) || vagueTesterCopy.test(instruction)) {
+      throw new Error(finding.id + ": Test In-Game step " + (index + 1) +
+        " must describe an observable Minecraft action, not code or vague guidance");
+    }
+    if (!step.evidenceRefs.some(id => gameplayWitnessKinds.has(evidence.get(id)?.kind))) {
+      throw new Error(finding.id + ": Test In-Game step " + (index + 1) +
+        " lacks authored gameplay or directly observed player evidence");
+    }
+  }
+  if (technicalTesterCopy.test(procedure.visibleOutcome) ||
+      vagueTesterCopy.test(procedure.visibleOutcome)) {
+    throw new Error(finding.id + ": Test In-Game visible outcome must describe gameplay, not code");
+  }
+}
+
 export function assertReport(report, schema) {
   validateSchema(report, schema);
   if (report.layoutVersion !== DESIGN_VERSION) throw new Error("Report layout version is not locked v1.0.0.");
@@ -150,6 +180,7 @@ export function assertReport(report, schema) {
                 throw new Error(finding.id + ": Test In-Game step has unsupported evidence " + ref);
             }
           }
+          assertPlayerFollowableTest(finding, evidence);
         }
       }
     }
