@@ -591,7 +591,7 @@ function getterBoundModuleCapacity(
   if (!ts.isIdentifier(alias.name) || alias.name.text !== aliasName ||
       !alias.initializer || !ts.isCallExpression(alias.initializer) ||
       !ts.isIdentifier(alias.initializer.expression) ||
-      alias.initializer.arguments.length !== 0) return undefined;
+      alias.initializer.arguments.length > 1) return undefined;
   const call = alias.initializer;
   // Narrow the saved AST node itself: checking alias.initializer.expression
   // does not preserve its type through the new const alias in strict TS.
@@ -609,11 +609,42 @@ function getterBoundModuleCapacity(
   if (getters.length !== 1) return undefined;
   const getter = getters[0]!;
   if (!getter.name || !getter.body || getter.asteriskToken ||
-      getter.parameters.length !== 0 || getter.body.statements.length !== 1) return undefined;
+      getter.parameters.length > 1 || getter.body.statements.length !== 1) return undefined;
   const returned = getter.body.statements[0]!;
-  if (!ts.isReturnStatement(returned) || !returned.expression ||
-      !ts.isIdentifier(returned.expression)) return undefined;
-  const configName = returned.expression.text;
+  if (!ts.isReturnStatement(returned) || !returned.expression) return undefined;
+
+  // The keyed form is admitted only when the getter's unique formal key
+  // indexes the module object, while its unique actual key is a property
+  // of the very same arena whose roster the comparison checks.
+  const keyed = getter.parameters.length === 1;
+  let configReference: ts.Identifier;
+  let keyDeclaration: ts.Identifier | undefined;
+  let keyReference: ts.Identifier | undefined;
+  if (keyed) {
+    const result = returned.expression;
+    const parameter = getter.parameters[0]!;
+    const actual = call.arguments[0];
+    const membership = membershipCount(comparison.left, file);
+    if (!ts.isElementAccessExpression(result) ||
+        !ts.isIdentifier(result.expression) ||
+        !result.argumentExpression ||
+        !ts.isIdentifier(result.argumentExpression) ||
+        !ts.isIdentifier(parameter.name) ||
+        parameter.initializer || parameter.dotDotDotToken ||
+        result.argumentExpression.text !== parameter.name.text ||
+        !actual || !ts.isPropertyAccessExpression(actual) ||
+        !/^(?:id|arenaId|configId|configKey)$/.test(actual.name.text) ||
+        !membership ||
+        actual.expression.getText(file) !== membership.arenaExpression) return undefined;
+    configReference = result.expression;
+    keyDeclaration = parameter.name;
+    keyReference = result.argumentExpression;
+  } else {
+    if (call.arguments.length !== 0 ||
+        !ts.isIdentifier(returned.expression)) return undefined;
+    configReference = returned.expression;
+  }
+  const configName = configReference.text;
   const owners = file.statements.flatMap((statement) =>
     ts.isVariableStatement(statement) &&
     !statement.modifiers?.some((modifier) =>
@@ -631,26 +662,58 @@ function getterBoundModuleCapacity(
   if (!ts.isIdentifier(config.name) || !config.initializer ||
       !ts.isObjectLiteralExpression(config.initializer)) return undefined;
   const object = config.initializer;
-  // Scalar-only fields: property initializers with calls, getters,
-  // spreads, computed names, or aliases cannot prove immutable values.
-  if (!object.properties.every((property) =>
-    ts.isPropertyAssignment(property) &&
-    (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) &&
-    (ts.isNumericLiteral(property.initializer) ||
-     ts.isStringLiteralLike(property.initializer) ||
-     property.initializer.kind === ts.SyntaxKind.TrueKeyword ||
-     property.initializer.kind === ts.SyntaxKind.FalseKeyword ||
-     property.initializer.kind === ts.SyntaxKind.NullKeyword)
-  )) return undefined;
-  const matches = object.properties.filter((property): property is ts.PropertyAssignment =>
-    ts.isPropertyAssignment(property) &&
-    (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) &&
-    property.name.text === expression.name.text
-  );
-  if (matches.length !== 1 || !ts.isNumericLiteral(matches[0]!.initializer))
-    return undefined;
-  const value = Number(matches[0]!.initializer.text);
-  if (!Number.isSafeInteger(value) || value <= 0) return undefined;
+  // All evaluated fields must be scalar literals. No spread, computed
+  // key, getter, helper call, or late property override is authoritative.
+  const scalarFields = (fields: ts.NodeArray<ts.ObjectLiteralElementLike>): boolean =>
+    fields.every((property) =>
+      ts.isPropertyAssignment(property) &&
+      (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) &&
+      (ts.isNumericLiteral(property.initializer) ||
+       ts.isStringLiteralLike(property.initializer) ||
+       property.initializer.kind === ts.SyntaxKind.TrueKeyword ||
+       property.initializer.kind === ts.SyntaxKind.FalseKeyword ||
+       property.initializer.kind === ts.SyntaxKind.NullKeyword)
+    );
+  const capFields = (fields: ts.NodeArray<ts.ObjectLiteralElementLike>) =>
+    fields.filter((property): property is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(property) &&
+      (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) &&
+      property.name.text === expression.name.text
+    );
+  const capacityProperties: ts.PropertyAssignment[] = [];
+  const sourceEntries: SourceRef[] = [];
+  if (keyed) {
+    const keys = new Set<string>();
+    if (object.properties.length === 0) return undefined;
+    for (const entry of object.properties) {
+      if (!ts.isPropertyAssignment(entry) ||
+          !(ts.isIdentifier(entry.name) ||
+            ts.isStringLiteralLike(entry.name) ||
+            ts.isNumericLiteral(entry.name)) ||
+          entry.name.text === "__proto__" ||
+          keys.has(entry.name.text) ||
+          !ts.isObjectLiteralExpression(entry.initializer) ||
+          !scalarFields(entry.initializer.properties)) return undefined;
+      keys.add(entry.name.text);
+      const members = capFields(entry.initializer.properties);
+      if (members.length !== 1 ||
+          !ts.isNumericLiteral(members[0]!.initializer)) return undefined;
+      capacityProperties.push(members[0]!);
+      sourceEntries.push(lineSource(file, entry, source));
+    }
+  } else {
+    if (!scalarFields(object.properties)) return undefined;
+    const members = capFields(object.properties);
+    if (members.length !== 1 ||
+        !ts.isNumericLiteral(members[0]!.initializer)) return undefined;
+    capacityProperties.push(members[0]!);
+  }
+  const values = capacityProperties.map((property) =>
+    Number((property.initializer as ts.NumericLiteral).text));
+  if (values.length === 0 ||
+      values.some((value) => !Number.isSafeInteger(value) || value <= 0) ||
+      new Set(values).size !== 1) return undefined;
+  const value = values[0]!;
 
   // Require the complete file to reference each identity only at its
   // declaration and at the exact next link in the proven path.
@@ -664,17 +727,25 @@ function getterBoundModuleCapacity(
     visit(file);
     return valid;
   };
-  if (!onlyReferences(configName, [config.name, returned.expression]) ||
+  if (!onlyReferences(configName, [config.name, configReference]) ||
       !onlyReferences(getterName, [getter.name, call.expression]) ||
       !onlyReferences(aliasName, [alias.name, expression.expression])) return undefined;
+  if (keyed &&
+      (!keyDeclaration || !keyReference ||
+       !onlyReferences(keyDeclaration.text, [keyDeclaration, keyReference])))
+    return undefined;
 
   return {
     value,
-    source: lineSource(file, matches[0]!, source),
+    source: lineSource(file, capacityProperties[0]!, source),
     witnesses: [
       lineSource(file, object, source),
+      ...sourceEntries,
+      ...capacityProperties.slice(1).map((property) =>
+        lineSource(file, property, source)),
       lineSource(file, getter, source),
       lineSource(file, aliasStatement, source),
+      ...(keyed ? [lineSource(file, call.arguments[0]!, source)] : []),
     ],
   };
 }

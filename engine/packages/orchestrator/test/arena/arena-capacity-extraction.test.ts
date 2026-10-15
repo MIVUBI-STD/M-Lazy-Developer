@@ -454,6 +454,83 @@ describe("arena concurrency capacity extraction", () => {
     }
   });
 
+  it("joins a uniform keyed configuration table to the same arena ID and roster", () => {
+    const base = [
+      "const CONFIGS = { north: { max_member: 5 }, south: { max_member: 5 } };",
+      "function getConfig(id) { return CONFIGS[id]; }",
+      "function join(arena, player) {",
+      "  const cfg = getConfig(arena.id);",
+      "  if (arena.members.length >= cfg.max_member) return;",
+      "  arena.members.push(player);",
+      "}",
+    ];
+    const run = (id: string, code: readonly string[]) =>
+      extractArenaConcurrencyCapacity({
+        tickingAreas: [],
+        declaredArenaCount: 2,
+        scripts: [parseScriptFile(id, code.join("\n"), {
+          artifactId: "fixture",
+          relativePath: "scripts/" + id + ".js",
+        })],
+      }).evidence;
+    const accepted = run("keyed-config", base);
+    expect(accepted.perArenaPlayerCapacity).toBe(5);
+    expect(accepted.declaredMaxConcurrentPlayers).toBe(10);
+    const spans = accepted.perArenaPlayerCapacitySources?.map((item) =>
+      item.range?.lineStart) ?? [];
+    expect(spans).toContain(1);
+    expect(spans).toContain(2);
+    expect(spans).toContain(4);
+
+    const negative: readonly [string, readonly string[]][] = [
+      ["mixed-capacities", [
+        "const CONFIGS = { north: { max_member: 5 }, south: { max_member: 9 } };",
+        ...base.slice(1),
+      ]],
+      ["foreign-selection", [
+        ...base.slice(0, 3),
+        "  const cfg = getConfig(other.id);",
+        ...base.slice(4),
+      ]],
+      ["unbound-selection", [
+        ...base.slice(0, 3),
+        "  const cfg = getConfig(id);",
+        ...base.slice(4),
+      ]],
+      ["dynamic-entry", [
+        "const CONFIGS = { north: { max_member: 5 }, south: { max_member: getCap() } };",
+        ...base.slice(1),
+      ]],
+      ["mutable-config", [
+        ...base,
+        "CONFIGS.north.max_member = 10;",
+      ]],
+      ["exported-table", [
+        "export const CONFIGS = { north: { max_member: 5 }, south: { max_member: 5 } };",
+        ...base.slice(1),
+      ]],
+      ["shadowed-formal", [
+        ...base.slice(0, 2),
+        "function other(id) { return id; }",
+        ...base.slice(2),
+      ]],
+      ["computed-capacity-property", [
+        "const CONFIGS = { north: { max_member: 5, ['max_member']: 9 }, south: { max_member: 5 } };",
+        ...base.slice(1),
+      ]],
+      ["escaped-return", [
+        ...base.slice(0, 2),
+        "const leaked = getConfig('north');",
+        ...base.slice(2),
+      ]],
+    ];
+    for (const [id, code] of negative) {
+      const evidence = run(id, code);
+      expect(evidence.perArenaPlayerCapacity, id).toBeUndefined();
+      expect(evidence.declaredMaxConcurrentPlayers, id).toBeUndefined();
+    }
+  });
+
   it("binds an exact zero-argument module config getter to a roster admission guard", () => {
     const base = [
       "const CONFIG = { max_member: 5, label: 'arena' };",
