@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Script } from "node:vm";
+import { Script, runInNewContext } from "node:vm";
 import type { BugTrackerDocument } from "./model.js";
 import { renderBugTrackerHtml } from "./render-html.js";
 import { validateBugTrackerDocument } from "./validate.js";
@@ -95,6 +95,33 @@ describe("Golden Bug Tracker renderer", () => {
     expect(interactiveScript).toBeDefined();
     expect(() => new Script(interactiveScript!)).not.toThrow();
     expect(interactiveScript).toContain('const r=new FileReader()');
+  });
+
+  it("normalizes legacy tester attachment state and escapes portable HTML snapshots", () => {
+    const html = renderBugTrackerHtml(fixture);
+    const script = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)].at(-1)?.[1];
+    expect(script).toBeDefined();
+
+    const stateExpression = script?.match(/,state=(id=>.*?),toast=m=>/)?.[1];
+    expect(stateExpression).toBeDefined();
+    const existing = { "BUG-GOLDEN-001": { notes: "legacy", result: null } };
+    const getState = runInNewContext(
+      "(" + stateExpression + ")",
+      { WS: existing },
+    ) as (id: string) => { attachments: unknown[] };
+    expect(getState("BUG-GOLDEN-001").attachments).toEqual([]);
+
+    const snapshotExpression = script?.match(
+      /snap\\.textContent=(JSON\\.stringify\\(WS\\)\\.replaceAll\\("<\\/","[^"]+"\\));dl/,
+    )?.[1];
+    expect(snapshotExpression).toBeDefined();
+    const notes = "</script><script>unsafe()</script>";
+    const portable = runInNewContext(
+      snapshotExpression!,
+      { WS: { "BUG-GOLDEN-001": { notes } } },
+    ) as string;
+    expect(portable).not.toContain("</script>");
+    expect(JSON.parse(portable)["BUG-GOLDEN-001"].notes).toBe(notes);
   });
 
   it("renders a combined briefing with column-major map navigation", () => {
