@@ -559,6 +559,124 @@ function staticModuleCapacity(
 
 
 /**
+ * Trace one closed same-file zero-argument getter into the immediately
+ * guarded membership admission. A shared capacity object is authoritative
+ * only when its literal value, getter, local alias, and guard have unique
+ * source identities and no other references can mutate or expose them.
+ * Dynamic lookup parameters, callbacks, and foreign owners remain UNKNOWN.
+ */
+function getterBoundModuleCapacity(
+  expression: ts.Expression,
+  file: ts.SourceFile,
+  source: SourceRef,
+): { value: number; source: SourceRef; witnesses: readonly SourceRef[] } | undefined {
+  if (!ts.isPropertyAccessExpression(expression) ||
+      !ts.isIdentifier(expression.expression) ||
+      !CAPACITY_PROPERTY.test(expression.name.text)) return undefined;
+  const aliasName = expression.expression.text;
+  const comparison = expression.parent;
+  if (!ts.isBinaryExpression(comparison) ||
+      comparison.right !== expression ||
+      comparison.operatorToken.kind !== ts.SyntaxKind.GreaterThanEqualsToken) return undefined;
+  const guard = comparison.parent;
+  if (!ts.isIfStatement(guard) || guard.expression !== comparison ||
+      !ts.isBlock(guard.parent)) return undefined;
+  const statements = guard.parent.statements;
+  const guardIndex = statements.indexOf(guard);
+  const aliasStatement = statements[guardIndex - 1];
+  if (!aliasStatement || !ts.isVariableStatement(aliasStatement) ||
+      (aliasStatement.declarationList.flags & ts.NodeFlags.Const) === 0 ||
+      aliasStatement.declarationList.declarations.length !== 1) return undefined;
+  const alias = aliasStatement.declarationList.declarations[0]!;
+  if (!ts.isIdentifier(alias.name) || alias.name.text !== aliasName ||
+      !alias.initializer || !ts.isCallExpression(alias.initializer) ||
+      !ts.isIdentifier(alias.initializer.expression) ||
+      alias.initializer.arguments.length !== 0) return undefined;
+  const call = alias.initializer;
+  const getterName = call.expression.text;
+  const getters = file.statements.filter((statement): statement is ts.FunctionDeclaration =>
+    ts.isFunctionDeclaration(statement) &&
+    statement.name?.text === getterName &&
+    !statement.modifiers?.some((modifier) =>
+      modifier.kind === ts.SyntaxKind.ExportKeyword ||
+      modifier.kind === ts.SyntaxKind.DefaultKeyword ||
+      modifier.kind === ts.SyntaxKind.AsyncKeyword
+    )
+  );
+  if (getters.length !== 1) return undefined;
+  const getter = getters[0]!;
+  if (!getter.name || !getter.body || getter.asteriskToken ||
+      getter.parameters.length !== 0 || getter.body.statements.length !== 1) return undefined;
+  const returned = getter.body.statements[0]!;
+  if (!ts.isReturnStatement(returned) || !returned.expression ||
+      !ts.isIdentifier(returned.expression)) return undefined;
+  const configName = returned.expression.text;
+  const owners = file.statements.flatMap((statement) =>
+    ts.isVariableStatement(statement) &&
+    !statement.modifiers?.some((modifier) =>
+      modifier.kind === ts.SyntaxKind.ExportKeyword ||
+      modifier.kind === ts.SyntaxKind.DefaultKeyword
+    ) &&
+    (statement.declarationList.flags & ts.NodeFlags.Const) !== 0
+      ? statement.declarationList.declarations.filter((declaration) =>
+          ts.isIdentifier(declaration.name) && declaration.name.text === configName
+        )
+      : []
+  );
+  if (owners.length !== 1) return undefined;
+  const config = owners[0]!;
+  if (!ts.isIdentifier(config.name) || !config.initializer ||
+      !ts.isObjectLiteralExpression(config.initializer)) return undefined;
+  const object = config.initializer;
+  // Scalar-only fields: property initializers with calls, getters,
+  // spreads, computed names, or aliases cannot prove immutable values.
+  if (!object.properties.every((property) =>
+    ts.isPropertyAssignment(property) &&
+    (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) &&
+    (ts.isNumericLiteral(property.initializer) ||
+     ts.isStringLiteralLike(property.initializer) ||
+     property.initializer.kind === ts.SyntaxKind.TrueKeyword ||
+     property.initializer.kind === ts.SyntaxKind.FalseKeyword ||
+     property.initializer.kind === ts.SyntaxKind.NullKeyword)
+  )) return undefined;
+  const matches = object.properties.filter((property): property is ts.PropertyAssignment =>
+    ts.isPropertyAssignment(property) &&
+    (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) &&
+    property.name.text === expression.name.text
+  );
+  if (matches.length !== 1 || !ts.isNumericLiteral(matches[0]!.initializer))
+    return undefined;
+  const value = Number(matches[0]!.initializer.text);
+  if (!Number.isSafeInteger(value) || value <= 0) return undefined;
+
+  // Require the complete file to reference each identity only at its
+  // declaration and at the exact next link in the proven path.
+  const onlyReferences = (name: string, allowed: readonly ts.Identifier[]): boolean => {
+    let valid = true;
+    const visit = (node: ts.Node): void => {
+      if (ts.isIdentifier(node) && node.text === name &&
+          !allowed.includes(node)) valid = false;
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+    return valid;
+  };
+  if (!onlyReferences(configName, [config.name, returned.expression]) ||
+      !onlyReferences(getterName, [getter.name, call.expression]) ||
+      !onlyReferences(aliasName, [alias.name, expression.expression])) return undefined;
+
+  return {
+    value,
+    source: lineSource(file, matches[0]!, source),
+    witnesses: [
+      lineSource(file, object, source),
+      lineSource(file, getter, source),
+      lineSource(file, aliasStatement, source),
+    ],
+  };
+}
+
+/**
  * Bounded constructor-to-instance evidence: only a non-exported top-level
  * class, with canonical constructor-field forwarding and entirely visible,
  * const-bound literal instances can supply a numeric source value.
@@ -1433,6 +1551,7 @@ function capacityComparisonEvidence(
   );
   if (!capacity) return undefined;
   const staticCapacity: { value: number; source: SourceRef; witnesses?: readonly SourceRef[] } | undefined = staticModuleCapacity(other, file, source) ??
+    getterBoundModuleCapacity(other, file, source) ??
     staticConstructorCapacity(other, file, source, fieldBindings) ??
     mappedConstructorCapacity(other, file, source, fieldBindings);
 

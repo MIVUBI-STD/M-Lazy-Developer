@@ -454,6 +454,70 @@ describe("arena concurrency capacity extraction", () => {
     }
   });
 
+  it("binds an exact zero-argument module config getter to a roster admission guard", () => {
+    const base = [
+      "const CONFIG = { max_member: 5, label: 'arena' };",
+      "function getArenaConfig() { return CONFIG; }",
+      "function join(arena, player) {",
+      "  const cfg = getArenaConfig();",
+      "  if (arena.members.length >= cfg.max_member) return;",
+      "  arena.members.push(player);",
+      "}",
+    ];
+    const inspect = (name: string, lines: readonly string[]) =>
+      extractArenaConcurrencyCapacity({
+        tickingAreas: [],
+        declaredArenaCount: 2,
+        scripts: [parseScriptFile(name, lines.join('\n'), {
+          artifactId: "fixture",
+          relativePath: "scripts/" + name + ".js",
+        })],
+      }).evidence;
+    const good = inspect("pure-getter", base);
+    expect(good.perArenaPlayerCapacity).toBe(5);
+    expect(good.declaredMaxConcurrentPlayers).toBe(10);
+    expect(good.perArenaPlayerCapacitySources?.some((item) =>
+      item.range?.lineStart === 1)).toBe(true);
+    expect(good.perArenaPlayerCapacitySources?.some((item) =>
+      item.range?.lineStart === 2)).toBe(true);
+
+    const negative: readonly [string, readonly string[]][] = [
+      ["parameterized-getter", [
+        base[0]!,
+        "function getArenaConfig(id) { return CONFIG; }",
+        ...base.slice(2),
+      ]],
+      ["mutating-getter", [
+        base[0]!,
+        "function getArenaConfig() { CONFIG.max_member = 9; return CONFIG; }",
+        ...base.slice(2),
+      ]],
+      ["exported-config", [
+        "export const CONFIG = { max_member: 5, label: 'arena' };",
+        ...base.slice(1),
+      ]],
+      ["escaped-config", [
+        ...base,
+        "const leaked = CONFIG;",
+      ]],
+      ["forwarded-alias", [
+        ...base.slice(0, 4),
+        "  use(cfg);",
+        ...base.slice(4),
+      ]],
+      ["foreign-roster", [
+        ...base.slice(0, 5),
+        "  other.members.push(player);",
+        "}",
+      ]],
+    ];
+    for (const [name, lines] of negative) {
+      const found = inspect(name, lines);
+      expect(found.perArenaPlayerCapacity, name).toBeUndefined();
+      expect(found.declaredMaxConcurrentPlayers, name).toBeUndefined();
+    }
+  });
+
   it("projects module-local const array generators only with exact immutable identity", () => {
     const base = [
       "const arenaIds = [0, 200];",
