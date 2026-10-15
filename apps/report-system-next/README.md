@@ -1,0 +1,35 @@
+# Report System Next — New Isolated Renderer (Implementation Source)
+
+**Implementation scope:** new, independent reporting surface. It does **not** import, update, regenerate or replace the old Bug Tracker, Approved Bug Report V2, existing `workspace/projects/*/output/`, or its canonical source.
+
+**Design authority:** [planning/report-system-next/](../../planning/report-system-next/). The initial `layout.lock.json` is pinned to Git blob `c958b33054722c2884e791e5b4e811a7987d394d` and version **1.0.0**. The original reference HTML and both JSON Schemas are also pinned to their approved blob identities in `render.mjs`. If any locked input changes without a new authorized version, the renderer refuses generation.
+
+## Existing new-only files
+
+- `contract.mjs`: validates the exact new report and workspace schema shape (current JSON Schema Draft 2020-12 vocabulary used by these two schemas), enforces evidence references and proof levels, canonicalizes JSON by ECMAScript/JCS ordering, and derives retest eligibility.
+- `render.mjs`: **the only new canonical HTML generator**. Reads the approved lock, schemas, and static CSS from the immutable reference. Normalizes finding order, emits exact report JSON and self-contained HTML (embedded CSS, JS and canonical source). It imports nothing from the old reporting package.
+- `client.js`: embedded offline interaction for tester results, notes, screenshots, filtering, browser autosave, Save as HTML, Save JSON, Load JSON and Reset. It cannot rewrite canonical report JSON. File downloads are initiated, but browser save completion cannot be proven by JavaScript.
+- `render.test.mjs`: focused built-in Node regression specifications for deterministic generation, schema/provenance rejection, offline script parsing, and combined-map normalization. Tests are evidence only if executed, not merely committed.
+- `golden.json`: the locked SHA-256 baseline of the synthetic example output HTML and JCS JSON. Any later renderer/style/script change that modifies the output bytes must be reviewed against the versioned design instead of silently replacing this baseline.
+
+## API contract
+
+```js
+import { renderReportNext } from "./apps/report-system-next/render.mjs";
+
+const output = await renderReportNext(newCanonicalReport);
+// output.html — newly generated, self-contained HTML bytes
+// output.json — stable canonical report JSON (RFC 8785/JCS-shaped)
+// output.digest — sha256 of output.json
+// output.report — normalized canonical input, never tester state
+```
+
+**No migration/legacy adapter** and no second CLI/runner. An authorized caller must supply a new `m-lazy-report-next/v1` document with actual artifact identity, approved source-backed findings and exact evidence IDs. Incomplete claims stay `NEEDS_VALIDATION`; do not make up gameplay steps to enable Passed/Failed.
+
+The renderer outputs two data authorities: immutable canonical report and separate tester workspace. A saved offline HTML copy contains both; browser autosave is convenience, not proof the downloaded file is current. Edited copies must be saved again and checked before sharing.
+
+## Proof and limitations
+
+The source commits demonstrate implementation is stored in GitHub, not that a running application was packaged or that Minecraft testing occurred. A JS-only browser mock or source-level test does **not** establish cross-browser interaction, filesystem download persistence, accessibility conformance, or real map report accuracy. The locked reference image/HTML is a static visual guide; final pixel-level acceptance still requires rendered visual comparison.
+
+**Future acceptance boundary:** compare generated HTML with the approved reference and golden fixture; run end-to-end Save as HTML → reopen offline (new browser context) → verify notes/screenshots and persisted tester results; confirm responsive and keyboard behavior. None of those claims may be reported PASS unless actually executed.

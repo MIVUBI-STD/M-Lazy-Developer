@@ -5,7 +5,8 @@
       "purpose": "User-facing executable/UI surfaces that consume engine APIs.",
       "entries": [
         "cli",
-        "bug-report-ui"
+        "bug-report-ui",
+        "report-system-next"
       ]
     }
   }

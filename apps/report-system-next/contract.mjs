@@ -1,0 +1,207 @@
+import { createHash } from "node:crypto";
+
+export const DESIGN_VERSION = "1.0.0";
+export const DESIGN_BLOB_SHA = "c958b33054722c2884e791e5b4e811a7987d394d";
+const kinds = ["BUG", "DESIGN_MISMATCH", "DEV_NOTE"];
+const evidenceLevels = ["SOURCE_VERIFIED", "PACKAGE_VERIFIED", "RUNTIME_OBSERVED", "NEEDS_VALIDATION"];
+const isObject = value => value !== null && typeof value === "object" && !Array.isArray(value);
+
+export function assertDesignLock(raw, sourceText) {
+  const bytes = Buffer.from(sourceText, "utf8");
+  const sha = createHash("sha1")
+    .update("blob " + bytes.length + "\0")
+    .update(bytes).digest("hex");
+  if (sha !== DESIGN_BLOB_SHA || raw.designVersion !== DESIGN_VERSION ||
+    raw.compatibility?.reportSchema !== "m-lazy-report-next/v1" ||
+    raw.compatibility?.templateId !== "m-lazy-report-next/html-v1" ||
+    raw.changePolicy?.renderer !== "ONE_DETERMINISTIC_RENDERER_ONLY") {
+    throw new Error("Report Next Design Lock mismatch; renderer refuses unapproved layout changes.");
+  }
+  return raw;
+}
+
+export function validateSchema(value, schema) {
+  const root = schema;
+  function visit(value, rule, path) {
+    if (rule.$ref) {
+      if (!rule.$ref.startsWith("#/")) throw new Error(path + ": unsupported external schema reference");
+      const target = rule.$ref.slice(2).split("/").reduce(
+        (o, part) => o[part.replaceAll("~1", "/").replaceAll("~0", "~")], root);
+      if (!target) throw new Error(path + ": unresolved schema reference");
+      return visit(value, target, path);
+    }
+    const equals = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    if (Object.hasOwn(rule, "const") && !equals(value, rule.const))
+      throw new Error(path + ": expected schema constant");
+    if (rule.enum && !rule.enum.some(item => equals(value, item)))
+      throw new Error(path + ": unsupported enum value");
+    if (rule.type) {
+      const correct = rule.type === "object" ? isObject(value)
+        : rule.type === "array" ? Array.isArray(value)
+        : rule.type === "null" ? value === null
+        : rule.type === "integer" ? Number.isInteger(value)
+        : typeof value === rule.type;
+      if (!correct) throw new Error(path + ": expected " + rule.type);
+    }
+    if (typeof value === "string") {
+      if (rule.minLength !== undefined && [...value].length < rule.minLength)
+        throw new Error(path + ": empty or short string");
+      if (rule.pattern && !new RegExp(rule.pattern, "u").test(value))
+        throw new Error(path + ": invalid pattern");
+      if (rule.format === "uri") {
+        try { new URL(value); } catch { throw new Error(path + ": invalid URI"); }
+      }
+    }
+    if (Array.isArray(value)) {
+      if (rule.minItems !== undefined && value.length < rule.minItems)
+        throw new Error(path + ": too few elements");
+      if (rule.maxItems !== undefined && value.length > rule.maxItems)
+        throw new Error(path + ": too many elements");
+      if (rule.items) value.forEach((item, i) => visit(item, rule.items, path + "[" + i + "]"));
+    }
+    if (isObject(value)) {
+      for (const name of rule.required ?? []) {
+        if (!Object.hasOwn(value, name)) throw new Error(path + ": missing " + name);
+      }
+      for (const [name, item] of Object.entries(value)) {
+        if (Object.hasOwn(rule.properties ?? {}, name)) {
+          visit(item, rule.properties[name], path + "." + name);
+        } else if (rule.additionalProperties === false) {
+          throw new Error(path + ": unexpected field " + name);
+        }
+      }
+    }
+    for (const item of rule.allOf ?? []) visit(value, item, path);
+    if (rule.anyOf) {
+      if (!rule.anyOf.some(item => {
+        try { visit(value, item, path); return true; } catch { return false; }
+      })) throw new Error(path + ": no matching type variant");
+    }
+    if (rule.oneOf) {
+      const matches = rule.oneOf.filter(item => {
+        try { visit(value, item, path); return true; } catch { return false; }
+      }).length;
+      if (matches !== 1) throw new Error(path + ": expected exactly one finding variant");
+    }
+    if (rule.if) {
+      let applies = true;
+      try { visit(value, rule.if, path); } catch { applies = false; }
+      if (applies && rule.then) visit(value, rule.then, path);
+      if (!applies && rule.else) visit(value, rule.else, path);
+    }
+  }
+  visit(value, root, "$");
+  return value;
+}
+
+export function assertReport(report, schema) {
+  validateSchema(report, schema);
+  if (report.layoutVersion !== DESIGN_VERSION) throw new Error("Report layout version is not locked v1.0.0.");
+  const findingIds = new Set();
+  const mapIds = new Set();
+  for (const map of report.maps) {
+    if (mapIds.has(map.mapId)) throw new Error("Duplicate map ID: " + map.mapId);
+    mapIds.add(map.mapId);
+    const evidence = new Map();
+    for (const item of map.evidence) {
+      if (evidence.has(item.id)) throw new Error("Duplicate evidence ID: " + item.id);
+      evidence.set(item.id, item);
+    }
+    const levelIds = new Set();
+    for (const level of map.levels) {
+      if (levelIds.has(level.levelId)) throw new Error("Duplicate level ID in " + map.mapId);
+      levelIds.add(level.levelId);
+      for (const finding of level.findings) {
+        if (findingIds.has(finding.id)) throw new Error("Duplicate finding ID: " + finding.id);
+        findingIds.add(finding.id);
+        const witnesses = finding.evidenceRefs.map(id => {
+          if (!evidence.has(id)) throw new Error(finding.id + ": missing same-map evidence " + id);
+          return evidence.get(id);
+        });
+        if (finding.kind === "DEV_NOTE") continue;
+        if (!evidenceLevels.includes(finding.evidenceLevel)) throw new Error("Unsupported evidence level");
+        const requiredProof = {
+          SOURCE_VERIFIED: "SOURCE_STATIC",
+          PACKAGE_VERIFIED: "PACKAGE_INSPECTION",
+          RUNTIME_OBSERVED: "LIVE_MINECRAFT"
+        }[finding.evidenceLevel];
+        if (requiredProof && !witnesses.some(x => x.kind === requiredProof))
+          throw new Error(finding.id + ": " + finding.evidenceLevel +
+            " requires its own " + requiredProof + " evidence");
+        if (finding.evidenceLevel === "RUNTIME_OBSERVED" &&
+            !witnesses.some(x => x.kind === "LIVE_MINECRAFT"))
+          throw new Error(finding.id + ": runtime claim lacks live Minecraft evidence");
+        if (finding.evidenceLevel !== "NEEDS_VALIDATION") {
+          if (!witnesses.some(x => x.kind === "AUTHORED_DESIGN") ||
+              !witnesses.some(x => ["SOURCE_STATIC", "PACKAGE_INSPECTION", "LIVE_MINECRAFT"].includes(x.kind)))
+            throw new Error(finding.id + ": verified defect needs expected-design and observed-source proof");
+          if (!finding.expected?.trim() || !finding.observed?.trim())
+            throw new Error(finding.id + ": verified finding is missing Expected/Observed");
+        }
+        for (const related of finding.technical.relatedSources) {
+          if (!map.evidence.some(x => x.locator.type === "FILE" && x.locator.value === related.path))
+            throw new Error(finding.id + ": related source was not recorded as evidence: " + related.path);
+        }
+        if (finding.testProcedure) {
+          const procedure = finding.testProcedure;
+          for (const step of procedure.steps) {
+            for (const ref of step.evidenceRefs) {
+              if (!finding.evidenceRefs.includes(ref) || !evidence.has(ref))
+                throw new Error(finding.id + ": Test In-Game step has unsupported evidence " + ref);
+            }
+          }
+        }
+      }
+    }
+  }
+  return report;
+}
+
+export function isRetestEligible(issue) {
+  return issue.kind !== "DEV_NOTE" &&
+    issue.evidenceLevel !== "NEEDS_VALIDATION" &&
+    Boolean(issue.expected?.trim() && issue.observed?.trim() &&
+      issue.testProcedure?.visibleOutcome?.trim() &&
+      issue.testProcedure.steps.length >= 2 &&
+      issue.testProcedure.steps.length <= 5);
+}
+
+// JCS uses ECMAScript JSON serialization and UTF-16 code-unit property ordering.
+// Normalized arrays are sorted separately in normalizeReport().
+export function canonicalJson(value) {
+  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("JCS rejects non-finite numbers");
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
+  if (isObject(value)) return "{" + Object.keys(value).sort().map(key =>
+    JSON.stringify(key) + ":" + canonicalJson(value[key])).join(",") + "}";
+  throw new Error("JCS rejects values outside JSON types");
+}
+const severityRank = { BLOCKER: 0, MAJOR: 1, MINOR: 2 };
+const kindRank = { BUG: 0, DESIGN_MISMATCH: 1, DEV_NOTE: 2 };
+export function normalizeReport(input) {
+  const report = structuredClone(input);
+  report.maps.sort((a, b) => a.mapId < b.mapId ? -1 : a.mapId > b.mapId ? 1 : 0);
+  for (const map of report.maps) {
+    map.evidence.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    map.levels.sort((a, b) => a.levelId < b.levelId ? -1 : a.levelId > b.levelId ? 1 : 0);
+    for (const level of map.levels) {
+      level.findings.sort((a,b) =>
+        (kindRank[a.kind] - kindRank[b.kind]) ||
+        ((severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9)) ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      for (const finding of level.findings) {
+        finding.evidenceRefs.sort();
+        if (finding.kind !== "DEV_NOTE") {
+          finding.technical.relatedSources.sort((a,b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+        }
+      }
+    }
+  }
+  return report;
+}
+export function reportDigest(canonical) {
+  return "sha256:" + createHash("sha256").update(canonical, "utf8").digest("hex");
+}

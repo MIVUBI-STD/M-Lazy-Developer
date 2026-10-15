@@ -37,4 +37,14 @@ The initial `layout.lock.json` content is Git blob `c958b33054722c2884e791e5b4e8
 
 Implement **a new renderer in its own module/namespace** consuming only `report.schema.json`-valid inputs, producing identical canonical JSON and generated HTML for identical inputs under the same lock, then test against a golden output and `reference.html`. Do not point it at existing report files or rewrite old components during the design phase.
 
-**State:** DESIGN LOCKED / SOURCE CONTRACTS COMMITTED; IMPLEMENTATION AND BROWSER ACCEPTANCE NOT EXECUTED.
+**State:** DESIGN LOCKED; **new isolated renderer source authored** under [apps/report-system-next/](../../apps/report-system-next/). Browser acceptance, live Minecraft and full repository execution are not yet established. The locked layout/schema/reference files are unchanged.
+
+## Implementation route (for subsequent chats)
+
+- Do not manually regenerate report HTML using the language model. Use the single new renderer `apps/report-system-next/render.mjs` after supplying a genuinely evidence-backed `m-lazy-report-next/v1` document.
+- The separately authored `apps/report-system-next/client.js` is included in the generated HTML for portable tester interaction.
+- Check `apps/report-system-next/golden.json` and `render.test.mjs` before treating visual or JSON changes as authorized. A changed golden output without a bumped, approved design version is a regression, not a cosmetic improvement.
+- **Never** route the new system through the old `tooling/bug-report-documents/` or previous project's output folders.
+- Any future design revision must retain the original immutable Git blob IDs and obtain explicit user approval for a new design version.
+
+**Current acceptance limit:** isolated source/JS checks and golden baseline authoring do not prove a packaged application or real-browser Save as HTML → reopen behavior.
