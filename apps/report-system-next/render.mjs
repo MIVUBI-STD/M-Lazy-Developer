@@ -173,7 +173,7 @@ function renderBody(report,lock,digest) {
     ' · Canonical digest '+escape(digest)+
     ' · Unknown proof stays unknown. Review notes/screenshots before sharing.</footer>';
 }
-export async function renderReportNext(input) {
+export async function renderReportNext(input, { authorizeRuntimeEvidence } = {}) {
   const read = name => readFile(resolve(project,name),"utf8");
   const [lockText,reportText,workspaceText,referenceText,client] = await Promise.all([
     read("layout.lock.json"),read("report.schema.json"),
@@ -187,7 +187,7 @@ export async function renderReportNext(input) {
   if(/<\/script/i.test(client)) throw new Error("Unsafe client script tag");
   const reportSchema=JSON.parse(reportText),wsSchema=JSON.parse(workspaceText);
   const report=normalizeReport(input);
-  assertReport(report,reportSchema);
+  assertReport(report,reportSchema,{authorizeRuntimeEvidence});
   for(const map of report.maps)if(map.artifact.sourceUrl &&
     !["https:","http:"].includes(new URL(map.artifact.sourceUrl).protocol))
     throw new Error("Only HTTP(S) artifact source links are permitted");

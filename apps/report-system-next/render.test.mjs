@@ -96,11 +96,27 @@ test("source evidence authority and retest eligibility remain separate", async (
     {instruction:"Enter the sample arena.",evidenceRefs:["EV-DESIGN"]},
     {instruction:"Observe the wave transition.",evidenceRefs:["EV-LIVE"]}
   ],visibleOutcome:"Observe that the next wave does not begin."};
-  const out = await renderReportNext(report);
+  await assert.rejects(() => renderReportNext(report),
+    /requires explicit trusted upstream authorization/);
+  await assert.rejects(() => renderReportNext(report, {
+    authorizeRuntimeEvidence: () => "yes"
+  }),/requires explicit trusted upstream authorization/);
+  await assert.rejects(() => renderReportNext(report, {
+    authorizeRuntimeEvidence: () => false
+  }),/requires explicit trusted upstream authorization/);
+
+  // Synthetic fixture authorization only: this test did NOT observe Minecraft.
+  const authorizeRuntimeEvidence = ({mapId, artifactId, artifactFingerprint, evidence}) =>
+    mapId === "example-world" &&
+    artifactId === report.maps[0].artifact.artifactId &&
+    artifactFingerprint === report.maps[0].artifact.fingerprint &&
+    evidence.id === "EV-LIVE" && evidence.kind === "LIVE_MINECRAFT";
+  const out = await renderReportNext(report,{authorizeRuntimeEvidence});
   assert.match(out.html,/data-ready="true"/);
   assert.match(out.html,/data-result="PASSED"/);
   f.evidenceRefs = f.evidenceRefs.filter(ref => ref !== "EV-LIVE");
-  await assert.rejects(() => renderReportNext(report),/requires its own LIVE_MINECRAFT|runtime claim lacks/);
+  await assert.rejects(() => renderReportNext(report,{authorizeRuntimeEvidence}),
+    /requires its own LIVE_MINECRAFT|runtime claim lacks/);
 });
 
 test("Test In-Game rejects technical copy and requires gameplay witness per step", async () => {

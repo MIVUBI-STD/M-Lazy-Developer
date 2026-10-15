@@ -27,6 +27,8 @@ const output = await renderReportNext(newCanonicalReport);
 
 **No migration/legacy adapter** and no second CLI/runner. An authorized caller must supply a new `m-lazy-report-next/v1` document with actual artifact identity, approved source-backed findings and exact evidence IDs. Incomplete claims stay `NEEDS_VALIDATION`; do not make up gameplay steps to enable Passed/Failed.
 
+**Runtime witness boundary:** Any `LIVE_MINECRAFT` evidence is rejected by default, even if no finding references it. A trusted importer with independent runtime provenance may call `renderReportNext(report, { authorizeRuntimeEvidence })`, providing a synchronous callback that returns the literal boolean `true` only for a reviewed witness identified by its map ID, artifact ID, fingerprint and evidence object. Missing authorization, `false`, and truthy nonboolean values all fail closed. The callback is a trust boundary: the renderer does **not** inspect Minecraft, authenticate the caller, or make fabricated evidence real. A blindly permissive callback is not valid verification. The synthetic test callback proves this API path only, not a live game run. No design lock, schema, old report, or golden output is changed.
+
 The renderer outputs two data authorities: immutable canonical report and separate tester workspace. A saved offline HTML copy contains both; browser autosave is convenience, not proof the downloaded file is current. Edited copies must be saved again and checked before sharing.
 
 ## Portable HTML baseline normalization

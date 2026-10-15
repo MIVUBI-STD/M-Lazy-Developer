@@ -124,7 +124,7 @@ function assertPlayerFollowableTest(finding, evidence) {
   }
 }
 
-export function assertReport(report, schema) {
+export function assertReport(report, schema, { authorizeRuntimeEvidence } = {}) {
   validateSchema(report, schema);
   if (report.layoutVersion !== DESIGN_VERSION) throw new Error("Report layout version is not locked v1.0.0.");
   const findingIds = new Set();
@@ -135,6 +135,20 @@ export function assertReport(report, schema) {
     const evidence = new Map();
     for (const item of map.evidence) {
       if (evidence.has(item.id)) throw new Error("Duplicate evidence ID: " + item.id);
+      // The renderer cannot observe Minecraft. Admission of a live witness
+      // requires a deliberate, independently reviewed upstream authorization.
+      // A forged kind label or unattested record fails closed.
+      if (item.kind === "LIVE_MINECRAFT" &&
+          (typeof authorizeRuntimeEvidence !== "function" ||
+           authorizeRuntimeEvidence({
+             mapId: map.mapId,
+             artifactId: map.artifact.artifactId,
+             artifactFingerprint: map.artifact.fingerprint,
+             evidence: structuredClone(item)
+           }) !== true)) {
+        throw new Error("LIVE_MINECRAFT evidence " + item.id +
+          " requires explicit trusted upstream authorization; HTML/JSON validation does not observe Minecraft");
+      }
       evidence.set(item.id, item);
     }
     const levelIds = new Set();
