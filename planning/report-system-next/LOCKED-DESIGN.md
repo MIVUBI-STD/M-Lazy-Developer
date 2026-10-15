@@ -1,0 +1,117 @@
+# Report System Next — LOCKED DESIGN 1.0.0
+
+## 0. Ownership and scope
+
+This is an isolated **new reporting system proposal**, with its own prospective output contract `m-lazy-report-next/v1`. The old Approved Bug Report V2, prior HTML renderers, old JSON schemas, old project snapshots and repair/audit workflows are not development targets here.
+
+The human specification in this file and machine lock in `layout.lock.json` are **one agreed design**; the JSON lock is the mechanically inspectable list of identities/ordering/tokens. Conflicts halt implementation and require a design decision, not creative interpretation by the assistant. Changes to either design artifact after acceptance require a new version and explicit user approval.
+
+## 1. Product objective
+
+One standalone offline HTML file can be opened by a tester, used to inspect findings, enter tester results, notes and screenshot evidence, saved as a NEW portable HTML file, and sent to a developer. The same canonical report has one structured JSON projection. The developer sees the full source evidence and technical repair guidance without requiring additional software or network access.
+
+The app must never silently mutate canonical issue facts from tester inputs. There is no server, database, login, external runtime script, or background autosync required.
+
+## 2. Fixed hierarchy
+
+For a **Map Report**, the ordered HTML structure is:
+
+1. Report Header — **Bug Tracker Report**; design version; primary Save as HTML at the top.
+2. Artifact Identity — name, edition, version, fingerprint label, source link if actually available.
+3. Overview — total findings, Blocker, Major, Minor, Needs Validation.
+4. After-Fix Retest Results — Passed, Failed, Untested, Not Retestable **derived only from eligible tester entries**.
+5. Finding Controls — search; category, severity and retest filters; reset filter; matched-item count.
+6. **Bugs** section.
+7. **Design Mismatches** section.
+8. **Developer Notes** section.
+9. Footer — report provenance, contract version, summary of source proof limitations.
+
+Empty finding groups are omitted but **never reordered**. Combined reports reuse the same order for each map and add a map navigation index; no alternate layout is improvised.
+
+Finding card *collapsed*: sequential display number (cosmetic), severity (if applicable), evidence level, tester result if eligible, short title, concise problem, canonical finding ID.
+
+Finding card *expanded*: authored rationale and impact if present, source-backed Test In-Game if available, two-column Expected / Observed-Evidence (stack on mobile), tester result if eligible, notes and screenshots, collapsed Technical Details containing analysis, relevant original files, recommended fix and Must Preserve. Developer Notes never display gameplay severity or Passed/Failed.
+
+All finding cards default to **collapsed**. The HTML must use explicit labels, keyboard-operable native controls, visible focus styles and accessible live save-status text. Default report width 1080 px, typography and colors are frozen by `layout.lock.json`. No charts, persistent sidebars, decorative widgets or visual experiments in v1.
+
+## 3. Semantics that must never drift
+
+**Evidence level is NOT a Minecraft test result.**
+
+| Canonical field | Meaning |
+|---|---|
+| `SOURCE_VERIFIED` | Authored source/design evidence was inspected and supports the stated source-level finding; does not prove live Minecraft manifestation |
+| `PACKAGE_VERIFIED` | Relevant package/artifact evidence was inspected; still does not by itself mean live gameplay was run |
+| `RUNTIME_OBSERVED` | Directly observed runtime behavior with recorded provenance; not an inferred simulation |
+| `NEEDS_VALIDATION` | Current evidence is insufficient for the asserted behavior |
+
+A finding is eligible for Passed/Failed **only if** its evidence status is not NEEDS_VALIDATION and its Test In-Game has adequate **source-backed, player-followable** steps, Expected/Observed text and a visible success/failure criterion. This eligibility must be computed; do not persist a second `ready` authority. `Passed`/`Failed` are tester workspace observations **after repair**, not canonical Fixed/Closed. Unready findings still allow notes/evidence, not false retest marks.
+
+`testProcedure: null` explicitly means **no supported guided procedure**. Do not invent Minecraft steps from code symbols. Empty `expected` or `observed` may be `null` for genuinely unknown claims; the UI explains the proof gap rather than presenting empty invented paragraphs.
+
+Every evidence ID in a finding and step must resolve to the `map.evidence[]` of the **same artifact**, and each relevant source path/coordinate may appear only if present in that evidence. `RUNTIME_OBSERVED` requires real runtime evidence; source-only evidence cannot be promoted to runtime by label. A verified defect also needs a supported expected-behavior/design authority; merely observing unfamiliar code is not a bug. These are **cross-reference / semantic validation rules beyond JSON Schema**.
+
+## 4. Exactly two independent data authorities
+
+- **Canonical report JSON** (`report.schema.json`) has approved findings, map identity, fingerprints, evidence and technical claims. It is read-only inside the HTML.
+- **Tester workspace JSON** (`tester-workspace.schema.json`) has issue-ID-bound Passed/Failed, notes and image data. It must carry the canonical report digest and may never edit or replace canonical facts.
+
+A Save as HTML snapshot embeds the complete canonical report plus the current tester workspace, including image bytes and captions. Saving starts a browser download but **does not** automatically overwrite the original HTML or guarantee disk completion. Browser autosave is temporary convenience, not an externally transmitted report. After editing, save a new copy to share the latest work.
+
+Open a saved HTML without network: embedded snapshot loads first; only a draft from that exact same copy and artifact can override it in the browser. Failure of browser storage must leave in-memory edits available and clearly instruct the tester to Save as HTML before closing. Reset stores an explicit empty override, so old embedded notes/results never mysteriously return. Load JSON validates schema, digest and issue IDs before replacing data; rejection preserves the current workspace.
+
+Portable HTML/JSON are untrusted input: escape all embedded data in the HTML script context, use textContent for user strings, validate attachment MIME and byte limits, never run arbitrary evidence as code. Provide a warning that saved HTML includes notes/screenshots and should be reviewed before sharing.
+
+## 5. Deterministic, chat-independent rendering
+
+**No AI-authored HTML after data preparation.** A single version-locked renderer owns the output; the assistant may prepare evidence-backed JSON but may not reorder components, rename labels, restyle CSS, or write alternate HTML just because the chat restarted.
+
+Rendering contract:
+
+```text
+Verified selected-map evidence + explicit approved findings
+    → new canonical Report JSON (schema + semantic checks)
+    → deterministic normalization (fixed category/severity/ID order)
+    → one renderer from exactly layout.lock.json@1.0.0
+    → generated HTML + canonical JSON
+    → golden / structural / parity / provenance acceptance
+    → recipient's offline tester HTML workflow
+```
+
+For identical canonical inputs and layout version: canonical JSON bytes and freshly generated **base HTML bytes** are identical. For canonical JSON, use RFC 8785/JCS canonicalization **after** stable array ordering; timestamps, random IDs, environment-specific values, or model paraphrases must not enter the base HTML. The *saved tester HTML copy* is a snapshot containing mutable tester results, so different saved snapshots are **not** expected to have identical bytes. Preserve canonical digest identity across those saves.
+
+Immutable design-v1 values and labels are in `layout.lock.json`. Golden HTML byte snapshots, visual desktop/mobile baselines, offline reopen, keyboard usability and roundtrip JSON/HTML acceptance are required before declaring the implemented system usable. Cross-browser pixel-perfect identity is not guaranteed; semantic layout, content, functionality and stable baseline are the enforceable goal.
+
+## 6. Change and approval gate
+
+Default for any new ChatGPT session: **READ → PIN → GENERATE ONLY TO THE LOCK**. No quiet `v2`, no new renderer, no optional theme based on taste, no reformat of canonical findings for style. If a genuine design change is requested:
+
+1. Show the differences and why the change is necessary.
+2. Obtain explicit user approval to change the locked presentation/data meaning.
+3. Bump the design version, adjust JSON contracts only when necessary, retain old version for existing documents, and update golden fixtures.
+4. Verify old output remains readable and the new output cannot be confused with an old version.
+
+Never claim that a *Git file alone* technically enforces all of this. The lock is design authority; enforcement will come from the new renderer, schema/semantic validators, golden fixtures and fail-closed checks once implemented.
+
+## 7. Acceptance matrix (not yet executed)
+
+| Dimension | Required |
+|---|---|
+| Same input + same design version | byte-identical generated HTML and canonical JSON |
+| Same report in a new chat | same section order, labels, CSS tokens, computed counts and grouping |
+| Missing proof | explicit unknown; never invented reproduction, source line or Fixed |
+| Multi-map or multi-level | stable map/level navigation and globally unique IDs |
+| Editing by tester | notes, result and images remain in tester workspace, never canonical |
+| Save as HTML | download snapshot opens offline on a second device/browser context |
+| Browser quota error | work remains in memory; visible warning plus portable save |
+| HTML/JSON parity | exact canonical document, artifact identity, issue/evidence references |
+| UI usability | keyboard, focus, clear labels, readable widths, mobile layout |
+| Change without approval | reject or use existing v1 lock |
+
+**CURRENT PROOF CEILING:** proposed source-controlled design/schema/reference only. New HTML renderer, generated output snapshots, independent schema validator, browser acceptance and Minecraft gameplay have not been implemented or executed.
+
+### Standards basis
+
+- JSON Schema Draft 2020-12 (https://json-schema.org/draft/2020-12)
+- RFC 8785 canonical JSON (https://www.rfc-editor.org/rfc/rfc8785.html)
+- WCAG 2.2 (https://www.w3.org/TR/WCAG22/)

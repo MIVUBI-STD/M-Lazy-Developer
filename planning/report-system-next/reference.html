@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Report System Next v1 — Locked Design Reference</title>
+<style>
+:root{--navy:#172B4D;--blue:#3157A4;--text:#172033;--muted:#667085;--border:#D9DEE8;--bg:#F8FAFC;--success:#28733B;--danger:#A22929;--warning:#8A5700}
+*{box-sizing:border-box}body{margin:0;background:#eef1f5;color:var(--text);font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+.page{max-width:1080px;margin:24px auto;background:white;border:1px solid var(--border);box-shadow:0 9px 24px #172b4d12}
+.notice{padding:10px 24px;background:#fff4dc;border-bottom:1px solid #ecd7a3;color:#65420c;font-size:12px;font-weight:700}
+.hero{padding:18px 24px;background:var(--navy);color:white;display:flex;align-items:center;gap:20px;justify-content:space-between}
+.hero h1{font-size:21px;line-height:1.35;margin:0}.hero small{display:block;opacity:.8;margin-top:4px}
+.actions{display:flex;align-items:center;gap:8px}.primary,.secondary{border-radius:6px;min-height:40px;padding:9px 14px;font:700 13px/1.2 system-ui;background:var(--blue);border:1px solid var(--blue);color:white}
+.secondary{background:white;color:var(--blue);border-color:var(--border)}button:disabled,input:disabled,select:disabled{cursor:not-allowed}
+section{padding:18px 24px;border-bottom:1px solid var(--border)}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.055em;font-weight:800;color:var(--muted)}
+h2{font-size:20px;line-height:1.35;margin:2px 0 6px}h3{font-size:16px;line-height:1.3;margin:0 0 12px;color:var(--navy)}p{margin:5px 0;color:#405167}
+.identity{display:flex;justify-content:space-between;gap:18px;align-items:center}.identity .meta{font-size:12px;color:var(--muted)}
+.sourcebox{padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:7px;margin-top:12px;font-size:12px;overflow-wrap:anywhere}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.metric{padding:12px;border:1px solid var(--border);border-radius:7px;background:var(--bg)}
+.metric small{display:block;font-size:11px;color:var(--muted)}.metric b{display:block;font-size:23px;margin-top:3px}
+.retest{display:flex;flex-wrap:wrap;gap:8px}.chip-count{padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px}.chip-count b{margin-left:7px;font-size:16px}
+.note{font-size:12px;color:var(--muted);margin-top:10px}
+.controls{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:9px;align-items:end}
+.controls label{font-weight:700;font-size:12px;color:#334155}
+.controls input,.controls select{margin-top:5px;display:block;width:100%;height:40px;border:1px solid var(--border);border-radius:6px;background:white;color:#405167;padding:8px}
+.count{margin:10px 0 0;color:var(--muted);font-size:12px}
+.issue{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:12px 0}
+.issue summary{cursor:pointer;padding:15px 17px;list-style:none}.issue summary:focus-visible{outline:2px solid var(--blue);outline-offset:-3px}.issue summary::-webkit-details-marker{display:none}
+.tags{display:flex;gap:7px;flex-wrap:wrap}.tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:750;background:#edf2f9;color:var(--navy)}
+.tag.major{background:#fff2dc;color:var(--warning)}.tag.unknown{background:#fff2dc;color:var(--warning)}
+.issue h4{font-size:17px;line-height:1.45;margin:8px 0 3px}.issue .description{font-size:14px;margin:4px 0;color:#405167}
+.issue .id{font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--muted);word-break:break-word;margin-top:7px}
+.disclosure{margin-top:8px;padding-top:8px;border-top:1px solid #edf0f5;color:var(--blue);font-size:12px;font-weight:750}
+.issue[open]{border-left:4px solid var(--blue)}.content{padding:0 16px 16px;border-top:1px solid var(--border)}
+.content .panel{padding:14px 0;border-bottom:1px solid var(--border)}.content h5{margin:0 0 7px;font-size:12px;color:var(--navy);text-transform:uppercase;letter-spacing:.03em}
+.comparison{display:grid;grid-template-columns:1fr 1fr;gap:10px}.comparison>div{border:1px solid var(--border);border-radius:7px;padding:12px;background:var(--bg)}
+.muted{color:var(--muted)}.textarea{width:100%;min-height:70px;border:1px solid var(--border);border-radius:6px;padding:10px;font:inherit}
+footer{padding:18px 24px;font-size:12px;color:var(--muted);background:var(--bg)}
+@media(max-width:700px){.page{margin:0;border:0}.hero{align-items:flex-start;flex-direction:column}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.controls{grid-template-columns:1fr 1fr}.controls label:first-child{grid-column:1/-1}.identity{align-items:flex-start;flex-direction:column}.comparison{grid-template-columns:1fr}section{padding:14px 16px}.hero{padding:16px}.notice{padding:10px 16px}}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="notice" role="note">STATIC DESIGN REFERENCE ONLY — synthetic data. Not a working report, test submission form or production renderer.</div>
+  <header class="hero">
+    <div><h1>Bug Tracker Report</h1><small>Report System Next · Locked layout v1.0.0</small></div>
+    <div class="actions"><button class="primary" type="button" disabled>Save as HTML</button><button class="secondary" type="button" disabled>More ▾</button></div>
+  </header>
+
+  <section aria-label="Artifact identity">
+    <div class="identity"><div><span class="eyebrow">Map Report</span><h2>Example Minecraft Map</h2><p class="meta">Bedrock · v1.0.0</p></div><span class="tag">Example data</span></div>
+    <div class="sourcebox"><strong>Source:</strong> SYNTHETIC DEMO — NOT A REAL AUDITED WORLD<br><strong>Fingerprint:</strong> sha256:00000000… (example only)</div>
+  </section>
+
+  <section aria-labelledby="overview"><h3 id="overview">Overview</h3><div class="metrics">
+    <div class="metric"><small>Findings</small><b>1</b></div>
+    <div class="metric"><small>Blocker</small><b>0</b></div>
+    <div class="metric"><small>Major</small><b>1</b></div>
+    <div class="metric"><small>Minor</small><b>0</b></div>
+    <div class="metric"><small>Needs Validation</small><b>1</b></div>
+  </div></section>
+
+  <section aria-labelledby="retest"><h3 id="retest">After-Fix Retest Results</h3><div class="retest">
+    <span class="chip-count">Passed <b>0</b></span><span class="chip-count">Failed <b>0</b></span>
+    <span class="chip-count">Untested <b>0</b></span><span class="chip-count">Not Retestable <b>1</b></span>
+  </div><p class="note">Tester results only. This does not change canonical repair closure.</p></section>
+
+  <section aria-label="Finding controls"><h3>Find Findings</h3><div class="controls">
+    <label>Search findings<input disabled placeholder="Title or finding ID"></label>
+    <label>Kind<select disabled><option>All kinds</option></select></label>
+    <label>Severity<select disabled><option>All severities</option></select></label>
+    <label>Retest result<select disabled><option>All results</option></select></label>
+    <button type="button" class="secondary" disabled>Clear filters</button>
+  </div><p class="count">Showing 2 of 2 entries, including Developer Notes</p></section>
+
+  <section aria-labelledby="bugs"><h3 id="bugs">Bugs <span class="muted">· 1</span></h3>
+    <details class="issue"><summary>
+      <div class="tags"><span class="tag">01</span><span class="tag major">MAJOR</span><span class="tag unknown">Needs Validation</span><span class="tag">Not Retestable</span></div>
+      <h4>Example wave fails to advance</h4><p class="description">The example wave counter might remain unchanged after the last opponent is defeated.</p>
+      <div class="id">BUG-DEMO-001</div><div class="disclosure">Test / Details ↓</div>
+    </summary><div class="content">
+      <div class="panel"><h5>Impact</h5><p>In the sample scenario, players could be unable to continue the match.</p></div>
+      <div class="panel"><h5>Test In-Game</h5><p class="muted">No verified player-followable test procedure available. Do not mark Passed or Failed.</p></div>
+      <div class="panel comparison"><div><h5>Expected</h5><p>The next wave becomes available after the current wave is completed.</p></div><div><h5>Observed / Evidence</h5><p>Not established. Example source pointer requires validation.</p></div></div>
+      <div class="panel"><h5>Tester Notes</h5><textarea class="textarea" disabled placeholder="Tester notes (visual reference only)"></textarea></div>
+      <div class="panel"><details><summary>Technical Details ↓</summary><p>Illustrative hypothesis only. No actual Minecraft source or gameplay was inspected.</p><h5>Related source</h5><p><code>sample/scripts/example.js</code></p><h5>Must Preserve</h5><p>Existing player score and wave progression semantics.</p></details></div>
+    </div></details>
+  </section>
+  <section aria-labelledby="notes"><h3 id="notes">Developer Notes <span class="muted">· 1</span></h3>
+    <details class="issue"><summary><div class="tags"><span class="tag">01</span><span class="tag">Reference</span></div><h4>Example development note</h4><p class="description">The map may require a documented reset expectation.</p><div class="id">DEV-DEMO-001</div><div class="disclosure">View Details ↓</div></summary><div class="content"><div class="panel"><h5>Action Required</h5><p>Confirm the intended reset behavior before changing implementation.</p></div></div></details>
+  </section>
+  <footer>Report System Next · Design Lock 1.0.0 · Static example only · No real audit or browser save has been performed.</footer>
+</main>
+</body>
+</html>

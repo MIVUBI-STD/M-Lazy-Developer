@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mivubi:report-system-next:tester-workspace:v1",
+  "title": "M-Lazy Report Next Tester Workspace v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "reportId",
+    "canonicalDigest",
+    "entries"
+  ],
+  "properties": {
+    "schema": {
+      "const": "m-lazy-tester-workspace-next/v1"
+    },
+    "reportId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonicalDigest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "findingId",
+          "result",
+          "notes",
+          "attachments"
+        ],
+        "properties": {
+          "findingId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "result": {
+            "enum": [
+              "PASSED",
+              "FAILED",
+              null
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 0
+          },
+          "attachments": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "mime",
+                "caption",
+                "dataUrl"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "mime": {
+                  "type": "string",
+                  "enum": [
+                    "image/png",
+                    "image/jpeg",
+                    "image/webp"
+                  ]
+                },
+                "caption": {
+                  "type": "string",
+                  "minLength": 0
+                },
+                "dataUrl": {
+                  "type": "string",
+                  "pattern": "^data:image/(png|jpeg|webp);base64,"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

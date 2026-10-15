@@ -1,0 +1,239 @@
+{
+  "system": "M-Lazy-Developer / Report System Next",
+  "namespace": "report-system-next",
+  "designVersion": "1.0.0",
+  "lifecycle": "DESIGN_LOCKED_IMPLEMENTATION_NOT_STARTED",
+  "compatibility": {
+    "reportSchema": "m-lazy-report-next/v1",
+    "testerWorkspaceSchema": "m-lazy-tester-workspace-next/v1",
+    "templateId": "m-lazy-report-next/html-v1",
+    "sourceExistingApprovedBugReportV2": "NOT_A_MUTATION_TARGET",
+    "legacyReportPaths": "UNTOUCHED"
+  },
+  "immutableWithinVersion": [
+    "layout.sections",
+    "layout.findingGroupOrder",
+    "layout.findingCardCollapsed",
+    "layout.findingCardExpanded",
+    "layout.technicalDisclosure",
+    "layout.summaryMetricOrder",
+    "vocabulary",
+    "tokens",
+    "behavior",
+    "output.fileNames",
+    "output.canonicalization"
+  ],
+  "changePolicy": {
+    "lockChange": "EXPLICIT_USER_APPROVAL_AND_DESIGN_VERSION_BUMP",
+    "unapprovedChange": "REJECT_AND_KEEP_LAST_APPROVED_VERSION",
+    "newConversation": "READ_THIS_LOCK_AND_DESIGN_BEFORE_REPORT_AUTHORING",
+    "renderer": "ONE_DETERMINISTIC_RENDERER_ONLY",
+    "noFreeformAiHtml": true,
+    "snapshotAcceptance": "REQUIRED_BEFORE_RELEASE",
+    "layoutDeviation": "FAIL_CLOSED"
+  },
+  "layout": {
+    "sections": [
+      "reportHeader",
+      "artifactIdentity",
+      "reportOverview",
+      "testerProgress",
+      "findingControls",
+      "bugFindings",
+      "designMismatches",
+      "developerNotes",
+      "reportFooter"
+    ],
+    "findingGroupOrder": [
+      "BUG",
+      "DESIGN_MISMATCH",
+      "DEV_NOTE"
+    ],
+    "severityOrder": [
+      "BLOCKER",
+      "MAJOR",
+      "MINOR"
+    ],
+    "findingCardCollapsed": [
+      "referenceNumber",
+      "severity",
+      "evidenceLevel",
+      "testerResultIfEligible",
+      "title",
+      "problem",
+      "findingId"
+    ],
+    "findingCardExpanded": [
+      "rationaleIfPresent",
+      "impactIfPresent",
+      "testInGameIfSupported",
+      "expectedAndObserved",
+      "testerResultIfEligible",
+      "testerNotes",
+      "attachments",
+      "technicalDisclosure"
+    ],
+    "technicalDisclosure": [
+      "analysisIfPresent",
+      "relatedSources",
+      "recommendedFixIfPresent",
+      "mustPreserve"
+    ],
+    "summaryMetricOrder": [
+      "findings",
+      "blocker",
+      "major",
+      "minor",
+      "needsValidation"
+    ],
+    "testerMetricOrder": [
+      "passed",
+      "failed",
+      "untested",
+      "notRetestable"
+    ],
+    "searchFields": [
+      "title",
+      "findingId",
+      "problem"
+    ],
+    "filterFields": [
+      "kind",
+      "severity",
+      "testerResult"
+    ],
+    "defaultOpenState": "ALL_FINDING_CARDS_COLLAPSED",
+    "responsiveBreakpointsPx": {
+      "mobileMax": 700,
+      "desktopReportMaxWidth": 1080
+    }
+  },
+  "vocabulary": {
+    "reportTitle": "Bug Tracker Report",
+    "sectionBugs": "Bugs",
+    "sectionDesign": "Design Mismatches",
+    "sectionNotes": "Developer Notes",
+    "testProcedure": "Test In-Game",
+    "expected": "Expected",
+    "observed": "Observed / Evidence",
+    "verifiedSource": "Source Verified",
+    "packageVerified": "Package Verified",
+    "runtimeObserved": "Runtime Observed",
+    "needsValidation": "Needs Validation",
+    "passed": "Passed",
+    "failed": "Failed",
+    "untested": "Untested",
+    "notRetestable": "Not Retestable",
+    "testerNotes": "Tester Notes",
+    "technical": "Technical Details",
+    "recommendedFix": "Recommended Fix",
+    "preserve": "Must Preserve",
+    "saveHtml": "Save as HTML",
+    "saveJson": "Save JSON",
+    "loadJson": "Load JSON",
+    "reset": "Reset Tester Data",
+    "savedBrowser": "Autosaved in browser",
+    "fileStatus": "HTML download started; confirm file before sharing"
+  },
+  "tokens": {
+    "font": "system-ui, -apple-system, Segoe UI, sans-serif",
+    "codeFont": "ui-monospace, SFMono-Regular, Consolas, monospace",
+    "colors": {
+      "navy": "#172B4D",
+      "blue": "#3157A4",
+      "text": "#172033",
+      "muted": "#667085",
+      "border": "#D9DEE8",
+      "background": "#F8FAFC",
+      "success": "#28733B",
+      "danger": "#A22929",
+      "warning": "#8A5700"
+    },
+    "spacingPx": [
+      4,
+      8,
+      12,
+      16,
+      24
+    ],
+    "reportWidthPx": 1080,
+    "bodyTextPx": 14,
+    "titleTextPx": 17
+  },
+  "behavior": {
+    "generatedHtmlOfflineSingleFile": true,
+    "scriptAndCssEmbedded": true,
+    "noRemoteRuntimeDependency": true,
+    "mainAction": "saveHtml",
+    "autosave": "BROWSER_LOCAL_ONLY",
+    "portableSave": "EXPLICIT_FILE_DOWNLOAD",
+    "portableHtmlIncludes": [
+      "fullCanonicalReport",
+      "testerWorkspaceSnapshot",
+      "screenshotData",
+      "captions"
+    ],
+    "importPolicy": "EXACT_CANONICAL_DIGEST_MATCH",
+    "uiNeverMutatesCanonicalFacts": true,
+    "filtersNeverRemoveExportedFindings": true,
+    "retestStateOnlyOnEvidenceEligibleFindings": true,
+    "missingGameplaySteps": "SHOW_NOT_RETESTABLE_NOT_INVENT_STEPS",
+    "devNotesNeverHaveSeverityOrTesterResult": true,
+    "saveReportsDownloadStartedNotDiskVerified": true,
+    "browserStorageFailure": "CONTINUE_IN_MEMORY_WARN_AND_OFFER_SAVE_HTML",
+    "sameCopyRecovery": "SNAPSHOT_THEN_SAME_COPY_AUTOSAVE",
+    "resetBehavior": "PERSIST_EXPLICIT_EMPTY_WORKSPACE_OVERRIDE"
+  },
+  "output": {
+    "fileNames": {
+      "canonical": "<slug>-v<artifact-version>-Report.json",
+      "html": "<slug>-v<artifact-version>-Tester-Report.html",
+      "workspace": "<slug>-v<artifact-version>-Tester-State.json",
+      "combined": "Combined-Report"
+    },
+    "canonicalization": "RFC8785_JCS",
+    "ordering": "GROUP_KIND_THEN_SEVERITY_THEN_STABLE_FINDING_ID",
+    "unchangedInputInvariant": "IDENTICAL_CANONICAL_JSON_AND_GENERATED_HTML_BYTES",
+    "nondeterminismForbiddenInGeneratedReport": [
+      "currentTime",
+      "randomId",
+      "browserLocaleSort",
+      "networkResponse",
+      "aiParaphrase"
+    ],
+    "testerHtmlIsSnapshot": true,
+    "downloadDoesNotOverwriteCanonicalReport": true
+  },
+  "acceptance": {
+    "structural": [
+      "JSON_SCHEMA",
+      "CROSS_REFERENCE_IDS",
+      "SOURCE_FINGERPRINT",
+      "SCOPE_CARDINALITY",
+      "EVIDENCE_CLAIM_COHERENCE"
+    ],
+    "rendering": [
+      "GOLDEN_HTML_BYTE_SNAPSHOT",
+      "VISUAL_APPROVAL_DESKTOP",
+      "VISUAL_APPROVAL_MOBILE",
+      "ACCESSIBILITY_REVIEW"
+    ],
+    "handoff": [
+      "OPEN_OFFLINE",
+      "EDIT",
+      "AUTOSAVE_WARNING",
+      "SAVE_AS_HTML",
+      "REOPEN_ON_ANOTHER_BROWSER_CONTEXT",
+      "PRESERVE_ATTACHMENTS",
+      "NO_CANONICAL_MUTATION"
+    ],
+    "failClosedOn": [
+      "UNKNOWN_SCHEMA",
+      "UNKNOWN_TEMPLATE",
+      "MISSING_EVIDENCE",
+      "MISMATCHED_ARTIFACT",
+      "STALE_HTML_JSON",
+      "UNAPPROVED_LAYOUT_CHANGE"
+    ]
+  }
+}

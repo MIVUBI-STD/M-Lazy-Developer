@@ -1,0 +1,78 @@
+{
+  "schema": "m-lazy-report-next/v1",
+  "layoutVersion": "1.0.0",
+  "reportId": "design-example-not-a-real-audit",
+  "scope": "MAP",
+  "maps": [
+    {
+      "mapId": "example-world",
+      "name": "Example Minecraft Map",
+      "artifact": {
+        "artifactId": "example:synthetic-artifact",
+        "fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "version": "1.0.0",
+        "edition": "BEDROCK",
+        "sourceLabel": "SYNTHETIC DEMO — NOT A REAL AUDITED WORLD",
+        "sourceUrl": null
+      },
+      "evidence": [
+        {
+          "id": "EV-DEMO-01",
+          "kind": "SOURCE_STATIC",
+          "description": "Synthetic sample of a static script condition; NOT inspected Minecraft evidence.",
+          "locator": {
+            "type": "FILE",
+            "value": "sample/scripts/example.js"
+          }
+        }
+      ],
+      "levels": [
+        {
+          "levelId": "map",
+          "label": "Map",
+          "findings": [
+            {
+              "id": "BUG-DEMO-001",
+              "kind": "BUG",
+              "severity": "MAJOR",
+              "evidenceLevel": "NEEDS_VALIDATION",
+              "title": "Example wave fails to advance",
+              "problem": "The example wave counter might remain unchanged after the last opponent is defeated.",
+              "rationale": null,
+              "impact": "In the sample scenario, players could be unable to continue the match.",
+              "expected": "The next wave becomes available after the current wave is completed.",
+              "observed": null,
+              "evidenceRefs": [
+                "EV-DEMO-01"
+              ],
+              "testProcedure": null,
+              "technical": {
+                "analysis": "Illustrative hypothesis only. No source, package, or Minecraft runtime was examined.",
+                "recommendedFix": null,
+                "relatedSources": [
+                  {
+                    "path": "sample/scripts/example.js",
+                    "reason": "Synthetic placeholder illustrating source pointers."
+                  }
+                ],
+                "mustPreserve": [
+                  "Existing player score and wave progression semantics."
+                ]
+              }
+            },
+            {
+              "id": "DEV-DEMO-001",
+              "kind": "DEV_NOTE",
+              "title": "Example development note",
+              "description": "The map may require a documented reset expectation.",
+              "action": "Confirm the intended reset behavior before changing implementation.",
+              "evidenceRefs": [
+                "EV-DEMO-01"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
