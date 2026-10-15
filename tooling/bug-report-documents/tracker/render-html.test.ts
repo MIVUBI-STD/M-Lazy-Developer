@@ -110,32 +110,74 @@ describe("Golden Bug Tracker renderer", () => {
     const interactiveScript = html.split("<script>").at(-1)?.split("</script>")[0];
     expect(interactiveScript).toBeDefined();
     expect(() => new Script(interactiveScript!)).not.toThrow();
-    expect(interactiveScript).toContain('const r=new FileReader()');
+    expect(interactiveScript).toContain('const reader = new FileReader();');
+    expect(html).toContain('<button id="saveHtml" type="button" class="save-primary">Save as HTML</button>');
+    expect(html).toContain('<button id="saveButton" type="button" aria-expanded="false"');
+    expect(interactiveScript).toContain('snapshot.dataset.copyId =');
+    expect(interactiveScript).toContain('location.pathname + ":" + COPY_ID');
   });
 
-  it("normalizes legacy tester attachment state and escapes portable HTML snapshots", () => {
+  it("escapes exported snapshots and isolates each saved HTML copy", () => {
     const html = renderBugTrackerHtml(fixture);
     const script = html.split("<script>").at(-1)?.split("</script>")[0];
     expect(script).toBeDefined();
-
-    const stateExpression = script?.split(",state=")[1]?.split(";const toast=m=>")[0];
-    expect(stateExpression).toBeDefined();
-    const existing = { "BUG-GOLDEN-001": { notes: "legacy", result: null } };
-    const getState = runInNewContext(
-      "(" + stateExpression + ")",
-      { WS: existing },
-    ) as (id: string) => { attachments: unknown[] };
-    expect(getState("BUG-GOLDEN-001").attachments).toEqual([]);
-
-    const snapshotExpression = script?.split("snap.textContent=")[1]?.split(";dl(")[0];
-    expect(snapshotExpression).toBeDefined();
-    const notes = "</script><script>unsafe()</script>";
+    const helper = script!.match(/function serializeWorkspace\(value\) \{[\s\S]*?\n\}/)?.[0];
+    expect(helper).toBeDefined();
+    const notes = "</ScRiPt><script>unsafe()</script>";
     const portable = runInNewContext(
-      snapshotExpression!,
-      { WS: { "BUG-GOLDEN-001": { notes } } },
+      helper + "\nserializeWorkspace({ 'BUG-GOLDEN-001': { notes } })",
+      { notes },
     ) as string;
-    expect(portable).not.toContain("</script>");
+    expect(portable.toLowerCase()).not.toContain("</script>");
     expect(JSON.parse(portable)["BUG-GOLDEN-001"].notes).toBe(notes);
+    expect(script).toContain("entry.fixed === true");
+    expect(script).toContain("localStorage.setItem(KEY, JSON.stringify(WS))");
+    expect(script).toContain("const cached = localStorage.getItem(KEY)");
+    expect(script).toContain("const next = Object.hasOwn(imported, id)");
+    expect(script).toContain("const persisted = save(); // Keep an explicit empty override");
+    expect(script).not.toContain("location.reload()");
+  });
+
+  it("preserves exact canonical report text when embedded HTML contains script-like data", () => {
+    const level = fixture.games[0]!.levels[0]!;
+    const malicious = "</ScRiPt><script>alert(1)</script>";
+    const document: BugTrackerDocument = {
+      ...fixture,
+      games: [{
+        ...fixture.games[0]!,
+        levels: [{
+          ...level,
+          issues: [{ ...level.issues[0]!, issue: malicious }],
+        }],
+      }],
+    };
+    const html = renderBugTrackerHtml(document);
+    expect(html).not.toContain(malicious);
+    const embedded = html.match(/<script id="report-data" type="application\/json">([\s\S]*?)<\/script>/);
+    expect(embedded).toBeDefined();
+    const recovered = JSON.parse(embedded![1]!);
+    expect(recovered.games[0].levels[0].issues[0].issue).toBe(malicious);
+  });
+
+  it("validates imported tester results and screenshots without changing issue authority", () => {
+    const script = renderBugTrackerHtml(fixture).split("<script>").at(-1)?.split("</script>")[0];
+    expect(script).toBeDefined();
+    const source = script!.split("function normalizeTesterState(value) {")[1]?.split("\nlet WS =")[0];
+    expect(source).toBeDefined();
+    const normalize = runInNewContext(
+      "(function normalizeTesterState(value) {" + source + ")",
+      { IDS: new Set(["BUG-GOLDEN-001", "DEV-GOLDEN-001"]), NOTE_IDS: new Set(["DEV-GOLDEN-001"]) },
+    ) as (input: unknown) => Record<string, unknown>;
+    expect(JSON.parse(JSON.stringify(normalize({
+      "BUG-GOLDEN-001": { fixed: true, notes: "old tester", attachments: [] },
+    })))["BUG-GOLDEN-001"]).toEqual({ result: "SUCCESS", notes: "old tester", attachments: [] });
+    expect(() => normalize({ "OTHER-MAP": { result: "FAILED" } })).toThrow();
+    expect(() => normalize({ "DEV-GOLDEN-001": { result: "SUCCESS" } })).toThrow();
+    expect(() => normalize({ "BUG-GOLDEN-001": {
+      notes: "evidence", attachments: [{
+        name: "invalid.svg", type: "image/svg+xml", data: "data:image/svg+xml;base64,PHN2Zz4=",
+      }],
+    } })).toThrow();
   });
 
   it("renders a combined briefing with column-major map navigation", () => {
@@ -288,8 +330,8 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("Not yet saved locally");
     const script = html.split("<script>").at(-1)?.split("</script>")[0];
     expect(script).toBeDefined();
-    expect(script).toContain("try{localStorage.setItem(KEY,JSON.stringify(WS))");
-    expect(script).toContain("markSaveFailed()");
+    expect(script).toContain("localStorage.setItem(KEY, JSON.stringify(WS))");
+    expect(script).toContain("markSaveFailed();");
     expect(script).toContain("Invalid or different-map Bug Tracker JSON");
     expect(script).toContain("Screenshot held in memory");
   });

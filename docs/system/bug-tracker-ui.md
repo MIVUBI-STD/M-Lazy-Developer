@@ -167,16 +167,16 @@ Missing canonical information stays missing. The renderer must never invent rati
 
 The recipient-facing HTML must distinguish **issue evidence**, **guided retest instructions**, and **tester results** without creating a new schema or altering canonical issue approval/completion.
 
-- \`Verified Issue\` is the issue's canonical evidence verification classification; it is **not** a Passed Minecraft retest or \`fixed: true\`.
-- \`Needs Validation\` is an unresolved proof classification and must remain visible. It is not the same as missing instructions.
+- `Verified Issue` is the issue's canonical evidence verification classification; it is **not** a Passed Minecraft retest or `fixed: true`.
+- `Needs Validation` is an unresolved proof classification and must remain visible. It is not the same as missing instructions.
 - After-fix Passed / Failed are available only for `VERIFIED` findings with an acceptable Test In-Game procedure under the shared `reviewTesterReproductionSteps()` gate, plus nonempty Expected and Observed evidence text. `NEEDS_VERIFY` findings may still show authored validation steps and accept Tester Notes / Evidence, but cannot claim a successful post-fix retest before their evidence is verified. The existing `trackerGuidedRetestReadiness()` projection derives this without changing tracker JSON. This is **presentation-readiness only**, not proof of Minecraft execution.
 - A `NEEDS_VERIFY` finding shows **Validate Evidence First** independently of the procedure's textual quality. A verified finding with absent, blank, technically oriented or vague steps, missing Expected, or missing Observed shows **Retest Procedure Not Ready** and the specific reason in expanded details. Show the mutually exclusive summary counts **Needs Validation**, **Retest Ready**, and **No Guided Procedure**. The latter means a verified issue lacks acceptable retest instructions; it does **not** prove a source-only origin (a tester finding may also lack recorded instructions). Keep all issue/source/developer evidence and notes accessible; disable Passed / Failed while unready. Preserve older tester state without displaying it as a current successful retest. Never invent steps or runtime proof.
-- \`Passed\` means **after a repair** the tester observed Expected behavior and the prior issue no longer appears. \`Failed\` means the defect persists or Expected behavior is not met. These are tester workspace observations; neither changes canonical repair closure.
-- BUG and DESIGN_MISMATCH use the same after-fix retest semantics. Design Mismatches label their evidence rationale \`Why This Is a Mismatch\`; do not mislabel it \`Why This Is a Bug\`. Developer Notes have no severity or Passed / Failed state.
+- `Passed` means **after a repair** the tester observed Expected behavior and the prior issue no longer appears. `Failed` means the defect persists or Expected behavior is not met. These are tester workspace observations; neither changes canonical repair closure.
+- BUG and DESIGN_MISMATCH use the same after-fix retest semantics. Design Mismatches label their evidence rationale `Why This Is a Mismatch`; do not mislabel it `Why This Is a Bug`. Developer Notes have no severity or Passed / Failed state.
 
 ### Local workspace integrity
 
-- Show \`Saved locally\` only after a successful browser persistence write, never as the default state. When browser storage is unavailable or full, show a visible warning and retain in-memory work so that the recipient can use the existing \`Save as HTML\` or \`Save JSON\` portable workflow before closing the page. Never promise data survived a refresh when the write failed.
+- Show `Saved locally` only after a successful browser persistence write, never as the default state. When browser storage is unavailable or full, show a visible warning and retain in-memory work so that the recipient can use the existing `Save as HTML` or `Save JSON` portable workflow before closing the page. Never promise data survived a refresh when the write failed.
 - A screenshot must not be labeled saved if the browser storage write failed. Unsupported or oversized screenshot files require an explanation rather than silent omission.
 - Distinguish malformed/different-artifact Load JSON from browser storage failure. A failed load must not discard current working data.
 - Saved portable HTML/JSON can contain tester notes and screenshots. Advise recipients to review these before sharing. Portable copies do not mutate canonical issue data.
@@ -248,6 +248,17 @@ Secondary actions:
 - Reset Tester Data.
 
 Use Save, not Export, in tester-facing UI.
+
+
+### Portable HTML as the primary tester handoff
+
+The visible **Save as HTML** button is a primary toolbar action, not hidden in the More menu. The menu retains Save JSON, Load JSON and Reset Tester Data. Saving starts a browser download; never claim the file is durably written until the browser/user confirms the download. Downloaded filenames identify the map/version and end in `-Tester-Report.html`. Share the downloaded HTML itself with the developer. The canonical `output/bug-tracker.html` remains unchanged.
+
+The file embeds the **current in-memory tester workspace** (results, notes, screenshot data and captions) and a per-export copy identity. A reopened saved HTML must load its embedded snapshot as the starting state; later browser-autosaved edits for that exact file copy can override it on subsequent reloads. Different saved copies and the original source HTML must not silently reuse one another's browser draft. Reset persists an explicit empty override rather than deleting the browser key and resurrecting the embedded snapshot. If browser storage fails, Load JSON, Reset and editing remain usable in memory, with a visible warning to Save as HTML before closing.
+
+Load JSON accepts only the exact canonical report plus a validated tester workspace of known issue/Developer Note IDs, allowable result values and supported screenshot data; it must never replace current work on malformed input. Browser autosave is a convenience, **not** proof that a portable file is updated. Repeated edits require a new Save as HTML download to be shared. A saved file opened by a developer must show its embedded snapshot even without localStorage or internet access.
+
+Keep JSON and HTML read-only with respect to canonical issue facts. Escape embedded report and snapshot JSON for the HTML script-data context, including case-insensitive closing-tag attempts, while keeping round-trip data intact.
 
 ## HTML / JSON parity
 

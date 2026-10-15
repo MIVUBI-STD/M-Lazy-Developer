@@ -59,7 +59,7 @@ function levelLinks(levels:readonly TrackerLevel[],prefix:string):string {
  if(levels.length<2)return "";
  return '<nav class="level-nav" aria-label="Levels"><strong>Levels</strong>'+levels.map((level,i)=>'<a href="#'+prefix+'-'+(i+1)+'">'+(level.level===null?"Map":"Level "+e(String(level.level)))+'</a>').join("")+'</nav>';
 }
-const CSS=`:root{--navy:#172b4d;--navy2:#1d3964;--blue:#3157a4;--line:#d9dee8;--muted:#667085;--soft:#f8fafc;--page:#eef1f5;--active:#f5f8ff;--green:#f3faf5;--red:#fff5f5;--amber:#fff2dc}*{box-sizing:border-box}body{margin:0;background:var(--page);color:#172033;font:14px/1.5 Arial,sans-serif}.report{max-width:1080px;margin:24px auto;background:#fff;min-height:100vh;border:1px solid var(--line);box-shadow:0 10px 30px rgba(23,43,77,.08)}.hero{padding:24px 28px;background:var(--navy);color:#fff}.hero h1{margin:0;font-size:25px}.summary{display:grid;grid-template-columns:repeat(4,1fr)}.map-summary{grid-template-columns:repeat(3,1fr)}.map-report-head{padding:20px 22px 8px}.map-report-head>span{font-size:8px;font-weight:800;letter-spacing:.08em;color:#98a2b3}.map-report-head h2{margin:3px 0 0;font-size:21px;color:var(--navy)}.map-report-head p{margin:2px 0 8px;color:var(--muted);font-size:11px}.summary div{padding:18px 20px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.summary div:last-child{border-right:0}.summary small{display:block;color:var(--muted);font-size:9px;font-weight:800}.summary strong{font-size:20px}.severity-strip{display:flex;justify-content:space-between;gap:12px;padding:10px 20px;background:var(--soft);color:var(--muted);font-size:11px}.jump{padding:18px 20px 20px;border-bottom:10px solid var(--page)}.jump h2{margin:0 0 10px;font-size:14px;color:var(--navy)}.jump-grid{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:7px}.jump-grid a{display:grid;grid-template-columns:28px 1fr auto;align-items:center}.jump-grid a.active{border-color:var(--blue);border-left:4px solid var(--blue);background:var(--active);color:var(--navy)}.jump-grid a small{color:var(--muted);font-size:9px}.jump-grid a{padding:10px 12px;border:1px solid var(--line);border-radius:7px;color:var(--blue);text-decoration:none;font-size:11px;font-weight:700}.game{border-bottom:10px solid var(--page)}.map>summary{list-style:none;cursor:pointer}.map-head{display:flex;gap:14px;align-items:center;padding:17px 20px;background:var(--navy);color:#fff}.map[open]>.map-head{background:var(--navy2)}.map-head h2{margin:0;font-size:19px}.map-head p{margin:2px 0 0;font-size:10px}.map-toggle{margin-left:auto;padding:6px 9px;border:1px solid #ffffff61;border-radius:6px;font-size:9px}.map-close{display:none}.map[open] .map-open{display:none}.map[open] .map-close{display:inline}.level{padding:14px 16px 18px}.level+.level{border-top:10px solid var(--page);padding-top:18px}.source{padding:13px 14px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.level-title{display:flex;gap:7px;align-items:center}.level-badge{padding:3px 7px;background:var(--navy);color:#fff;border-radius:5px;font-size:9px}.source-label{display:block;margin:7px 0 6px;color:#98a2b3;font-size:8px;font-weight:800}.source-links{display:grid;grid-template-columns:1fr 1fr;gap:7px}.source-links a{padding:6px;border:1px solid #b8c4d8;border-radius:6px;background:#fff;color:var(--blue);text-align:center;text-decoration:none;font-size:10px;font-weight:800}.filename{display:block;margin:7px 0;color:var(--muted);font-size:10px}.source-counts{font-size:9px;color:var(--muted)}.group h3{display:flex;justify-content:space-between;align-items:center;margin:18px 1px 9px;border-bottom:1px solid var(--line);padding-bottom:6px;color:var(--navy);font-size:11px;letter-spacing:.04em}.issue,.devnote{margin-bottom:9px;border:1px solid #d7dde7;border-radius:8px;background:#fff;overflow:hidden}.issue summary,.devnote summary{list-style:none;cursor:pointer}.ih{padding:12px 13px}.tags{display:flex;gap:5px}.tags>*{font-size:8px;font-weight:800}.sev,.status,.result-label{padding:3px 7px;border-radius:999px}.status{margin-left:auto}.verified{background:#edf7ef;color:#28733b}.need{background:var(--amber);color:#8a5700}.result-label{display:none}.issue h4,.devnote h4{max-width:820px;margin:8px 0 4px;font-size:14px;line-height:1.35}.problem{max-width:850px;margin:4px 0 7px;color:#475467;font-size:12px;line-height:1.5}.devnote .sev,.devnote .status{background:#eef2ff;color:#3730a3}.reference{background:#eef2ff!important;color:#3730a3!important}.issue-id{font:8px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:#98a2b3}.detail-action{margin-top:9px;padding-top:7px;border-top:1px solid #edf0f5;color:var(--blue);font-size:9px;font-weight:800}.collapse{display:none}.issue details[open] .expand{display:none}.issue details[open] .collapse{display:inline}.issue:has(details[open]){border:2px solid #6f93cc;border-left:5px solid var(--blue);background:var(--active)}.issue:has(details[open]) .ih{background:#f2f6fd}.detail{border-top:1px solid #c9d7ec}.explanation-block,.impact-block,.test-block,.expected-block,.test-result{padding:14px 16px;border-bottom:1px solid #dce5f2;background:#fff}.explanation-block h5,.impact-block h5,.test-block h5,.expected-block h5,.test-result h5{margin:0 0 7px;color:var(--navy);font-size:9px;letter-spacing:.06em}.test-block ol{margin:0;padding-left:20px}.test-block li{max-width:850px;margin:5px 0;font-size:12px;line-height:1.52}.explanation-block{background:#f8fbff}.impact-block{background:#fffaf2}.explanation-block p,.impact-block p{max-width:850px;margin:0;font-size:12px;line-height:1.52}.expected-block{background:#f7fbf8}.expected-block p{max-width:850px;margin:0;font-size:12px;line-height:1.52}.tester-workspace{padding:12px 16px;border-bottom:1px solid #dce5f2;background:#fff}.tester-workspace label{display:block;margin-bottom:7px;color:var(--navy);font-size:9px;font-weight:800}.tester-workspace label span{color:#98a2b3}.technical{border-bottom:1px solid #dce5f2}.technical>summary{padding:10px 16px;background:#f7f9fc;color:var(--blue);font-size:9px;font-weight:800}.technical .row:first-of-type{border-top:1px solid #dce5f2}.result-buttons{display:flex;gap:7px}.result-buttons button{padding:7px 10px;border:1px solid #b8c4d8;border-radius:6px;background:#fff;font-size:10px;font-weight:800;cursor:pointer}.result-buttons button[data-result="SUCCESS"].selected{border-color:#70ad7e;background:#e7f5ea;color:#28733b}.result-buttons button[data-result="FAILED"].selected{border-color:#d58b8b;background:#fff0f0;color:#9f1d20}.row{border-top:1px solid #dce5f2}.row>b{display:block;padding:8px 16px;background:#edf3fc;color:var(--blue);font-size:9px}.row>div{padding:10px 16px;background:#fbfcff;font-size:11px}.row pre{margin:0;white-space:pre-wrap;font:10px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.notes{width:100%;min-height:68px;padding:9px 10px;border:1px solid #b8c4d8;border-radius:6px;background:#fff;color:#172033;resize:vertical;font:12px/1.5 Arial,sans-serif}.notes:focus{outline:2px solid #c9d9f2;outline-offset:1px;border-color:var(--blue)}.drop{position:relative;padding:14px;border:1px dashed #9eacc1;text-align:center}.drop small{display:block}.drop input{position:absolute;inset:0;opacity:0}.pics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:7px}.pic{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}.pic img{display:block;width:100%;height:90px;object-fit:cover;cursor:zoom-in}.pic span{display:block;padding:5px;font-size:8px;overflow:hidden;text-overflow:ellipsis}.pic input{width:100%;border:0;border-top:1px solid var(--line);padding:5px;font-size:9px}.pic button{margin:0 5px 5px;border:0;background:none;color:#9f1d20;font-size:8px}.actions{text-align:right;padding:8px}.issue.success,.issue.success:has(details[open]){border:2px solid #70ad7e;background:var(--green)}.issue.success .ih{background:var(--green)}.issue.success .result-label{display:inline;margin-left:auto;background:#dcefe1;color:#28733b}.issue.failed,.issue.failed:has(details[open]){border:2px solid #d58b8b;background:var(--red)}.issue.failed .ih{background:var(--red)}.issue.failed .result-label{display:inline;margin-left:auto;background:#fde2e2;color:#9f1d20}.toolbar{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:9px 18px;border-bottom:1px solid var(--line);background:var(--soft)}.saved-local{font-size:9px;color:#98a2b3}.save{position:relative}.save-menu{display:none;position:absolute;right:0;top:31px;z-index:20;width:190px;background:#fff;border:1px solid var(--line);border-radius:7px}.save.on .save-menu{display:block}.save-menu button,.save>button{width:100%;padding:7px 9px;border:0;background:#fff;text-align:left}.save>button{border:1px solid #b8c4d8;border-radius:6px;font-weight:800}.toast{position:fixed;right:14px;bottom:14px;display:none;padding:8px 10px;background:#172033;color:#fff;border-radius:6px;font-size:10px}.toast.show{display:block}.lightbox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000d;z-index:30}.lightbox.show{display:flex}.lightbox img{max-width:94vw;max-height:90vh}.lightbox button{position:absolute;right:12px;top:12px}.empty{padding:16px;color:#98a2b3}.technical-context{padding:10px 16px;margin:0;font-size:12px;line-height:1.5;color:var(--muted);background:var(--soft)}.source-list{padding-left:18px;margin:0}.source-list li+li{margin-top:9px}.source-list code{display:block;overflow-wrap:anywhere;word-break:break-word;font-size:11px}.source-reason{display:block;color:#475467;margin-top:3px}.dev-evidence{border-top:1px solid #dce5f2;padding:12px 16px;background:#fff}.dev-evidence h5{margin:0 0 9px;color:var(--navy);font-size:11px}.dev-evidence dl{margin:0}.evidence-item{display:grid;grid-template-columns:minmax(130px,25%) 1fr;gap:12px;padding:7px 0;border-top:1px solid #edf0f5}.evidence-item dt{font-size:11px;font-weight:700;color:var(--muted)}.evidence-item dd{margin:0;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.readiness-flag{margin:6px 0;color:#8b5300;font-size:11px;font-weight:700}.readiness-warning{padding:12px 16px;border-bottom:1px solid #e2cb96;background:#fff8e8;color:#68440b}.readiness-warning strong{display:block;font-size:12px}.readiness-warning p,.result-guidance{margin:5px 0;font-size:12px;line-height:1.5}.result-guidance{color:#475467;margin-bottom:10px}.result-buttons button:disabled{opacity:.42;cursor:not-allowed;background:#f3f4f6}.saved-local[data-persist="error"]{color:#a22929;font-weight:700}
+const CSS=`:root{--navy:#172b4d;--navy2:#1d3964;--blue:#3157a4;--line:#d9dee8;--muted:#667085;--soft:#f8fafc;--page:#eef1f5;--active:#f5f8ff;--green:#f3faf5;--red:#fff5f5;--amber:#fff2dc}*{box-sizing:border-box}body{margin:0;background:var(--page);color:#172033;font:14px/1.5 Arial,sans-serif}.report{max-width:1080px;margin:24px auto;background:#fff;min-height:100vh;border:1px solid var(--line);box-shadow:0 10px 30px rgba(23,43,77,.08)}.hero{padding:24px 28px;background:var(--navy);color:#fff}.hero h1{margin:0;font-size:25px}.summary{display:grid;grid-template-columns:repeat(4,1fr)}.map-summary{grid-template-columns:repeat(3,1fr)}.map-report-head{padding:20px 22px 8px}.map-report-head>span{font-size:8px;font-weight:800;letter-spacing:.08em;color:#98a2b3}.map-report-head h2{margin:3px 0 0;font-size:21px;color:var(--navy)}.map-report-head p{margin:2px 0 8px;color:var(--muted);font-size:11px}.summary div{padding:18px 20px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.summary div:last-child{border-right:0}.summary small{display:block;color:var(--muted);font-size:9px;font-weight:800}.summary strong{font-size:20px}.severity-strip{display:flex;justify-content:space-between;gap:12px;padding:10px 20px;background:var(--soft);color:var(--muted);font-size:11px}.jump{padding:18px 20px 20px;border-bottom:10px solid var(--page)}.jump h2{margin:0 0 10px;font-size:14px;color:var(--navy)}.jump-grid{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:7px}.jump-grid a{display:grid;grid-template-columns:28px 1fr auto;align-items:center}.jump-grid a.active{border-color:var(--blue);border-left:4px solid var(--blue);background:var(--active);color:var(--navy)}.jump-grid a small{color:var(--muted);font-size:9px}.jump-grid a{padding:10px 12px;border:1px solid var(--line);border-radius:7px;color:var(--blue);text-decoration:none;font-size:11px;font-weight:700}.game{border-bottom:10px solid var(--page)}.map>summary{list-style:none;cursor:pointer}.map-head{display:flex;gap:14px;align-items:center;padding:17px 20px;background:var(--navy);color:#fff}.map[open]>.map-head{background:var(--navy2)}.map-head h2{margin:0;font-size:19px}.map-head p{margin:2px 0 0;font-size:10px}.map-toggle{margin-left:auto;padding:6px 9px;border:1px solid #ffffff61;border-radius:6px;font-size:9px}.map-close{display:none}.map[open] .map-open{display:none}.map[open] .map-close{display:inline}.level{padding:14px 16px 18px}.level+.level{border-top:10px solid var(--page);padding-top:18px}.source{padding:13px 14px;background:var(--soft);border:1px solid var(--line);border-radius:9px}.level-title{display:flex;gap:7px;align-items:center}.level-badge{padding:3px 7px;background:var(--navy);color:#fff;border-radius:5px;font-size:9px}.source-label{display:block;margin:7px 0 6px;color:#98a2b3;font-size:8px;font-weight:800}.source-links{display:grid;grid-template-columns:1fr 1fr;gap:7px}.source-links a{padding:6px;border:1px solid #b8c4d8;border-radius:6px;background:#fff;color:var(--blue);text-align:center;text-decoration:none;font-size:10px;font-weight:800}.filename{display:block;margin:7px 0;color:var(--muted);font-size:10px}.source-counts{font-size:9px;color:var(--muted)}.group h3{display:flex;justify-content:space-between;align-items:center;margin:18px 1px 9px;border-bottom:1px solid var(--line);padding-bottom:6px;color:var(--navy);font-size:11px;letter-spacing:.04em}.issue,.devnote{margin-bottom:9px;border:1px solid #d7dde7;border-radius:8px;background:#fff;overflow:hidden}.issue summary,.devnote summary{list-style:none;cursor:pointer}.ih{padding:12px 13px}.tags{display:flex;gap:5px}.tags>*{font-size:8px;font-weight:800}.sev,.status,.result-label{padding:3px 7px;border-radius:999px}.status{margin-left:auto}.verified{background:#edf7ef;color:#28733b}.need{background:var(--amber);color:#8a5700}.result-label{display:none}.issue h4,.devnote h4{max-width:820px;margin:8px 0 4px;font-size:14px;line-height:1.35}.problem{max-width:850px;margin:4px 0 7px;color:#475467;font-size:12px;line-height:1.5}.devnote .sev,.devnote .status{background:#eef2ff;color:#3730a3}.reference{background:#eef2ff!important;color:#3730a3!important}.issue-id{font:8px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:#98a2b3}.detail-action{margin-top:9px;padding-top:7px;border-top:1px solid #edf0f5;color:var(--blue);font-size:9px;font-weight:800}.collapse{display:none}.issue details[open] .expand{display:none}.issue details[open] .collapse{display:inline}.issue:has(details[open]){border:2px solid #6f93cc;border-left:5px solid var(--blue);background:var(--active)}.issue:has(details[open]) .ih{background:#f2f6fd}.detail{border-top:1px solid #c9d7ec}.explanation-block,.impact-block,.test-block,.expected-block,.test-result{padding:14px 16px;border-bottom:1px solid #dce5f2;background:#fff}.explanation-block h5,.impact-block h5,.test-block h5,.expected-block h5,.test-result h5{margin:0 0 7px;color:var(--navy);font-size:9px;letter-spacing:.06em}.test-block ol{margin:0;padding-left:20px}.test-block li{max-width:850px;margin:5px 0;font-size:12px;line-height:1.52}.explanation-block{background:#f8fbff}.impact-block{background:#fffaf2}.explanation-block p,.impact-block p{max-width:850px;margin:0;font-size:12px;line-height:1.52}.expected-block{background:#f7fbf8}.expected-block p{max-width:850px;margin:0;font-size:12px;line-height:1.52}.tester-workspace{padding:12px 16px;border-bottom:1px solid #dce5f2;background:#fff}.tester-workspace label{display:block;margin-bottom:7px;color:var(--navy);font-size:9px;font-weight:800}.tester-workspace label span{color:#98a2b3}.technical{border-bottom:1px solid #dce5f2}.technical>summary{padding:10px 16px;background:#f7f9fc;color:var(--blue);font-size:9px;font-weight:800}.technical .row:first-of-type{border-top:1px solid #dce5f2}.result-buttons{display:flex;gap:7px}.result-buttons button{padding:7px 10px;border:1px solid #b8c4d8;border-radius:6px;background:#fff;font-size:10px;font-weight:800;cursor:pointer}.result-buttons button[data-result="SUCCESS"].selected{border-color:#70ad7e;background:#e7f5ea;color:#28733b}.result-buttons button[data-result="FAILED"].selected{border-color:#d58b8b;background:#fff0f0;color:#9f1d20}.row{border-top:1px solid #dce5f2}.row>b{display:block;padding:8px 16px;background:#edf3fc;color:var(--blue);font-size:9px}.row>div{padding:10px 16px;background:#fbfcff;font-size:11px}.row pre{margin:0;white-space:pre-wrap;font:10px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.notes{width:100%;min-height:68px;padding:9px 10px;border:1px solid #b8c4d8;border-radius:6px;background:#fff;color:#172033;resize:vertical;font:12px/1.5 Arial,sans-serif}.notes:focus{outline:2px solid #c9d9f2;outline-offset:1px;border-color:var(--blue)}.drop{position:relative;padding:14px;border:1px dashed #9eacc1;text-align:center}.drop small{display:block}.drop input{position:absolute;inset:0;opacity:0}.pics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:7px}.pic{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}.pic img{display:block;width:100%;height:90px;object-fit:cover;cursor:zoom-in}.pic span{display:block;padding:5px;font-size:8px;overflow:hidden;text-overflow:ellipsis}.pic input{width:100%;border:0;border-top:1px solid var(--line);padding:5px;font-size:9px}.pic button{margin:0 5px 5px;border:0;background:none;color:#9f1d20;font-size:8px}.actions{text-align:right;padding:8px}.issue.success,.issue.success:has(details[open]){border:2px solid #70ad7e;background:var(--green)}.issue.success .ih{background:var(--green)}.issue.success .result-label{display:inline;margin-left:auto;background:#dcefe1;color:#28733b}.issue.failed,.issue.failed:has(details[open]){border:2px solid #d58b8b;background:var(--red)}.issue.failed .ih{background:var(--red)}.issue.failed .result-label{display:inline;margin-left:auto;background:#fde2e2;color:#9f1d20}.toolbar{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:9px 18px;border-bottom:1px solid var(--line);background:var(--soft)}.saved-local{font-size:9px;color:#98a2b3}.save{position:relative}.save-menu{display:none;position:absolute;right:0;top:31px;z-index:20;width:190px;background:#fff;border:1px solid var(--line);border-radius:7px}.save.on .save-menu{display:block}.save-menu button,.save>button{width:100%;padding:7px 9px;border:0;background:#fff;text-align:left}.save>button{border:1px solid #b8c4d8;border-radius:6px;font-weight:800}.toast{position:fixed;right:14px;bottom:14px;display:none;padding:8px 10px;background:#172033;color:#fff;border-radius:6px;font-size:10px}.toast.show{display:block}.lightbox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000d;z-index:30}.lightbox.show{display:flex}.lightbox img{max-width:94vw;max-height:90vh}.lightbox button{position:absolute;right:12px;top:12px}.empty{padding:16px;color:#98a2b3}.technical-context{padding:10px 16px;margin:0;font-size:12px;line-height:1.5;color:var(--muted);background:var(--soft)}.source-list{padding-left:18px;margin:0}.source-list li+li{margin-top:9px}.source-list code{display:block;overflow-wrap:anywhere;word-break:break-word;font-size:11px}.source-reason{display:block;color:#475467;margin-top:3px}.dev-evidence{border-top:1px solid #dce5f2;padding:12px 16px;background:#fff}.dev-evidence h5{margin:0 0 9px;color:var(--navy);font-size:11px}.dev-evidence dl{margin:0}.evidence-item{display:grid;grid-template-columns:minmax(130px,25%) 1fr;gap:12px;padding:7px 0;border-top:1px solid #edf0f5}.evidence-item dt{font-size:11px;font-weight:700;color:var(--muted)}.evidence-item dd{margin:0;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.readiness-flag{margin:6px 0;color:#8b5300;font-size:11px;font-weight:700}.readiness-warning{padding:12px 16px;border-bottom:1px solid #e2cb96;background:#fff8e8;color:#68440b}.readiness-warning strong{display:block;font-size:12px}.readiness-warning p,.result-guidance{margin:5px 0;font-size:12px;line-height:1.5}.result-guidance{color:#475467;margin-bottom:10px}.result-buttons button:disabled{opacity:.42;cursor:not-allowed;background:#f3f4f6}.saved-local[data-persist="error"]{color:#a22929;font-weight:700}.save-primary{border:1px solid #244988;border-radius:6px;background:var(--blue);color:#fff;font-size:13px;font-weight:800;padding:10px 16px;min-height:42px;cursor:pointer}.save-primary:hover{background:var(--navy2)}.toolbar{flex-wrap:wrap}.saved-local{margin-right:auto;max-width:530px;line-height:1.4}.save-menu{top:42px}.save>button{min-width:88px;text-align:center}.save-menu button{min-height:40px;border-bottom:1px solid var(--line);cursor:pointer}.save-menu button:last-of-type{border-bottom:0}
 /* Reader-first typography and small contextual navigation. */
 .hero{padding:16px 24px}.hero h1{font-size:17px;font-weight:700}
 .map-report-head h2{font-size:26px;line-height:1.25}
@@ -119,13 +119,306 @@ a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var
 }
 `;
 
-const JS=`
-const REPORT=JSON.parse(document.getElementById("report-data").textContent),scopeOf=report=>JSON.stringify(report.games.flatMap(game=>game.levels.map(level=>[level.source.projectId,level.source.artifactId,level.source.artifactFingerprint,level.source.version])).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))),SCOPE=scopeOf(REPORT),KEY="m-bedrock-bug-tracker-workspace-v1:"+SCOPE,SNAP=document.getElementById("workspace-snapshot"),BASE=(REPORT.games.length===1?(REPORT.games[0].name+"-"+(REPORT.games[0].levels.length===1?"v"+REPORT.games[0].levels[0].version:"Multi-Level")):"Combined")+"-Bug-Tracker-Saved";let WS={},initialSaveMessage="Not yet saved locally";try{const embedded=JSON.parse(SNAP.textContent||"{}");if(Object.keys(embedded).length){WS=embedded;initialSaveMessage="Loaded from saved HTML"}else{const cached=localStorage.getItem(KEY);if(cached){WS=JSON.parse(cached);initialSaveMessage="Loaded saved work"}}}catch{initialSaveMessage="Browser storage unavailable; use Save as HTML / JSON"}const savedLabel=document.querySelector(".saved-local");if(savedLabel)savedLabel.textContent=initialSaveMessage;const markSaving=()=>{if(savedLabel)savedLabel.textContent="Saving..."},markSaved=()=>{if(savedLabel){savedLabel.textContent="Saved locally";savedLabel.dataset.persist="ok"}},markSaveFailed=()=>{if(savedLabel){savedLabel.textContent="Not saved locally - use Save as HTML / JSON";savedLabel.dataset.persist="error"}},save=()=>{markSaving();try{localStorage.setItem(KEY,JSON.stringify(WS));markSaved();return true}catch{markSaveFailed();return false}},state=id=>{const previous=WS[id];if(!previous||typeof previous!=="object"||Array.isArray(previous))WS[id]={result:null,notes:"",attachments:[]};else if(!Array.isArray(previous.attachments))previous.attachments=[];return WS[id]};const toast=m=>{const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1300)},lb=document.getElementById("lightbox");lb.querySelector("button").onclick=()=>lb.classList.remove("show");lb.onclick=e=>{if(e.target===lb)lb.classList.remove("show")};
-document.querySelectorAll(".issue:not(.devnote)").forEach(card=>{const id=card.dataset.issueId,s=state(id),testReady=card.dataset.testReady==="true",note=card.querySelector(".notes"),buttons=[...card.querySelectorAll("[data-result]")],label=card.querySelector(".result-label"),input=card.querySelector(".files"),drop=card.querySelector(".drop"),pics=card.querySelector(".pics");if(s.fixed!==undefined&&s.result===undefined){s.result=s.fixed?"SUCCESS":null;delete s.fixed;save()}const apply=()=>{card.classList.toggle("success",testReady&&s.result==="SUCCESS");card.classList.toggle("failed",testReady&&s.result==="FAILED");buttons.forEach(b=>b.classList.toggle("selected",b.dataset.result===s.result));label.textContent=!testReady?(s.result?"Earlier result retained; verification or procedure not ready":""):s.result==="SUCCESS"?"✓ PASSED":s.result==="FAILED"?"✕ FAILED":""};note.value=s.notes||"";note.oninput=()=>{s.notes=note.value;save()};buttons.forEach(b=>b.onclick=()=>{if(!testReady)return;s.result=s.result===b.dataset.result?null:b.dataset.result;save();apply()});apply();const render=()=>{pics.innerHTML="";(s.attachments||[]).forEach((a,i)=>{const d=document.createElement("div");d.className="pic";d.innerHTML='<img alt="Evidence"><span></span><input placeholder="Optional caption"><button type="button">Remove</button>';d.querySelector("img").src=a.data;d.querySelector("span").textContent=a.name;const cp=d.querySelector("input");cp.value=a.caption||"";cp.oninput=()=>{a.caption=cp.value;save()};d.querySelector("img").onclick=()=>{lb.querySelector("img").src=a.data;lb.classList.add("show")};d.querySelector("button").onclick=()=>{s.attachments.splice(i,1);save();render()};pics.appendChild(d)})};const add=files=>[...files].forEach(f=>{if(!/^image\\/(png|jpeg|webp)$/.test(f.type)||f.size>8388608){toast("Use PNG, JPEG or WebP up to 8 MB");return}const r=new FileReader();r.onerror=()=>toast("Could not read screenshot");r.onload=()=>{if(typeof r.result!=="string")return;s.attachments.push({name:f.name,type:f.type,caption:"",data:r.result});const persisted=save();render();toast(persisted?"Screenshot saved locally":"Screenshot held in memory; use Save as HTML or JSON")};r.readAsDataURL(f)});input.onchange=()=>add(input.files);drop.ondragover=e=>e.preventDefault();drop.ondrop=e=>{e.preventDefault();add(e.dataTransfer.files)};drop.onpaste=e=>{const fs=[...e.clipboardData.files];if(fs.length){e.preventDefault();add(fs)}};render()});
-document.querySelectorAll(".devnote").forEach(card=>{const id=card.dataset.issueId,s=state(id),note=card.querySelector(".dev-notes");note.value=s.notes||"";note.oninput=()=>{s.notes=note.value;save()}});
-document.querySelectorAll(".jump-grid a").forEach(a=>a.onclick=e=>{e.preventDefault();document.querySelectorAll(".map").forEach(m=>m.removeAttribute("open"));document.querySelectorAll(".jump-grid a").forEach(x=>x.classList.remove("active"));a.classList.add("active");const t=document.querySelector(a.getAttribute("href"));t?.querySelector(".map")?.setAttribute("open","");t?.scrollIntoView({behavior:"smooth"})});
-const dl=(n,t,y)=>{const a=document.createElement("a"),u=URL.createObjectURL(new Blob([t],{type:y}));a.href=u;a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)},exp=document.querySelector(".save");document.getElementById("saveButton").onclick=()=>exp.classList.toggle("on");document.getElementById("saveJson").onclick=()=>dl(BASE.replace(/[^a-z0-9._-]+/gi,"-")+".json",JSON.stringify({canonical:REPORT,testerState:WS},null,2),"application/json");document.getElementById("saveHtml").onclick=()=>{const clone=document.documentElement.cloneNode(true),snap=clone.querySelector("#workspace-snapshot");snap.textContent=JSON.stringify(WS).replaceAll("</","<\\\\/");dl(BASE.replace(/[^a-z0-9._-]+/gi,"-")+".html","<!doctype html>"+clone.outerHTML,"text/html")};document.getElementById("importJson").onclick=()=>document.getElementById("importFile").click();document.getElementById("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onerror=()=>toast("Could not read selected JSON");r.onload=()=>{let x;try{x=JSON.parse(r.result);if(!x.canonical||!x.testerState||typeof x.testerState!=="object"||Array.isArray(x.testerState)||scopeOf(x.canonical)!==SCOPE)throw 0}catch{toast("Invalid or different-map Bug Tracker JSON");return}try{localStorage.setItem(KEY,JSON.stringify(x.testerState));location.reload()}catch{markSaveFailed();toast("Browser storage unavailable; JSON was not loaded")}};r.readAsText(f)};document.getElementById("resetData").onclick=()=>{if(confirm("Reset all tester results, notes, and attachments?")){localStorage.removeItem(KEY);location.reload()}};
+const JS=String.raw`
+"use strict";
+const REPORT = JSON.parse(document.getElementById("report-data").textContent);
+const SNAP = document.getElementById("workspace-snapshot");
+const scopeOf = report => JSON.stringify(report.games.flatMap(game =>
+  game.levels.map(level => [level.source.projectId, level.source.artifactId,
+    level.source.artifactFingerprint, level.source.version])
+).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+const SCOPE = scopeOf(REPORT);
+const COPY_ID = SNAP.dataset.copyId || "original";
+const KEY = "m-bedrock-bug-tracker-workspace-v1:" + SCOPE + ":" + location.pathname + ":" + COPY_ID;
+const BASE = REPORT.games.length === 1
+  ? REPORT.games[0].name + "-" + (REPORT.games[0].levels.length === 1
+    ? "v" + REPORT.games[0].levels[0].version : "Multi-Level")
+  : "Combined";
+const ISSUE_IDS = new Set(REPORT.games.flatMap(game => game.levels.flatMap(level =>
+  level.issues.map(issue => issue.id))));
+const NOTE_IDS = new Set(REPORT.games.flatMap(game => game.levels.flatMap(level =>
+  level.devNotes.map(note => note.id))));
+const IDS = new Set([...ISSUE_IDS, ...NOTE_IDS]);
+const blank = () => ({ result: null, notes: "", attachments: [] });
+function serializeWorkspace(value) {
+  // Never permit an embedded tester string to terminate a script element.
+  return JSON.stringify(value).replaceAll("<", "\\u003c");
+}
+function normalizeTesterState(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Tester workspace must be an object.");
+  }
+  const normalized = Object.create(null);
+  for (const [id, entry] of Object.entries(value)) {
+    if (!IDS.has(id) || !entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error("Unknown issue ID or invalid tester entry.");
+    }
+    const result = entry.result === undefined && entry.fixed === true
+      ? "SUCCESS" : (entry.result === undefined ? null : entry.result);
+    if (![null, "SUCCESS", "FAILED"].includes(result) || (NOTE_IDS.has(id) && result !== null)) {
+      throw new Error("Invalid tester result.");
+    }
+    const notes = entry.notes === undefined ? "" : entry.notes;
+    if (typeof notes !== "string") throw new Error("Invalid tester notes.");
+    const attachments = entry.attachments === undefined ? [] : entry.attachments;
+    if (!Array.isArray(attachments)) throw new Error("Invalid screenshot collection.");
+    const safeAttachments = attachments.map(item => {
+      if (!item || typeof item !== "object" || Array.isArray(item)
+        || typeof item.name !== "string" || typeof item.type !== "string"
+        || typeof item.data !== "string" || item.data.length > 12000000
+        || typeof (item.caption === undefined ? "" : item.caption) !== "string"
+        || !["image/png", "image/jpeg", "image/webp"].includes(item.type)
+        || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(item.data)
+        || !item.data.startsWith("data:" + item.type + ";base64,")) {
+        throw new Error("Invalid or oversized screenshot.");
+      }
+      return { name: item.name, type: item.type, caption: item.caption || "", data: item.data };
+    });
+    normalized[id] = { result, notes, attachments: safeAttachments };
+  }
+  return normalized;
+}
+let WS = Object.create(null);
+let initialSaveMessage = "Not yet saved in this browser";
+let storageWarning = false;
+try {
+  WS = normalizeTesterState(JSON.parse(SNAP.textContent || "{}"));
+  if (Object.keys(WS).length > 0) initialSaveMessage = "Loaded from saved HTML";
+} catch {
+  initialSaveMessage = "Embedded tester data is invalid; use a trusted backup";
+  storageWarning = true;
+}
+try {
+  const cached = localStorage.getItem(KEY);
+  if (cached !== null) {
+    WS = normalizeTesterState(JSON.parse(cached));
+    initialSaveMessage = "Restored browser draft";
+    storageWarning = false;
+  }
+} catch {
+  storageWarning = true;
+  if (initialSaveMessage === "Not yet saved in this browser") {
+    initialSaveMessage = "Browser storage unavailable; use Save as HTML";
+  }
+}
+const savedLabel = document.querySelector(".saved-local");
+if (savedLabel) {
+  savedLabel.textContent = initialSaveMessage;
+  if (storageWarning) savedLabel.dataset.persist = "error";
+}
+const markSaved = () => {
+  if (savedLabel) {
+    savedLabel.textContent = "Autosaved in browser — use Save as HTML to share";
+    savedLabel.dataset.persist = "ok";
+  }
+};
+const markSaveFailed = () => {
+  if (savedLabel) {
+    savedLabel.textContent = "Not saved in browser — use Save as HTML before closing";
+    savedLabel.dataset.persist = "error";
+  }
+};
+const save = () => {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(WS));
+    markSaved();
+    return true;
+  } catch {
+    markSaveFailed();
+    return false;
+  }
+};
+const state = id => {
+  if (!Object.hasOwn(WS, id)) WS[id] = blank();
+  return WS[id];
+};
+const refreshers = [];
+const toast = message => {
+  const target = document.getElementById("toast");
+  target.textContent = message;
+  target.classList.add("show");
+  setTimeout(() => target.classList.remove("show"), 2600);
+};
+const lb = document.getElementById("lightbox");
+lb.querySelector("button").onclick = () => lb.classList.remove("show");
+lb.onclick = event => { if (event.target === lb) lb.classList.remove("show"); };
+document.querySelectorAll(".issue:not(.devnote)").forEach(card => {
+  const id = card.dataset.issueId;
+  const s = state(id);
+  const testReady = card.dataset.testReady === "true";
+  const note = card.querySelector(".notes");
+  const buttons = [...card.querySelectorAll("[data-result]")];
+  const label = card.querySelector(".result-label");
+  const input = card.querySelector(".files");
+  const drop = card.querySelector(".drop");
+  const pics = card.querySelector(".pics");
+  const apply = () => {
+    card.classList.toggle("success", testReady && s.result === "SUCCESS");
+    card.classList.toggle("failed", testReady && s.result === "FAILED");
+    buttons.forEach(button => button.classList.toggle("selected",
+      testReady && button.dataset.result === s.result));
+    label.textContent = !testReady
+      ? (s.result ? "Earlier result retained; current retest is unavailable" : "")
+      : s.result === "SUCCESS" ? "✓ PASSED" : s.result === "FAILED" ? "✕ FAILED" : "";
+  };
+  note.oninput = () => { s.notes = note.value; save(); };
+  buttons.forEach(button => button.onclick = () => {
+    if (!testReady) return;
+    s.result = s.result === button.dataset.result ? null : button.dataset.result;
+    save();
+    apply();
+  });
+  const render = () => {
+    pics.replaceChildren();
+    s.attachments.forEach((item, index) => {
+      const node = document.createElement("div");
+      node.className = "pic";
+      node.innerHTML = '<img alt="Evidence"><span></span><input placeholder="Optional caption"><button type="button">Remove</button>';
+      node.querySelector("img").src = item.data;
+      node.querySelector("span").textContent = item.name;
+      const caption = node.querySelector("input");
+      caption.value = item.caption || "";
+      caption.oninput = () => { item.caption = caption.value; save(); };
+      node.querySelector("img").onclick = () => {
+        lb.querySelector("img").src = item.data;
+        lb.classList.add("show");
+      };
+      node.querySelector("button").onclick = () => {
+        s.attachments.splice(index, 1);
+        save();
+        render();
+      };
+      pics.appendChild(node);
+    });
+  };
+  const add = files => [...files].forEach(file => {
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)
+      || file.size > 8388608) {
+      toast("Use PNG, JPEG or WebP up to 8 MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => toast("Could not read screenshot");
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+      s.attachments.push({ name: file.name, type: file.type, caption: "", data: reader.result });
+      const persisted = save();
+      render();
+      toast(persisted ? "Screenshot autosaved in browser"
+        : "Screenshot held in memory; use Save as HTML or JSON");
+    };
+    reader.readAsDataURL(file);
+  });
+  input.onchange = () => { if (input.files) add(input.files); input.value = ""; };
+  drop.ondragover = event => event.preventDefault();
+  drop.ondrop = event => { event.preventDefault(); add(event.dataTransfer.files); };
+  drop.onpaste = event => {
+    const files = [...event.clipboardData.files];
+    if (files.length) { event.preventDefault(); add(files); }
+  };
+  refreshers.push(() => { note.value = s.notes; apply(); render(); });
+});
+document.querySelectorAll(".devnote").forEach(card => {
+  const s = state(card.dataset.issueId);
+  const note = card.querySelector(".dev-notes");
+  note.oninput = () => { s.notes = note.value; save(); };
+  refreshers.push(() => { note.value = s.notes; });
+});
+refreshers.forEach(refresh => refresh());
+document.querySelectorAll(".jump-grid a").forEach(anchor => anchor.onclick = event => {
+  event.preventDefault();
+  document.querySelectorAll(".map").forEach(map => map.removeAttribute("open"));
+  document.querySelectorAll(".jump-grid a").forEach(link => link.classList.remove("active"));
+  anchor.classList.add("active");
+  const target = document.querySelector(anchor.getAttribute("href"));
+  if (target) {
+    const map = target.querySelector(".map");
+    if (map) map.setAttribute("open", "");
+    target.scrollIntoView({ behavior: "smooth" });
+  }
+});
+function download(name, contents, type) {
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(new Blob([contents], { type }));
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+const fileStem = BASE.replace(/[^a-z0-9._-]+/gi, "-");
+document.getElementById("saveHtml").onclick = () => {
+  const clone = document.documentElement.cloneNode(true);
+  const snapshot = clone.querySelector("#workspace-snapshot");
+  snapshot.dataset.copyId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+  snapshot.textContent = serializeWorkspace(WS);
+  download(fileStem + "-Tester-Report.html", "<!doctype html>" + clone.outerHTML, "text/html");
+  toast("HTML download started; check your browser downloads before sharing");
+};
+document.getElementById("saveJson").onclick = () => {
+  download(fileStem + "-Tester-Workspace.json",
+    JSON.stringify({ canonical: REPORT, testerState: WS }, null, 2), "application/json");
+  toast("JSON download started");
+};
+const more = document.querySelector(".save");
+const moreButton = document.getElementById("saveButton");
+moreButton.onclick = () => {
+  const open = more.classList.toggle("on");
+  moreButton.setAttribute("aria-expanded", String(open));
+};
+document.getElementById("importJson").onclick = () => document.getElementById("importFile").click();
+document.getElementById("importFile").onchange = event => {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onerror = () => toast("Could not read selected JSON");
+  reader.onload = () => {
+    let imported;
+    try {
+      const payload = JSON.parse(reader.result);
+      if (!payload || !payload.canonical
+        || JSON.stringify(payload.canonical) !== JSON.stringify(REPORT)) {
+        throw new Error("Different report");
+      }
+      imported = normalizeTesterState(payload.testerState);
+    } catch {
+      toast("Invalid or different-map Bug Tracker JSON");
+      return;
+    }
+    if (!confirm("Replace current tester results, notes, and screenshots with this JSON?")) return;
+    for (const id of IDS) {
+      const target = state(id);
+      const next = Object.hasOwn(imported, id) ? imported[id] : blank();
+      target.result = next.result;
+      target.notes = next.notes;
+      target.attachments = next.attachments;
+    }
+    refreshers.forEach(refresh => refresh());
+    const persisted = save();
+    toast(persisted ? "Tester JSON loaded and autosaved"
+      : "Tester JSON loaded in memory; use Save as HTML before closing");
+    more.classList.remove("on");
+    moreButton.setAttribute("aria-expanded", "false");
+  };
+  reader.readAsText(file);
+};
+document.getElementById("resetData").onclick = () => {
+  if (!confirm("Reset all tester results, notes, and screenshots in this page?")) return;
+  for (const id of IDS) {
+    const target = state(id);
+    target.result = null;
+    target.notes = "";
+    target.attachments = [];
+  }
+  refreshers.forEach(refresh => refresh());
+  const persisted = save(); // Keep an explicit empty override so an embedded HTML snapshot cannot return.
+  toast(persisted ? "Tester data reset and autosaved"
+    : "Reset in memory only; use Save as HTML before closing");
+  more.classList.remove("on");
+  moreButton.setAttribute("aria-expanded", "false");
+};
 `;
+
 
 export function renderBugTrackerHtml(document:BugTrackerDocument):string {
  validateBugTrackerDocument(document);
@@ -139,8 +432,8 @@ export function renderBugTrackerHtml(document:BugTrackerDocument):string {
  // may lack a recorded procedure too. Never infer "source-only" here.
  const noGuidedProcedureCount=all.length-testReadyCount-needs;
  const combined=document.games.length>1;
- const payload=JSON.stringify(document).replaceAll("</","<\\/");
- const toolbar='<div class="toolbar"><span class="saved-local" role="status" aria-live="polite">Not yet saved locally</span><div class="save"><button id="saveButton">Save ▾</button><div class="save-menu"><button id="saveHtml">Save as HTML</button><button id="saveJson">Save JSON</button><hr><button id="importJson">Load JSON</button><button id="resetData">Reset Tester Data</button><input id="importFile" type="file" accept=".json,application/json" hidden></div></div></div>';
+ const payload=JSON.stringify(document).replaceAll("<","\\u003c");
+ const toolbar='<div class="toolbar"><span class="saved-local" role="status" aria-live="polite">Not yet saved in this browser</span><button id="saveHtml" type="button" class="save-primary">Save as HTML</button><div class="save"><button id="saveButton" type="button" aria-expanded="false" aria-haspopup="true">More ▾</button><div class="save-menu"><button id="saveJson" type="button">Save JSON</button><button id="importJson" type="button">Load JSON</button><button id="resetData" type="button">Reset Tester Data</button><input id="importFile" type="file" accept=".json,application/json" hidden></div></div></div>';
  const severity='<div class="severity-strip"><span><b>Severity:</b> '+count("BLOCKER")+' Blocker · '+count("MAJOR")+' Major · '+count("MINOR")+' Minor</span><span>Needs Validation: '+needs+' · Retest Ready: '+testReadyCount+' · No Guided Procedure: '+noGuidedProcedureCount+'</span></div>';
  let body="";
  if(!combined){
