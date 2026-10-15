@@ -769,9 +769,12 @@ describe("gameplay discovery challenger", () => {
       unresolvedReferences: 0,
     };
     expect(assessGameplayDiscoveryClosure(closureInput).status).toBe("COMPLETE");
-    expect(assessGameplayDiscoveryClosure({
+    const discovery = assessGameplayDiscoveryClosure({
       ...closureInput, discoveryChallengeIds: pairs.map(item => item.id),
-    }).status).toBe("OPEN");
+    });
+    // A2 accounts source inventory; missing semantic relationships remain A7 work.
+    expect(discovery.status).toBe("COMPLETE");
+    expect(discovery.discoveryChallengeIds).toEqual(pairs.map(item => item.id));
 
     const pairLink = link("link:release-to-outcome",
       "component:1", "component:2", [release!.id, outcome!.id]);
@@ -1015,21 +1018,59 @@ describe("gameplay discovery challenger", () => {
         operations: [
           { id: "op:grant", executionRegionId: "region:inventory",
             surfaceId: "state:inventory", operation: "write",
-            source: { kind: "script", locator: "scripts/inventory.js" } },
+            source: { artifactId: "a", relativePath: "scripts/inventory.js" } },
           { id: "op:clear", executionRegionId: "region:inventory",
             surfaceId: "state:inventory", operation: "write",
-            source: { kind: "script", locator: "scripts/inventory.js" } },
+            source: { artifactId: "a", relativePath: "scripts/inventory.js" } },
         ],
         authorityBindings: [],
       },
       temporal: { relations: [] },
     } as unknown as SemanticIr;
-    const intent = intentFixture({
+    const intent: GameplayIntentModel = {
       ...emptyIntent,
-      nodes: [{ id: "node:inventory", evidenceIds: ["op:grant"] }],
-    });
+      evidence: [{
+        id: "op:grant", scope: "selected-artifact", origin: "source-code",
+        locator: "scripts/inventory.js", summary: "Authored inventory mutation",
+      }],
+      nodes: [{
+        id: "node:inventory", kind: "state", label: "Inventory grant",
+        status: "authored", evidenceIds: ["op:grant"],
+      }],
+    };
+    const graph: GameplayScenarioGraph = {
+      ...emptyGraph,
+      components: [
+        { id: "component:event", label: "Inventory event", kind: "event",
+          technicalRole: "trigger", gameplayPurpose: "Grant inventory",
+          evidenceIds: ["op:grant"], usedByScenarioIds: ["scenario:inventory"],
+          orphan: false },
+        { id: "component:inventory", label: "Inventory", kind: "state",
+          technicalRole: "state", gameplayPurpose: "Retain inventory",
+          evidenceIds: ["op:grant"], usedByScenarioIds: ["scenario:inventory"],
+          orphan: false },
+      ],
+      scenarios: [{
+        id: "scenario:inventory", label: "Inventory grant",
+        gameplayStage: "ACTIVE_GAMEPLAY", purpose: "Player inventory grant",
+        sourceSubjectIds: ["state:inventory"],
+        componentIds: ["component:event", "component:inventory"],
+        causalLinkIds: ["link:grant"], playerCounts: [1],
+        requiredKnowledgeIds: [], composedScenarioIds: [],
+      }],
+      causalLinks: [{
+        id: "link:grant", scenarioId: "scenario:inventory",
+        fromComponentId: "component:event", toComponentId: "component:inventory",
+        purpose: "The authored event writes the inventory state",
+        evidenceIds: ["op:grant"], subjectIds: ["state:inventory"],
+        componentIds: ["component:event", "component:inventory"],
+        knowledgeRequirementIds: [], impactPathComponentIds: [],
+        impactPathEvidenceIds: [], dimensionEvidence: {},
+        status: "PROVEN", reason: "Source ownership fixture",
+      }],
+    };
     const result = challengeGameplayDiscovery({
-      semanticIr: ir, intent, graph: emptyGraph,
+      semanticIr: ir, intent, graph,
     });
     expect(result.filter((item) => item.kind === "unowned-state-operation")
       .map((item) => item.evidenceIds[0])).toEqual(["op:clear"]);
