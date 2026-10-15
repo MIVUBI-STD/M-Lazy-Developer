@@ -19,6 +19,7 @@ describe("release identity analysis", () => {
       }],
       {
         compiledBindings: 1,
+        crossFileResolvedBindings: 0,
         rejectedBindings: 0,
         resolvedBindings: [{
           scriptId: "config",
@@ -31,8 +32,10 @@ describe("release identity analysis", () => {
         }],
         failedBindings: [],
         arenaCountCandidates: [],
+        arenaConcurrencyCandidates: [],
         arenaLayoutCandidates: [],
         arenaCountConflict: false,
+        arenaConcurrencyConflict: false,
         arenaLayoutConflict: false,
       },
       {},
@@ -51,6 +54,7 @@ describe("release identity analysis", () => {
       [],
       {
         compiledBindings: 1,
+        crossFileResolvedBindings: 0,
         rejectedBindings: 0,
         resolvedBindings: [{
           scriptId: "config",
@@ -63,8 +67,10 @@ describe("release identity analysis", () => {
         }],
         failedBindings: [],
         arenaCountCandidates: [],
+        arenaConcurrencyCandidates: [],
         arenaLayoutCandidates: [],
         arenaCountConflict: false,
+        arenaConcurrencyConflict: false,
         arenaLayoutConflict: false,
       },
       { releaseVersion: "2.0.0" },

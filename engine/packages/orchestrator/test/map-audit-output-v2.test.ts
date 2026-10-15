@@ -25,6 +25,7 @@ describe("Map Audit Output V2 projection", () => {
           invariants: [],
         },
       },
+      hiddenGameplayDefects: { classification: undefined },
       gameplayWorld: {
         arenas: {
           detected: false,
@@ -135,6 +136,8 @@ describe("Map Audit Output V2 projection", () => {
       auditObligations: [],
       validationTests: [{
         key: "scenario:1:runtime",
+        verificationMode: "NARROW_RUNTIME_VERIFICATION",
+        broadPlaythroughAllowed: false,
         findingIds: ["link:unresolved"],
         issueTypes: ["BUG"],
         gameplayFlows: ["PROGRESSION"],
@@ -204,9 +207,9 @@ describe("Map Audit Output V2 projection", () => {
     expect(report.unresolved.needValidationIds)
       .toEqual(["link:unresolved"]);
     expect(report.unresolved.runtimeRequiredIds)
-      .toEqual([]);
-    expect(report.unresolved.staticProofPendingIds)
       .toEqual(["link:unresolved"]);
+    expect(report.unresolved.staticProofPendingIds)
+      .toEqual([]);
     expect(report.control.allowedNextAction)
       .toBe("PREPARE_REVIEW");
     expect(report.coverage.disposition)
@@ -373,7 +376,7 @@ describe("Map Audit Output V2 projection", () => {
       intent: { evidence: [...evidence, { id: "old",
         scope: "external-reference", origin: "historical-diff",
         locator: "old-map.json", summary: "Historical" }],
-        unknowns: [] } as any,
+        nodes: [], edges: [], invariants: [], unknowns: [] } as any,
       modelTaskPackets: [],
     });
     expect(brief).toContain("Source-labelled level/stage hierarchy");
@@ -406,7 +409,7 @@ describe("Map Audit Output V2 projection", () => {
       range:{lineStart:2,lineEnd:2,columnStart:100,columnEnd:150}};
     const brief = formatSelectedMapAuditBrief({
       report,
-      intent:{evidence:[],unknowns:[]} as any,
+      intent:{evidence:[],nodes:[],edges:[],invariants:[],unknowns:[]} as any,
       modelTaskPackets:[],
       waveStages:[{
         source,id:"stage_1",sourceCollection:"stages",
@@ -445,7 +448,7 @@ describe("Map Audit Output V2 projection", () => {
       stateTransitions:[],bugs:[],designMismatches:[],unresolved:{total:1},
     };
     const brief = formatSelectedMapAuditBrief({
-      report, intent:{evidence:[],unknowns:[]} as any,
+      report, intent:{evidence:[],nodes:[],edges:[],invariants:[],unknowns:[]} as any,
       modelTaskPackets:[],
       gameplayCatalog:[
         {source:src,kind:"gameplay",id:"combat_trial",name:"Combat Trial",number:1},
@@ -478,11 +481,11 @@ describe("Map Audit Output V2 projection", () => {
       bugs:[],designMismatches:[],unresolved:{total:1},
     };
     const brief = formatSelectedMapAuditBrief({
-      report,intent:{evidence:[],unknowns:[]} as any,
+      report,intent:{evidence:[],nodes:[],edges:[],invariants:[],unknowns:[]} as any,
       modelTaskPackets:[],gameplayCatalog:[],waveStages:[],
       contentCollections:[{name:"PromptPool",source,
         textField:"text",classificationField:"difficulty",
-        incomplete:true,entries:[
+        incomplete:true,exported:false,entries:[
           {text:"Camera",classification:"easy",source},
           {text:"Cart",classification:"easy",source},
           {text:"Globe",classification:"medium",source},
@@ -523,10 +526,10 @@ describe("Map Audit Output V2 projection", () => {
           summary:'Same-method source assignment (NOT CAUSAL): s.phase = "round_countdown"'},
       ],
       nodes:[
-        {id:"r",kind:"resource",label:"GuessText"},
+        {id:"r",kind:"resource",label:"GuessText",evidenceIds:[]},
         {id:"c",kind:"mechanic",label:"method:Round.selectRound (source content reader)",
           evidenceIds:["use","source-content-context:assignment"]},
-        {id:"phase",kind:"state",label:"Round Countdown"},
+        {id:"phase",kind:"state",label:"Round Countdown",evidenceIds:[]},
       ],
       edges:[{id:"source-content-requires:current",kind:"requires",
         status:"inferred",from:"c",to:"r",
