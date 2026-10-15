@@ -71,6 +71,13 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("TEST IN-GAME");
     expect(html).toContain("EXPECTED");
     expect(html).toContain("Technical Details ↓");
+    expect(html).toContain("Technical Analysis");
+    expect(html).not.toContain("Why It Happens / Technical Analysis");
+    expect(html).toContain("Observed / Evidence");
+    expect(html).toContain("Finding evidence still needs validation");
+    expect(html).toContain("<dt>Source</dt>");
+    expect(html).toContain("<dd>fixture</dd>");
+    expect(html).toContain("Action Required");
     expect(html).toContain("Recommended Fix");
     expect(html).toContain("TEST RESULT");
     expect(html).toContain("Needs Validation: 1 · Retest Ready: 0 · No Guided Procedure: 0");
@@ -283,6 +290,49 @@ describe("Golden Bug Tracker renderer", () => {
     expect(card(noObservation.id)).toContain("Observed failure evidence has not been provided.");
     expect(html).not.toContain("SOURCE-ONLY");
     expect(html).toContain('data-issue-id="DEV-GOLDEN-001"');
+  });
+
+  it("renders precise developer evidence without implying a proven fix", () => {
+    const level = fixture.games[0]!.levels[0]!;
+    const issue = {
+      ...level.issues[0]!,
+      id: "BUG-DEV-CONTEXT",
+      verification: "VERIFIED" as const,
+      technicalAnalysis: "Source suggests a possible cause; runtime settlement is unobserved.",
+      relevantCode: [{ file: "BP/<entities>/mob.json", reason: "Inspect terminal behavior." }],
+      mustPreserve: ["Arena identity"],
+    };
+    const note = { ...level.devNotes[0]!,
+      evidence: {
+        artifactVersion: "1.0.0",
+        source: "BP/scripts/<loader>.js",
+        finding: "Only the selected source contains this hook.",
+        nestedState: { enabled: false, count: 2 },
+      },
+    };
+    const report: BugTrackerDocument = { ...fixture,
+      games: [{ ...fixture.games[0]!, levels: [{ ...level, issues: [issue], devNotes: [note] }] }],
+    };
+    const html = renderBugTrackerHtml(report);
+    const beginning = html.indexOf('data-issue-id="BUG-DEV-CONTEXT"');
+    const card = html.slice(beginning, html.indexOf("</article>", beginning));
+    expect(card).toContain("Technical Analysis");
+    expect(card).toContain("Recommended Fix");
+    expect(card).toContain("Must Preserve");
+    expect(card).toContain("Technical Analysis explains the recorded evidence");
+    expect(card).not.toContain("Why It Happens / Technical Analysis");
+    expect(card).toContain('<ul class="source-list">');
+    expect(card).toContain("&lt;entities&gt;");
+    expect(card).not.toContain("<entities>");
+    const devStart = html.indexOf('data-issue-id="DEV-GOLDEN-001"');
+    const dev = html.slice(devStart, html.indexOf("</article>", devStart));
+    expect(dev).toContain("<dt>Artifact Version</dt>");
+    expect(dev).toContain("<dt>Source</dt>");
+    expect(dev).toContain("<dt>Finding</dt>");
+    expect(dev).toContain("<dt>Nested State</dt>");
+    expect(dev).toContain("&lt;loader&gt;");
+    expect(dev).toContain("Action Required");
+    expect(dev).not.toContain('data-result="SUCCESS"');
   });
 
   it("isolates tester workspace per exact map artifact and version", () => {

@@ -120,7 +120,7 @@ Empty lanes are omitted from HTML.
 
 Each lane has independent visual numbering starting at 01. Canonical IDs remain the real identity.
 
-DEV_NOTE is reference information. It has no gameplay severity and no Passed/Failed control.
+DEV_NOTE is reference information. It has no gameplay severity and no Passed/Failed control. Its expanded details follow Problem → Evidence → Action Required. Evidence fields are rendered as readable, escaped label/value rows from the existing canonical object, including nested values, rather than requiring recipients to interpret raw JSON. Missing evidence remains absent.
 
 ## Finding hierarchy
 
@@ -149,11 +149,13 @@ Technical Details  only when technical content exists
 
 Technical Details order:
 
-1. Observed Behavior / Evidence
-2. Why It Happens / Technical Analysis
-3. Relevant Code
-4. Recommended Fix
-5. Must Preserve
+1. Observed / Evidence — the recorded state or source observation, without implying a live Minecraft test.
+2. Technical Analysis — the documented interpretation or proposed cause, not an automatically proven root cause.
+3. Relevant Code — original file paths with the source-authored reason for inspecting each location, readable on separate lines.
+4. Recommended Fix — a proposed repair direction, not an executed repair or confirmed outcome.
+5. Must Preserve — recorded invariants that must survive repair.
+
+For Needs Validation, mark the technical assessment and repair direction provisional. A Verified Issue does not imply runtime proof or a completed retest. Do not generate missing technical facts, line numbers or root causes.
 
 Why This Is a Bug explains the grounded contract/design contradiction that makes the finding wrong. Impact explains the concrete gameplay, player, state, fairness, progression, or maintenance consequence. They are canonical facts, not renderer inference.
 

@@ -100,6 +100,10 @@ describe("Golden Tracker real approved-report parity", () => {
         expect(client.issues.every((issue) => issue.impact?.trim())).toBe(true);
         expect(html).toContain("WHY THIS IS A BUG");
         expect(html).toContain("IMPACT");
+        expect(html).toContain("<dt>Artifact Version</dt>");
+        expect(html).toContain("<dt>Source</dt>");
+        expect(html).toContain("<dt>Finding</dt>");
+        expect(html).toContain("Action Required");
       }
 
       if (testCase.projectId === "build-and-decode") {
