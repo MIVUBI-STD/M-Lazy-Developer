@@ -1,5 +1,5 @@
 import type { BugTrackerDocument, TrackerDeveloperNote, TrackerIssue, TrackerLevel } from "./model.js";
-import { validateBugTrackerDocument } from "./validate.js";
+import { trackerGuidedRetestReadiness, validateBugTrackerDocument } from "./validate.js";
 
 const e=(v:string)=>v.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
 const plural=(n:number,a:string,b=a+"s")=>n+" "+(n===1?a:b);
@@ -8,9 +8,10 @@ const row=(a:string,b:string)=>'<div class="row"><b>'+a+'</b><div>'+b+'</div></d
 function issueHtml(i:TrackerIssue,n:number):string {
  const needs=i.verification==="NEEDS_VERIFY";
  const status=needs?"NEEDS VALIDATION":"VERIFIED ISSUE";
- const testReady=i.reproduction.length>0&&i.reproduction.every(x=>x.trim().length>0)&&i.expected.trim().length>0;
+ const readiness=trackerGuidedRetestReadiness(i);
+ const testReady=readiness.ready;
  const steps=i.reproduction.map(x=>"<li>"+e(x)+"</li>").join("");
- const testReadiness=testReady?"":'<section class="readiness-warning" role="status"><strong>Guided retest unavailable</strong><p>'+(i.reproduction.length===0?"Test In-Game steps have not been provided.":i.expected.trim().length===0?"Expected result has not been provided.":"The test procedure contains an empty step.")+' Do not mark a retest result until instructions are complete.</p></section>';
+ const testReadiness=testReady?"":'<section class="readiness-warning" role="status"><strong>Guided retest unavailable</strong><p>'+e(readiness.reason??"Test In-Game instructions are incomplete.")+' Do not mark a retest result until instructions are complete.</p></section>';
  const explanation=[
    i.whyThisIsBug?.trim()?'<section class="explanation-block"><h5>WHY THIS IS A '+(i.type==="DESIGN_MISMATCH"?"MISMATCH":"BUG")+'</h5><p>'+e(i.whyThisIsBug)+'</p></section>':"",
    i.impact?.trim()?'<section class="impact-block"><h5>IMPACT</h5><p>'+e(i.impact)+'</p></section>':"",
@@ -60,10 +61,12 @@ export function renderBugTrackerHtml(document:BugTrackerDocument):string {
  const bugs=all.filter(i=>i.type==="BUG").length,dm=all.length-bugs;
  const count=(severity:string)=>all.filter(i=>i.severity===severity).length;
  const needs=all.filter(i=>i.verification==="NEEDS_VERIFY").length;
+ const testReadyCount=all.filter(i=>trackerGuidedRetestReadiness(i).ready).length;
+ const testNotReadyCount=all.length-testReadyCount;
  const combined=document.games.length>1;
  const payload=JSON.stringify(document).replaceAll("</","<\\/");
  const toolbar='<div class="toolbar"><span class="saved-local" role="status" aria-live="polite">Not yet saved locally</span><div class="save"><button id="saveButton">Save ▾</button><div class="save-menu"><button id="saveHtml">Save as HTML</button><button id="saveJson">Save JSON</button><hr><button id="importJson">Load JSON</button><button id="resetData">Reset Tester Data</button><input id="importFile" type="file" accept=".json,application/json" hidden></div></div></div>';
- const severity='<div class="severity-strip"><span><b>Severity:</b> '+count("BLOCKER")+' Blocker · '+count("MAJOR")+' Major · '+count("MINOR")+' Minor</span><span>'+needs+' Needs Validation</span></div>';
+ const severity='<div class="severity-strip"><span><b>Severity:</b> '+count("BLOCKER")+' Blocker · '+count("MAJOR")+' Major · '+count("MINOR")+' Minor</span><span>'+needs+' Needs Validation · Guided Retest: '+testReadyCount+' ready / '+testNotReadyCount+' not ready</span></div>';
  let body="";
  if(!combined){
    const game=document.games[0]!;

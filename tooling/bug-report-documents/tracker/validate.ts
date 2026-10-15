@@ -1,4 +1,5 @@
-import type { BugTrackerDocument } from "./model.js";
+import type { BugTrackerDocument, TrackerIssue } from "./model.js";
+import { reviewTesterReproductionSteps } from "../../../engine/packages/bug-report/src/copy-quality.js";
 
 const FORBIDDEN_VISIBLE_TERMS = [
   "system prompt",
@@ -8,6 +9,24 @@ const FORBIDDEN_VISIBLE_TERMS = [
   "candidate generated",
   "ai thinks",
 ] as const;
+
+/**
+ * Legacy and current reports share the Bug Report V2 tester-language gate.
+ * This is presentation readiness, not proof of actual Minecraft execution.
+ */
+export function trackerGuidedRetestReadiness(issue: TrackerIssue): {
+  readonly ready: boolean;
+  readonly reason?: string;
+} {
+  const problems = reviewTesterReproductionSteps(issue.reproduction, "reproduction");
+  if (problems.length > 0) {
+    return { ready: false, reason: problems[0]!.message };
+  }
+  if (!issue.expected.trim()) {
+    return { ready: false, reason: "Expected behavior has not been provided." };
+  }
+  return { ready: true };
+}
 
 export function trackerIssueIds(document: BugTrackerDocument): string[] {
   return document.games.flatMap((game) =>

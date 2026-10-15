@@ -73,6 +73,7 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("Technical Details ↓");
     expect(html).toContain("Recommended Fix");
     expect(html).toContain("TEST RESULT");
+    expect(html).toContain("Guided Retest: 1 ready / 0 not ready");
     expect(html).toContain('data-test-ready="true"');
     expect(html).toContain("Passed means Expected behavior is restored");
     expect(html).not.toContain('data-result="SUCCESS" disabled');
@@ -215,6 +216,41 @@ describe("Golden Bug Tracker renderer", () => {
     expect(script).toContain("markSaveFailed()");
     expect(script).toContain("Invalid or different-map Bug Tracker JSON");
     expect(script).toContain("Screenshot held in memory");
+  });
+
+  it("uses shared copy-quality rules for legacy HTML guided retest readiness", () => {
+    const level = fixture.games[0]!.levels[0]!;
+    const correct = level.issues[0]!;
+    const rejected = [
+      { ...correct, id: "BUG-GOLDEN-CODE",
+        reproduction: ["Inspect the session function.", "Confirm the gate remains closed."] },
+      { ...correct, id: "BUG-GOLDEN-VAGUE",
+        reproduction: ["Join the arena with 2 players.", "Confirm the bug is visible."] },
+      { ...correct, id: "BUG-GOLDEN-BLANK",
+        reproduction: ["", "Confirm the gate remains closed."] },
+    ];
+    const changed: BugTrackerDocument = {
+      ...fixture,
+      games: [{ ...fixture.games[0]!, levels: [{ ...level, issues: [correct, ...rejected] }] }],
+    };
+    const html = renderBugTrackerHtml(changed);
+    expect(html).toContain("Guided Retest: 1 ready / 3 not ready");
+    for (const item of rejected) {
+      const start = html.indexOf('data-issue-id="' + item.id + '"');
+      const finish = html.indexOf("</article>", start);
+      expect(start, item.id).toBeGreaterThanOrEqual(0);
+      const card = html.slice(start, finish);
+      expect(card).toContain('data-test-ready="false"');
+      expect(card).toContain("TEST PROCEDURE MISSING");
+      expect(card).toContain("Guided retest unavailable");
+      expect(card).toContain('data-result="SUCCESS" disabled aria-disabled="true"');
+      expect(card).toContain('data-result="FAILED" disabled aria-disabled="true"');
+    }
+    const goodStart = html.indexOf('data-issue-id="' + correct.id + '"');
+    const goodEnd = html.indexOf("</article>", goodStart);
+    expect(html.slice(goodStart, goodEnd)).toContain('data-test-ready="true"');
+    expect(html).toContain("Test In-Game must describe player actions");
+    expect(html).toContain("Test In-Game must describe a concrete action");
   });
 
   it("isolates tester workspace per exact map artifact and version", () => {
