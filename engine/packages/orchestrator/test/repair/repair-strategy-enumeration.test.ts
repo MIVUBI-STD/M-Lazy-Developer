@@ -633,6 +633,66 @@ describe("repair strategy enumeration and realization", () => {
     );
   });
 
+  it("does not credit a realized provider from an older source revision", () => {
+    const enumeration = enumerateRepairStrategySources(
+      envelope(),
+      diagnostics,
+      providerRegistry,
+    );
+    const realized = realizeProviderRepairStrategy(
+      enumeration,
+      providerRegistry,
+      {
+        sourceId: "session-guard-a",
+        sourceVersion: "1",
+        transaction: transaction("stale-provider-proof"),
+        changedNodeIds: ["function:p:session"],
+        repairClass: "implementation-repair",
+        reversible: true,
+        idempotent: true,
+      },
+    );
+    expect(realized.status).toBe("realized");
+    if (realized.status !== "realized") return;
+
+    // Hold realizer availability constant so only the source-version
+    // identity can decide whether this realization is still applicable.
+    const next = {
+      ...enumeration,
+      applicableSources: enumeration.applicableSources.map((item) =>
+        item.sourceId === "session-guard-a"
+          ? { ...item, sourceVersion: "2" }
+          : item),
+    };
+    const coverage = {
+      items: next.applicableSources.map((item) => ({
+        sourceKind: item.sourceKind,
+        sourceId: item.sourceId,
+        sourceVersion: item.sourceVersion,
+        selectionMode: item.selectionMode,
+        deterministic: item.deterministic,
+        status: "realizer-available" as const,
+        reasons: ["Fixture realizer availability."],
+      })),
+      coveredSources: next.applicableSources.length,
+      uncoveredSources: 0,
+      realizerNotRequiredSources: 0,
+      complete: true,
+    };
+    const report = buildRepairRealizationCoverageReport(
+      next,
+      coverage,
+      [realized],
+    );
+    expect(report.items.find((item) =>
+      item.sourceId === "session-guard-a")).toMatchObject({
+      sourceVersion: "2",
+      disposition: "blocked",
+    });
+    expect(report.realizedCount).toBe(0);
+    expect(report.noImplementationCoverage).toBe(true);
+  });
+
   it("enumerates non-provider proposal sources without converting them into patch transactions", () => {
     const proposalOnlyRegistry:
       RepairStrategySourceRegistry = {

@@ -87,12 +87,27 @@ export function buildRepairRealizationCoverageReport(
     };
   }
 
-  const realizationBySource = new Map(
-    realizations.map((item) => [
-      realizationSourceId(item),
-      item,
-    ]),
-  );
+  // A realized proposal is valid only for the exact enumerated
+  // source kind and version. An old provider/hint realization must not
+  // be credited to a newer registry entry with the same source ID.
+  const matchingRealization = (
+    source: RepairStrategyEnumeration["applicableSources"][number],
+  ): RepairRealizationResult | undefined =>
+    [...realizations].reverse().find((item) => {
+      if (realizationSourceId(item) !== source.sourceId) {
+        return false;
+      }
+      if (item.status === "blocked") {
+        // Blocked results have no declared source version and cannot
+        // accidentally be promoted into successful realization.
+        return true;
+      }
+      return "providerId" in item.proposal
+        ? source.sourceKind === "provider" &&
+          item.proposal.providerVersion === source.sourceVersion
+        : item.proposal.sourceKind === source.sourceKind &&
+          item.proposal.sourceVersion === source.sourceVersion;
+    });
 
   const items = enumeration.applicableSources.map(
     (source): RepairRealizationCoverageItem => {
@@ -130,7 +145,7 @@ export function buildRepairRealizationCoverageReport(
       }
 
       const realization =
-        realizationBySource.get(source.sourceId);
+        matchingRealization(source);
       if (!realization) {
         return {
           sourceId: source.sourceId,
