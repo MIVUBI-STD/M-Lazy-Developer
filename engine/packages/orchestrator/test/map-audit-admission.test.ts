@@ -37,6 +37,16 @@ function procedure(
       block: "PROVE" as const,
       label: "Causal contradiction proof",
     },
+    {
+      id: "B1",
+      block: "FORMALIZE" as const,
+      label: "Source-grounded formalization",
+    },
+    {
+      id: "E1",
+      block: "REPORT" as const,
+      label: "Report projection",
+    },
   ].map((item) => ({
     ...item,
     status:
@@ -125,6 +135,38 @@ describe("selected-map audit admission", () => {
     expect(assessSelectedMapAuditAdmission({
       mandatoryAuditProcedure: completed,
     }).status).toBe("READY");
+  });
+
+  it("cannot admit truncated mandatory stage coverage as READY", () => {
+    const complete = procedure([]);
+    expect(assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: complete,
+    }).status).toBe("READY");
+
+    for (const stage of [
+      "TARGET", "DISCOVERY", "UNDERSTAND",
+      "FORMALIZE", "EVALUATE", "PROVE", "REPORT",
+    ] as const) {
+      const truncated: MandatoryAuditProcedureReceipt = {
+        ...complete,
+        checkpoints: complete.checkpoints.filter((item) => item.block !== stage),
+      };
+      const admission = assessSelectedMapAuditAdmission({
+        mandatoryAuditProcedure: truncated,
+      });
+      expect(admission.status, stage).toBe("BLOCKED");
+      expect(admission.firstBlockingStage, stage).toBe(stage);
+    }
+
+    const noFormalize: MandatoryAuditProcedureReceipt = {
+      ...complete,
+      checkpoints: complete.checkpoints.filter((item) => item.id !== "B1"),
+    };
+    expect(canProjectIndependentAuditEvidence(noFormalize)).toBe(true);
+    const admission = assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: noFormalize,
+    });
+    expect(canAdmitAuditIssueLanes(admission, noFormalize)).toBe(false);
   });
 
   it("uses checkpoint-owned stage as the single blocking truth", () => {

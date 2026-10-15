@@ -139,6 +139,22 @@ export function assessSelectedMapAuditAdmission(
       });
     }
 
+    // Every mandatory audit stage must be represented before READY. A
+    // truncated receipt cannot advertise completion merely because its
+    // derived blocking index is empty. The ordered stage contract already
+    // owns these names; do not introduce a second checkpoint registry.
+    for (const stage of SELECTED_MAP_AUDIT_STAGE_ORDER) {
+      if (procedure.checkpoints.some((checkpoint) => checkpoint.block === stage)) {
+        continue;
+      }
+      issues.push({
+        stage,
+        code: "PROCEDURE_BLOCKED",
+        message: "Mandatory Audit Procedure has no checkpoint for " +
+          stage + "; audit admission is incomplete.",
+      });
+    }
+
     // The two foundational receipts must exist exactly once with their
     // original stage authority. An empty or truncated procedure must never
     // become READY just because its derived blocking list is also empty.
