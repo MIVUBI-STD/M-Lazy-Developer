@@ -1083,13 +1083,16 @@ describe("arena identity evidence propagation", () => {
         e.targetLabel === "resetArena" ? predicate(e) : e),
       },
     });
-    expect(pairs(update(e => ({ ...e, resolution: "unresolved", to: undefined }))))
+    expect(pairs(update(e => {
+      const { to: _unresolvedTarget, ...withoutTarget } = e;
+      return { ...withoutTarget, resolution: "unresolved" };
+    })))
       .toEqual([]);
     expect(pairs(update(e => ({ ...e, source: {
       artifactId: "sample:round", relativePath: src("main.js").relativePath,
     } })))).toEqual([]);
     expect(pairs({ ...ir, execution: { ...ir.execution,
-      outcomes: ir.execution.outcomes?.map(o => ({
+      outcomes: ir.execution.outcomes!.map(o => ({
         ...o, source: { ...o.source, artifactId: "other-world" },
       })),
     } })).toEqual([]);
@@ -1194,7 +1197,7 @@ describe("arena identity evidence propagation", () => {
     expect(intact?.lexicalGuards?.map(g => g.branch)).toEqual(["true"]);
     const misplaced = create({ ...call, source: {
       ...call.source, range: {
-        ...call.source.range!, columnStart: call.source.range!.columnStart + 1,
+        ...call.source.range!, columnStart: call.source.range!.columnStart! + 1,
       },
     } }).execution.edges.find(edge => edge.targetLabel === "settle");
     expect(misplaced?.lexicalGuards).toBeUndefined();
