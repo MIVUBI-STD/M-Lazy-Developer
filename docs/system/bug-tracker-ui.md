@@ -85,7 +85,9 @@ Design Mismatches
 Developer Notes
 ```
 
-For multi-level games:
+A single-map report uses compact jump links for **nonempty** Bugs, Design Mismatches, and Developer Notes at the corresponding source/level. Links target stable, document-unique section anchors. No Maps navigation, game accordion, or empty-lane link appears in a one-game document. When level number is absent, display **Map**, never `Level null`.
+
+For multi-level games, add a compact level jump list only when there are at least two levels; retain authored level numbers even when they are sparse:
 
 ```text
 Game
@@ -106,7 +108,7 @@ It adds global Summary, Maps navigation, and collapsible game sections.
 
 Maps use column-major numbering: numbers read downward in the first column before continuing at the top of the second column.
 
-Combined mode is a briefing/navigation presentation, not a second canonical report authority.
+Combined mode is a briefing/navigation presentation, not a second canonical report authority. Retain global Maps navigation and its column-major desktop ordering, plus source-local links to nonempty lanes and optional level jumps. Use unique anchors per game and level so equal issue-lane names never navigate into another map. At narrow widths, global Maps navigation stacks in document order without horizontal overflow.
 
 ## Lane order
 
@@ -208,15 +210,15 @@ Do not use blue for Minor; blue is reserved for active/interacting UI.
 
 Desktop is the current presentation target.
 
-- report width: approximately 1080 px;
-- narrative text width: approximately 760–850 px;
-- body/problem/test text: approximately 12 px with ~1.5 line height;
-- issue title: approximately 14 px;
-- metadata and IDs: approximately 8–9 px;
-- canonical IDs use monospace;
-- text is left aligned;
+- report width: approximately 1080 px on desktop, adapting to narrower viewports without horizontal scrolling;
+- narrative text width: approximately 760–850 px on wide screens;
+- body/problem/test text: approximately 14 px with at least 1.5 line height;
+- issue title: approximately 16–17 px;
+- metadata and canonical IDs: approximately 11–12 px, with IDs in monospace;
+- count and severity information remains readable without overpowering the issue titles;
+- text is left aligned, with long source paths wrapping rather than cropping;
 - textarea background is white;
-- keyboard focus remains visibly outlined.
+- keyboard focus remains visibly outlined on links, buttons, and disclosures.
 
 Use a small spacing scale (4 / 8 / 12 / 16 / 24 px) instead of one-off values.
 
@@ -282,7 +284,9 @@ Repository tests must protect at least:
 - multi-game document renders Combined Report with Maps navigation;
 - combined Maps navigation is column-major;
 - lane order is Bugs → Design Mismatches → Developer Notes;
-- empty lanes do not render;
+- empty lanes do not render or produce navigation links;
+- Map Report uses lane jumps but never Maps navigation; multi-level documents show level jumps with authored level IDs and map reports without numbered levels show Map, never Level null;
+- Combined Report lane/level anchors are unique across games and responsive Maps navigation preserves reading order;
 - lane numbering is independent;
 - Passed and Failed controls exist;
 - Mark Fixed and Export do not return;

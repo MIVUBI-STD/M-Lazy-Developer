@@ -59,6 +59,11 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("Needs Validation");
     expect(html).toContain("DEVELOPER NOTES");
     expect(html).toContain("LEVEL 1");
+    expect(html).toContain('id="map-level-1"');
+    expect(html).toContain('<nav class="lane-nav" aria-label="Finding sections">');
+    expect(html).toContain('href="#map-level-1-bugs"');
+    expect(html).toContain('href="#map-level-1-notes"');
+    expect(html).not.toContain('href="#map-level-1-design"');
     expect(html).toContain("Drive Folder ↗");
     expect(html).toContain("World File ↗");
     expect(html).toContain("Test / Details ↓");
@@ -149,8 +154,71 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain(">Maps<");
     expect(html).toContain("Expand Map ↓");
     expect(html).toContain("grid-auto-flow:column");
+    expect(html).toContain('id="game-1-level-1-bugs"');
+    expect(html).toContain('id="game-2-level-1-bugs"');
+    expect(html).toContain('href="#game-1-level-1-notes"');
+    expect(html).toContain('href="#game-2-level-1-notes"');
     expect(html).toContain("data-map-link=\"1\"");
     expect(html).toContain("data-map-link=\"2\"");
+  });
+
+  it("navigates single-map levels and nonempty finding lanes without synthetic level IDs", () => {
+    const first = fixture.games[0]!.levels[0]!;
+    const second = {
+      ...first,
+      level: 3,
+      version: "1.0.0",
+      issues: [{
+        ...first.issues[0]!,
+        id: "DM-LEVEL-3",
+        type: "DESIGN_MISMATCH" as const,
+      }],
+      devNotes: [],
+      source: {
+        ...first.source,
+        projectId: "level-3",
+        artifactId: "drive:level-3",
+      },
+    };
+    const doc: BugTrackerDocument = {
+      ...fixture,
+      games: [{ ...fixture.games[0]!, levels: [first, second] }],
+    };
+    const html = renderBugTrackerHtml(doc);
+    expect(html).toContain('<nav class="level-nav" aria-label="Levels">');
+    expect(html).toContain('href="#map-level-1">Level 1</a>');
+    expect(html).toContain('href="#map-level-2">Level 3</a>');
+    expect(html).toContain('href="#map-level-1-bugs"');
+    expect(html).toContain('href="#map-level-1-notes"');
+    expect(html).not.toContain('href="#map-level-1-design"');
+    expect(html).toContain('href="#map-level-2-design"');
+    expect(html).not.toContain('href="#map-level-2-bugs"');
+    expect(html).not.toContain(">Maps<");
+    expect(html).not.toContain('id="game-1-level-1"');
+    expect(html).toContain('data-issue-id="BUG-GOLDEN-001"');
+    expect(html).toContain('data-issue-id="DM-LEVEL-3"');
+    expect(html).toContain('data-issue-id="DEV-GOLDEN-001"');
+    expect(html).toContain("@media(max-width:700px)");
+    expect(html).toContain(".problem{font-size:14px");
+    expect(html).toContain(".issue h4,.devnote h4{font-size:17px");
+    expect(html).toContain("a:focus-visible");
+  });
+
+  it("does not display null level as a numbered level or fabricate section links", () => {
+    const level = fixture.games[0]!.levels[0]!;
+    const map: BugTrackerDocument = {
+      ...fixture,
+      games: [{ ...fixture.games[0]!, levels: [{
+        ...level, level: null, issues: [], devNotes: [],
+      }] }],
+    };
+    const html = renderBugTrackerHtml(map);
+    expect(html).toContain('<span class="level-badge">MAP</span>');
+    expect(html).not.toContain("LEVEL null");
+    expect(html).not.toContain('class="lane-nav"');
+    expect(html).not.toContain('class="level-nav"');
+    expect(html).not.toContain(">Maps<");
+    expect(html).not.toContain('data-issue-id="BUG-GOLDEN-001"');
   });
 
   it("uses the authored level ID, not display position, for sparse levels", () => {
