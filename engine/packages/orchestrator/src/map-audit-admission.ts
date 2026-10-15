@@ -138,6 +138,32 @@ export function assessSelectedMapAuditAdmission(
           " blocks continuation but is missing from the blocking index.",
       });
     }
+
+    // The two foundational receipts must exist exactly once with their
+    // original stage authority. An empty or truncated procedure must never
+    // become READY just because its derived blocking list is also empty.
+    for (const [checkpointId, stage] of [
+      ["A1", "TARGET"],
+      ["A2", "DISCOVERY"],
+    ] as const) {
+      const found = procedure.checkpoints.filter(
+        (checkpoint) => checkpoint.id === checkpointId,
+      );
+      if (
+        found.length === 1 &&
+        found[0]?.block === stage &&
+        found[0]?.status === "CLOSED"
+      ) continue;
+      if (procedure.blockingCheckpointIds.includes(checkpointId)) continue;
+      issues.push({
+        stage,
+        code: "PROCEDURE_BLOCKED",
+        message:
+          "Mandatory Audit Procedure checkpoint " + checkpointId +
+          " must have one CLOSED " + stage +
+          " receipt before audit admission.",
+      });
+    }
   }
 
   const firstBlockingStage = SELECTED_MAP_AUDIT_STAGE_ORDER.find((stage) =>

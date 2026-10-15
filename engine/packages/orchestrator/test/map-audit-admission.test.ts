@@ -85,6 +85,48 @@ describe("selected-map audit admission", () => {
     );
   });
 
+  it("rejects absent or invalid foundational receipts despite an empty blocking index", () => {
+    const completed = procedure([]);
+    const without = (checkpointId: string): MandatoryAuditProcedureReceipt => ({
+      ...completed,
+      checkpoints: completed.checkpoints.filter((item) => item.id !== checkpointId),
+    });
+    const empty: MandatoryAuditProcedureReceipt = {
+      ...completed,
+      checkpoints: [],
+      blocks: [],
+    };
+
+    for (const [name, candidate, stage] of [
+      ["empty", empty, "TARGET"],
+      ["missing target", without("A1"), "TARGET"],
+      ["missing discovery", without("A2"), "DISCOVERY"],
+      ["duplicated target", {
+        ...completed,
+        checkpoints: [completed.checkpoints[0]!, ...completed.checkpoints],
+      }, "TARGET"],
+      ["wrong discovery stage", {
+        ...completed,
+        checkpoints: completed.checkpoints.map((item) =>
+          item.id === "A2" ? { ...item, block: "UNDERSTAND" as const } : item),
+      }, "DISCOVERY"],
+      ["target incorrectly open but not indexed", {
+        ...completed,
+        checkpoints: completed.checkpoints.map((item) =>
+          item.id === "A1" ? { ...item, status: "OPEN" as const } : item),
+      }, "TARGET"],
+    ] as const) {
+      const result = assessSelectedMapAuditAdmission({
+        mandatoryAuditProcedure: candidate,
+      });
+      expect(result.status, name).toBe("BLOCKED");
+      expect(result.firstBlockingStage, name).toBe(stage);
+    }
+    expect(assessSelectedMapAuditAdmission({
+      mandatoryAuditProcedure: completed,
+    }).status).toBe("READY");
+  });
+
   it("uses checkpoint-owned stage as the single blocking truth", () => {
     const result = assessSelectedMapAuditAdmission({
       mandatoryAuditProcedure: procedure(["A2"]),
