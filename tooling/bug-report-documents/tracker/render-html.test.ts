@@ -101,7 +101,7 @@ describe("Golden Bug Tracker renderer", () => {
     const script = html.split("<script>").at(-1)?.split("</script>")[0];
     expect(script).toBeDefined();
 
-    const stateExpression = script?.split(",state=")[1]?.split(",toast=m=>")[0];
+    const stateExpression = script?.split(",state=")[1]?.split(";const toast=m=>")[0];
     expect(stateExpression).toBeDefined();
     const existing = { "BUG-GOLDEN-001": { notes: "legacy", result: null } };
     const getState = runInNewContext(
