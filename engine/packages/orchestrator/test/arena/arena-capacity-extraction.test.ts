@@ -404,6 +404,51 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.evidence.perArenaPlayerCapacitySources).toHaveLength(2);
   });
 
+  it("projects module-local const array generators only with exact immutable identity", () => {
+    const base = [
+      "const arenaIds = [0, 200];",
+      "const configs = arenaIds.map(id => ({ id, maxPlayers: 5 }));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "};",
+      "const parties = configs.map(cfg => new Party(cfg));",
+    ];
+    const read = (name: string, lines: string[]) => parseScriptFile(
+      name, lines.join("\n"), {
+        artifactId: "fixture", relativePath: "scripts/" + name + ".js",
+      },
+    );
+    const projected = extractArenaConcurrencyCapacity({
+      tickingAreas: [],
+      scripts: [read("named-map-source", base)],
+      declaredArenaCount: 2,
+    }).evidence;
+    expect(projected.perArenaPlayerCapacity).toBe(5);
+    expect(projected.perArenaPlayerCapacitySources?.some((item) =>
+      item.range?.lineStart === 1)).toBe(true);
+
+    for (const [name, lines] of [
+      ["escaped-id-array", [...base, "const leaked = arenaIds;"]],
+      ["mutated-id-array", [...base, "arenaIds.push(400);"]],
+      ["shadowed-id-array", [...base, "function f(arenaIds) { return 1; }"]],
+      ["dynamic-id-array", [
+        "const arenaIds = [getArenaId(), 200];", ...base.slice(1),
+      ]],
+    ] as const) {
+      const evidence = extractArenaConcurrencyCapacity({
+        tickingAreas: [], scripts: [read(name, lines)],
+        declaredArenaCount: 2,
+      }).evidence;
+      expect(evidence.perArenaPlayerCapacity, name).toBeUndefined();
+      expect(evidence.unresolvedRosterCapacityPaths, name).toBe(1);
+    }
+  });
+
   it("projects a source-bound mapped constructor capacity without equating it to runtime slots", () => {
     const script = parseScriptFile("mapped-classes", [
       "var configs = [0, 200].map((offset) => {",

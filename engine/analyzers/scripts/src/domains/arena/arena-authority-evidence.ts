@@ -876,12 +876,58 @@ function mappedConstructorCapacity(
   scanClass(cls);
   if (!fieldStable || fieldAccesses !== 2 || formalReferences !== 2) return undefined;
 
-  // Only a direct array-literal .map() returning a definite object literal
-  // qualifies. No spread/computed capacity keys or alternate return paths.
+  // A module-local const array of literal IDs is equivalent to a direct
+  // array literal only if the exact declaration and this .map() receiver
+  // are its ONLY uses. This prevents aliasing, later mutation, exporting,
+  // shadowed bindings, and dynamic elements from granting numeric proof.
+  const mapInputArray = (receiver: ts.Expression): {
+    array: ts.ArrayLiteralExpression;
+    inputSource?: SourceRef;
+  } | undefined => {
+    if (ts.isArrayLiteralExpression(receiver)) return { array: receiver };
+    if (!ts.isIdentifier(receiver)) return undefined;
+    const name = receiver.text;
+    const owners = file.statements.flatMap((statement) =>
+      ts.isVariableStatement(statement) &&
+      !statement.modifiers?.some((modifier) =>
+        modifier.kind === ts.SyntaxKind.ExportKeyword ||
+        modifier.kind === ts.SyntaxKind.DefaultKeyword
+      ) &&
+      (statement.declarationList.flags & ts.NodeFlags.Const) !== 0
+        ? statement.declarationList.declarations.filter((item) =>
+            ts.isIdentifier(item.name) && item.name.text === name
+          )
+        : []
+    );
+    if (owners.length !== 1) return undefined;
+    const owner = owners[0]!;
+    if (!ts.isArrayLiteralExpression(owner.initializer) ||
+        !owner.initializer.elements.every((element) =>
+          ts.isNumericLiteral(element) || ts.isStringLiteralLike(element)
+        )) return undefined;
+    let references = 0;
+    let stable = true;
+    const scan = (node: ts.Node): void => {
+      if (ts.isIdentifier(node) && node.text === name) {
+        if (node === owner.name || node === receiver) references++;
+        else stable = false;
+      }
+      ts.forEachChild(node, scan);
+    };
+    scan(file);
+    if (!stable || references !== 2) return undefined;
+    return {
+      array: owner.initializer,
+      inputSource: lineSource(file, owner.initializer, source),
+    };
+  };
+  // A definite object literal with one unshadowed capacity key must be
+  // produced for every member of the proven input array.
   const generators = new Map<string, {
     value: number;
     property: SourceRef;
     generator: SourceRef;
+    inputSource?: SourceRef;
     elementCount: number;
   }>();
   for (const statement of file.statements) {
@@ -895,8 +941,9 @@ function mappedConstructorCapacity(
       if (!ts.isIdentifier(d.name) || !d.initializer ||
           !ts.isCallExpression(d.initializer) ||
           !ts.isPropertyAccessExpression(d.initializer.expression) ||
-          d.initializer.expression.name.text !== "map" ||
-          !ts.isArrayLiteralExpression(d.initializer.expression.expression)) continue;
+          d.initializer.expression.name.text !== "map") continue;
+      const input = mapInputArray(d.initializer.expression.expression);
+      if (!input) continue;
       const cb = d.initializer.arguments[0];
       if (!cb || !ts.isArrowFunction(cb) ||
           // Async callbacks return Promise<config>, never the object
@@ -936,15 +983,16 @@ function mappedConstructorCapacity(
           !ts.isNumericLiteral(props[0]!.initializer)) continue;
       const value = Number(props[0]!.initializer.text);
       if (Number.isSafeInteger(value) && value > 0 &&
-          d.initializer.expression.expression.elements.length > 0 &&
-          d.initializer.expression.expression.elements.every((element) =>
+          input.array.elements.length > 0 &&
+          input.array.elements.every((element) =>
             !ts.isOmittedExpression(element) &&
             !ts.isSpreadElement(element)))
         generators.set(d.name.text, {
           value,
           property: lineSource(file, props[0]!, source),
           generator: lineSource(file, d.initializer, source),
-          elementCount: d.initializer.expression.expression.elements.length,
+          ...(input.inputSource ? { inputSource: input.inputSource } : {}),
+          elementCount: input.array.elements.length,
         });
     }
   }
@@ -1289,7 +1337,12 @@ function mappedConstructorCapacity(
   return {
     value: gen.value,
     source: gen.property,
-    witnesses: [binding.source, gen.generator, ...allocations],
+    witnesses: [
+      binding.source,
+      gen.generator,
+      ...(gen.inputSource ? [gen.inputSource] : []),
+      ...allocations,
+    ],
   };
 }
 
