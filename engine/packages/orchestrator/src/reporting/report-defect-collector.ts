@@ -775,6 +775,28 @@ function aiBugTrigger(
     };
   }
 
+  // Aggregate matching evidence is not sufficient: a step may claim a
+  // setup/action/outcome that its cited sources never support. Preserve
+  // distinct provenance for the authoring basis and the failed outcome.
+  const setupBasis = compiled.gameplayBasis === "authored-gameplay"
+    ? expectedEvidence : observedEvidence;
+  const trace = compiled.stepEvidence;
+  if (!trace.startingCondition.some(id => setupBasis.has(id))) {
+    return {
+      issues: ["Bug Trigger starting condition lacks matching gameplay-basis evidence from this defect."],
+    };
+  }
+  if (trace.actions.some(ids => !ids.some(id => setupBasis.has(id)))) {
+    return {
+      issues: ["Bug Trigger player action lacks matching gameplay-basis evidence from this defect."],
+    };
+  }
+  if (!trace.observableFailure.some(id => observedEvidence.has(id))) {
+    return {
+      issues: ["Bug Trigger observable failure step lacks matching observed-defect evidence from this defect."],
+    };
+  }
+
   return {
     steps: compiled.steps,
     issues: [],

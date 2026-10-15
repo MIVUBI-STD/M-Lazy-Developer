@@ -24,6 +24,15 @@ describe("Bug Trigger compiler", () => {
         "intent:arena-restart",
         "runtime:restart-failed",
       ],
+      stepEvidence: {
+        startingCondition: ["intent:arena-restart"],
+        actions: [
+          ["intent:arena-restart"],
+          ["intent:arena-restart"],
+          ["intent:arena-restart"],
+        ],
+        observableFailure: ["runtime:restart-failed"],
+      },
     });
 
     expect(result.ok).toBe(true);
@@ -43,6 +52,7 @@ describe("Bug Trigger compiler", () => {
     expect(result.gameplayBasis).toBe(
       "authored-gameplay",
     );
+    expect(result.stepEvidence.observableFailure).toEqual(["runtime:restart-failed"]);
   });
 
   it("rejects source-code instructions and non-observable results at the draft stage", () => {
@@ -75,6 +85,47 @@ describe("Bug Trigger compiler", () => {
       expect(result.issues.map(issue => issue.code))
         .toContain("unusable-tester-step");
     }
+  });
+
+  it("rejects missing or incomplete per-step provenance before compiling AI Test In-Game", () => {
+    const base = {
+      gameplayBasis: "authored-gameplay" as const,
+      startingCondition: "Join the arena with 2 players",
+      actions: ["Finish the match"],
+      observableFailure: "the next match does not start",
+      evidenceIds: ["intent:arena-restart", "static:restart"],
+    };
+    const absent = compileBugTrigger(base);
+    expect(absent.ok).toBe(false);
+    if (!absent.ok) expect(absent.issues.map(issue => issue.code))
+      .toContain("missing-step-evidence");
+
+    const wrongCount = compileBugTrigger({ ...base, stepEvidence: {
+      startingCondition: ["intent:arena-restart"],
+      actions: [],
+      observableFailure: ["static:restart"],
+    } });
+    expect(wrongCount.ok).toBe(false);
+    if (!wrongCount.ok) expect(wrongCount.issues.map(issue => issue.code))
+      .toContain("step-evidence-count-mismatch");
+
+    const foreign = compileBugTrigger({ ...base, stepEvidence: {
+      startingCondition: ["intent:arena-restart"],
+      actions: [["foreign:unknown"]],
+      observableFailure: ["static:restart"],
+    } });
+    expect(foreign.ok).toBe(false);
+    if (!foreign.ok) expect(foreign.issues.map(issue => issue.code))
+      .toContain("unbound-step-evidence");
+
+    const blank = compileBugTrigger({ ...base, stepEvidence: {
+      startingCondition: ["intent:arena-restart"],
+      actions: [[]],
+      observableFailure: ["static:restart"],
+    } });
+    expect(blank.ok).toBe(false);
+    if (!blank.ok) expect(blank.issues.map(issue => issue.code))
+      .toContain("missing-step-evidence");
   });
 
   it("does not compile without a visible failure", () => {

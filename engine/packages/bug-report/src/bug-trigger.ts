@@ -5,12 +5,27 @@ export type BugTriggerGameplayBasis =
   | "runtime-gameplay"
   | "tester-gameplay";
 
+export interface BugTriggerStepEvidence {
+  /** Source evidence of the player-visible starting setup. */
+  readonly startingCondition: readonly string[];
+  /** One source-witness group per player action, in authored order. */
+  readonly actions: readonly (readonly string[])[];
+  /** Evidence of the wrong observable outcome, not just expected behavior. */
+  readonly observableFailure: readonly string[];
+}
+
 export interface BugTriggerDraft {
   readonly gameplayBasis: BugTriggerGameplayBasis;
   readonly startingCondition: string;
   readonly actions?: readonly string[];
   readonly observableFailure: string;
   readonly evidenceIds: readonly string[];
+  /**
+   * Trace step claims separately. Optional while reading earlier draft shapes,
+   * but required by the compiler before a new AI trigger can be published.
+   * These references must be part of evidenceIds and the same selected defect.
+   */
+  readonly stepEvidence?: BugTriggerStepEvidence;
 }
 
 export type BugTriggerCompileIssueCode =
@@ -19,7 +34,10 @@ export type BugTriggerCompileIssueCode =
   | "missing-evidence"
   | "too-many-steps"
   | "empty-action"
-  | "unusable-tester-step";
+  | "unusable-tester-step"
+  | "missing-step-evidence"
+  | "step-evidence-count-mismatch"
+  | "unbound-step-evidence";
 
 export interface BugTriggerCompileIssue {
   readonly code: BugTriggerCompileIssueCode;
@@ -32,6 +50,7 @@ export type CompileBugTriggerResult =
       readonly steps: readonly string[];
       readonly evidenceIds: readonly string[];
       readonly gameplayBasis: BugTriggerGameplayBasis;
+      readonly stepEvidence: BugTriggerStepEvidence;
       readonly issues: readonly [];
     }
   | {
@@ -132,11 +151,66 @@ export function compileBugTrigger(
     };
   }
 
+  const stepEvidence = draft.stepEvidence;
+  if (stepEvidence === undefined) {
+    return {
+      ok: false,
+      issues: [{
+        code: "missing-step-evidence",
+        message: "AI Bug Trigger needs evidence for its starting condition, each player action, and the observed failure.",
+      }],
+    };
+  }
+  if (stepEvidence.actions.length !== actions.length) {
+    return {
+      ok: false,
+      issues: [{
+        code: "step-evidence-count-mismatch",
+        message: "Bug Trigger action evidence must correspond one-to-one with the authored player actions.",
+      }],
+    };
+  }
+  const normalize = (ids: readonly string[]) =>
+    [...new Set(ids.map(clean).filter(Boolean))].sort();
+  const trace: BugTriggerStepEvidence = {
+    startingCondition: normalize(stepEvidence.startingCondition),
+    actions: stepEvidence.actions.map(normalize),
+    observableFailure: normalize(stepEvidence.observableFailure),
+  };
+  const segments = [
+    trace.startingCondition,
+    ...trace.actions,
+    trace.observableFailure,
+  ];
+  if (segments.some(ids => ids.length === 0)) {
+    return {
+      ok: false,
+      issues: [{
+        code: "missing-step-evidence",
+        message: "Each Bug Trigger setup, player action, and observed failure requires at least one concrete evidence ID.",
+      }],
+    };
+  }
+  const declaredIds = new Set(evidenceIds);
+  const unbound = [...new Set(segments.flat()
+    .filter(id => !declaredIds.has(id)))].sort();
+  if (unbound.length > 0) {
+    return {
+      ok: false,
+      issues: [{
+        code: "unbound-step-evidence",
+        message: "Bug Trigger step references are absent from its declared evidence: " +
+          unbound.join(", ") + ".",
+      }],
+    };
+  }
+
   return {
     ok: true,
     steps,
     evidenceIds,
     gameplayBasis: draft.gameplayBasis,
+    stepEvidence: trace,
     issues: [],
   };
 }

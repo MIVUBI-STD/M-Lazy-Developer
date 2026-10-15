@@ -297,6 +297,11 @@ describe("report defect collector", () => {
       actions: ["Start the same arena again"],
       observableFailure: "the next match does not start",
       evidenceIds: ["intent:evidence"],
+      stepEvidence: {
+        startingCondition: ["intent:evidence"],
+        actions: [["intent:evidence"]],
+        observableFailure: ["intent:evidence"],
+      },
     };
     const expectationOnly = { ...common, bugTrigger: trigger };
     expect(describeAuditReportCandidate(expectationOnly).nextEvidenceNeed)
@@ -308,7 +313,12 @@ describe("report defect collector", () => {
 
     const complete = {
       ...common,
-      bugTrigger: { ...trigger, evidenceIds: ["intent:evidence", "static:cleanup"] },
+      bugTrigger: { ...trigger,
+        evidenceIds: ["intent:evidence", "static:cleanup"],
+        stepEvidence: { ...trigger.stepEvidence,
+          observableFailure: ["static:cleanup"],
+        },
+      },
     };
     expect(describeAuditReportCandidate(complete).nextEvidenceNeed).toBe("none");
     expect(collectConfirmedDefects([complete]).confirmed).toHaveLength(1);
@@ -319,11 +329,65 @@ describe("report defect collector", () => {
         ...trigger,
         actions: ["Inspect the session function"],
         evidenceIds: ["intent:evidence", "static:cleanup"],
+        stepEvidence: { ...trigger.stepEvidence,
+          observableFailure: ["static:cleanup"],
+        },
       },
     };
     expect(describeAuditReportCandidate(technical).nextEvidenceNeed)
       .toBe("candidate-correction");
     expect(collectConfirmedDefects([technical]).confirmed).toHaveLength(0);
+  });
+
+  it("rejects aggregate evidence when an individual Test In-Game step cites the wrong authority", () => {
+    const base = {
+      route: "static" as const,
+      intent,
+      result: staticResult,
+      defect: defect("per-step-mismatch", { ai: true }),
+      bugTrigger: {
+        gameplayBasis: "authored-gameplay" as const,
+        startingCondition: "Finish the match and return to the lobby",
+        actions: ["Start the same arena again"],
+        observableFailure: "the new match does not start",
+        evidenceIds: ["intent:evidence", "static:cleanup"],
+        stepEvidence: {
+          startingCondition: ["intent:evidence"],
+          actions: [["intent:evidence"]],
+          observableFailure: ["static:cleanup"],
+        },
+      },
+    };
+    expect(collectConfirmedDefects([base]).confirmed).toHaveLength(1);
+
+    const wrongSetup = { ...base,
+      bugTrigger: { ...base.bugTrigger, stepEvidence: {
+        ...base.bugTrigger.stepEvidence,
+        startingCondition: ["static:cleanup"],
+      } },
+    };
+    expect(describeAuditReportCandidate(wrongSetup).nextEvidenceNeed)
+      .toBe("candidate-correction");
+    expect(collectConfirmedDefects([wrongSetup]).rejected[0]?.reasons.join(" "))
+      .toMatch(/starting condition lacks matching gameplay-basis evidence/);
+
+    const wrongAction = { ...base,
+      bugTrigger: { ...base.bugTrigger, stepEvidence: {
+        ...base.bugTrigger.stepEvidence,
+        actions: [["static:cleanup"]],
+      } },
+    };
+    expect(collectConfirmedDefects([wrongAction]).rejected[0]?.reasons.join(" "))
+      .toMatch(/player action lacks matching gameplay-basis evidence/);
+
+    const wrongFailure = { ...base,
+      bugTrigger: { ...base.bugTrigger, stepEvidence: {
+        ...base.bugTrigger.stepEvidence,
+        observableFailure: ["intent:evidence"],
+      } },
+    };
+    expect(collectConfirmedDefects([wrongFailure]).rejected[0]?.reasons.join(" "))
+      .toMatch(/observable failure step lacks matching observed-defect evidence/);
   });
 
   it("keeps tester reproduction open when the observed defect has no usable steps", () => {
@@ -380,6 +444,11 @@ describe("report defect collector", () => {
               "intent:evidence",
               "static:cleanup",
             ],
+            stepEvidence: {
+              startingCondition: ["intent:evidence"],
+              actions: [["intent:evidence"]],
+              observableFailure: ["static:cleanup"],
+            },
           },
           defect: defect("ai-ready", { ai: true }),
         }],
@@ -407,6 +476,11 @@ describe("report defect collector", () => {
         observableFailure:
           "the next match does not start",
         evidenceIds: ["runtime:unrelated"],
+        stepEvidence: {
+          startingCondition: ["runtime:unrelated"],
+          actions: [],
+          observableFailure: ["runtime:unrelated"],
+        },
       },
       defect: defect("ai-unrelated-trigger", {
         ai: true,
@@ -435,6 +509,11 @@ describe("report defect collector", () => {
         observableFailure:
           "the next match does not start",
         evidenceIds: ["static:cleanup"],
+        stepEvidence: {
+          startingCondition: ["static:cleanup"],
+          actions: [],
+          observableFailure: ["static:cleanup"],
+        },
       },
       defect: defect("invalid-trigger-basis", {
         ai: true,
@@ -458,6 +537,11 @@ describe("report defect collector", () => {
         observableFailure:
           "the next match does not start",
         evidenceIds: ["static:cleanup"],
+        stepEvidence: {
+          startingCondition: ["static:cleanup"],
+          actions: [],
+          observableFailure: ["static:cleanup"],
+        },
       },
       defect: defect("unsupported-gameplay-basis", {
         ai: true,
