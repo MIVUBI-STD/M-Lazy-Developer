@@ -11,6 +11,7 @@ export type BugReportCopyIssueCode =
   | "invalid-reproduction-length"
   | "code-centric-reproduction"
   | "vague-reproduction"
+  | "empty-reproduction-step"
   | "missing-observable-result";
 
 export interface BugReportCopyIssue {
@@ -77,6 +78,8 @@ const vagueReproductionPatterns = [
   /\bcheck the bug\b/i,
   /\bverify the logic\b/i,
   /\bsee if it happens\b/i,
+  /\b(?:the|this) bug is visible\b/i,
+  /\bsomething (?:is|goes) wrong\b/i,
 ] as const;
 
 const observableResultPattern =
@@ -104,6 +107,70 @@ function tooLong(
       message: `Keep this field at or below ${max} characters for scan readability.`,
     });
   }
+}
+
+/**
+ * One tester-language admission rule for both authored BugTrigger drafts and
+ * final Bug Report V2. This checks obvious copy defects, not source evidence
+ * ownership, gameplay reachability, or Minecraft runtime execution.
+ */
+export function reviewTesterReproductionSteps(
+  steps: readonly string[] | undefined,
+  path: string,
+): readonly BugReportCopyIssue[] {
+  const issues: BugReportCopyIssue[] = [];
+  if (!steps || steps.length === 0) {
+    issues.push({
+      code: "missing-reproduction",
+      path,
+      message: "Test In-Game requires a concrete tester-visible route.",
+    });
+    return issues;
+  }
+
+  if (steps.length < 2 || steps.length > 5) {
+    issues.push({
+      code: "invalid-reproduction-length",
+      path,
+      message: "Use 2 to 5 concise in-game steps.",
+    });
+  }
+
+  steps.forEach((step, index) => {
+    const stepPath = path + "[" + index + "]";
+    tooLong(issues, stepPath, step, limits.reproduction);
+    if (!compact(step)) {
+      issues.push({
+        code: "empty-reproduction-step",
+        path: stepPath,
+        message: "Every Test In-Game step must describe an action or visible result.",
+      });
+    }
+    if (codeCentricReproductionPatterns.some(pattern => pattern.test(step))) {
+      issues.push({
+        code: "code-centric-reproduction",
+        path: stepPath,
+        message: "Test In-Game must describe player actions and visible outcomes, not code inspection.",
+      });
+    }
+    if (vagueReproductionPatterns.some(pattern => pattern.test(step))) {
+      issues.push({
+        code: "vague-reproduction",
+        path: stepPath,
+        message: "Test In-Game must describe a concrete action or observable failure.",
+      });
+    }
+  });
+
+  const last = steps[steps.length - 1]!;
+  if (!observableResultPattern.test(last)) {
+    issues.push({
+      code: "missing-observable-result",
+      path: path + "[" + (steps.length - 1) + "]",
+      message: "Final Test In-Game step must tell the tester what wrong visible result to confirm.",
+    });
+  }
+  return issues;
 }
 
 export function reviewBugReportCopy(
@@ -150,79 +217,9 @@ export function reviewBugReportCopy(
     tooLong(issues, base + ".expected", bug.expected, limits.expected);
     tooLong(issues, base + ".observed", bug.observed, limits.observed);
 
-    if (!bug.reproduction || bug.reproduction.length === 0) {
-      issues.push({
-        code: "missing-reproduction",
-        path: base + ".reproduction",
-        message:
-          "Tester-facing bugs require a clear How to Reproduce path.",
-      });
-    } else {
-      if (
-        bug.reproduction.length < 2 ||
-        bug.reproduction.length > 5
-      ) {
-        issues.push({
-          code: "invalid-reproduction-length",
-          path: base + ".reproduction",
-          message:
-            "Use 2 to 5 concise How to Reproduce steps so a tester can reproduce and verify the bug quickly.",
-        });
-      }
-
-      bug.reproduction.forEach((step, stepIndex) => {
-        const stepPath =
-          `${base}.reproduction[${stepIndex}]`;
-
-        tooLong(
-          issues,
-          stepPath,
-          step,
-          limits.reproduction,
-        );
-
-        if (
-          codeCentricReproductionPatterns.some((pattern) =>
-            pattern.test(step)
-          )
-        ) {
-          issues.push({
-            code: "code-centric-reproduction",
-            path: stepPath,
-            message:
-              "How to Reproduce must describe in-game tester actions and visible outcomes, not source-code or architecture inspection.",
-          });
-        }
-
-        if (
-          vagueReproductionPatterns.some((pattern) =>
-            pattern.test(step)
-          )
-        ) {
-          issues.push({
-            code: "vague-reproduction",
-            path: stepPath,
-            message:
-              "How to Reproduce step must state a concrete in-game action or observable result.",
-          });
-        }
-      });
-
-      const finalStep =
-        bug.reproduction[bug.reproduction.length - 1]!;
-      if (!observableResultPattern.test(finalStep)) {
-        issues.push({
-          code: "missing-observable-result",
-          path:
-            base +
-            ".reproduction[" +
-            (bug.reproduction.length - 1) +
-            "]",
-          message:
-            "The final How to Reproduce step must explicitly tell the tester what wrong result to confirm or observe in-game.",
-        });
-      }
-    }
+    issues.push(...reviewTesterReproductionSteps(
+      bug.reproduction, base + ".reproduction",
+    ));
 
     if (bug.aiAnalysis) {
       tooLong(

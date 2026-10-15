@@ -1,3 +1,5 @@
+import { reviewTesterReproductionSteps } from "./copy-quality.js";
+
 export type BugTriggerGameplayBasis =
   | "authored-gameplay"
   | "runtime-gameplay"
@@ -16,7 +18,8 @@ export type BugTriggerCompileIssueCode =
   | "missing-observable-failure"
   | "missing-evidence"
   | "too-many-steps"
-  | "empty-action";
+  | "empty-action"
+  | "unusable-tester-step";
 
 export interface BugTriggerCompileIssue {
   readonly code: BugTriggerCompileIssueCode;
@@ -111,14 +114,27 @@ export function compileBugTrigger(
     return { ok: false, issues };
   }
 
+  const steps = [
+    terminal(startingCondition),
+    ...actions.map(terminal),
+    "Confirm: " + terminal(observableFailure),
+  ];
+  // Reuse the exact final-report copy gate rather than accepting AI steps
+  // that cannot subsequently be published or followed by a tester.
+  const copyIssues = reviewTesterReproductionSteps(steps, "bugTrigger");
+  if (copyIssues.length > 0) {
+    return {
+      ok: false,
+      issues: copyIssues.map(issue => ({
+        code: "unusable-tester-step" as const,
+        message: issue.path + ": " + issue.message,
+      })),
+    };
+  }
+
   return {
     ok: true,
-    steps: [
-      terminal(startingCondition),
-      ...actions.map(terminal),
-      "Confirm: " +
-        terminal(observableFailure),
-    ],
+    steps,
     evidenceIds,
     gameplayBasis: draft.gameplayBasis,
     issues: [],

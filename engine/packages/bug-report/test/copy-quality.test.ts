@@ -86,6 +86,25 @@ describe("bug report copy quality", () => {
     ).toBe(true);
   });
 
+  it("uses one tester-step rule for empty, technical and vague instructions", () => {
+    const initial = report().bugs[0]!;
+    for (const step of [
+      "",
+      "Inspect the session script.",
+      "Verify the logic.",
+      "Confirm the bug is visible.",
+    ]) {
+      const issues = reviewBugReportCopy([{
+        ...initial,
+        reproduction: ["Join the arena with 2 players.", step],
+      }]);
+      expect(issues.some(issue => [
+        "empty-reproduction-step", "code-centric-reproduction",
+        "vague-reproduction",
+      ].includes(issue.code)), step).toBe(true);
+    }
+  });
+
   it("rejects multiline titles", () => {
     const source = report();
     const issues = reviewBugReportCopy([{

@@ -88,7 +88,7 @@ Rules:
 
 Purpose: give a tester who does not read code a short, exact path to **trigger the bug in Minecraft and visibly confirm it**.
 
-For AI-found defects, these steps must come from the evidence-bound `BugTriggerDraft → compileBugTrigger()` path. The draft must declare a gameplay basis supported by matching authored-gameplay or runtime-gameplay evidence. Do not mechanically translate source-code statements into gameplay instructions.
+For AI-found defects, these steps must come from the evidence-bound `BugTriggerDraft → compileBugTrigger()` path. The draft must declare a gameplay basis supported by matching authored-gameplay or runtime-gameplay evidence. Do not mechanically translate source-code statements into gameplay instructions. The compiler reuses `reviewTesterReproductionSteps()` from `copy-quality.ts`, the same tester-language rule used by final Bug Report V2. This bounded lexical gate cannot prove a location, action, timing window, or outcome actually exists in Minecraft; source evidence and human review remain necessary.
 
 Required structure:
 

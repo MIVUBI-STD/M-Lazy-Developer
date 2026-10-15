@@ -45,6 +45,38 @@ describe("Bug Trigger compiler", () => {
     );
   });
 
+  it("rejects source-code instructions and non-observable results at the draft stage", () => {
+    for (const draft of [
+      {
+        gameplayBasis: "authored-gameplay" as const,
+        startingCondition: "Inspect the session function",
+        actions: ["Start the same arena again"],
+        observableFailure: "the new match does not start",
+        evidenceIds: ["intent:arena-restart"],
+      },
+      {
+        gameplayBasis: "authored-gameplay" as const,
+        startingCondition: "Join the arena with 2 players",
+        actions: ["Finish the match normally"],
+        observableFailure: "the bug is visible",
+        evidenceIds: ["intent:arena-restart"],
+      },
+      {
+        gameplayBasis: "authored-gameplay" as const,
+        startingCondition: "Join the arena with 2 players",
+        actions: ["Verify the logic"],
+        observableFailure: "the match does not start",
+        evidenceIds: ["intent:arena-restart"],
+      },
+    ]) {
+      const result = compileBugTrigger(draft);
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.issues.map(issue => issue.code))
+        .toContain("unusable-tester-step");
+    }
+  });
+
   it("does not compile without a visible failure", () => {
     const result = compileBugTrigger({
       gameplayBasis: "authored-gameplay",
