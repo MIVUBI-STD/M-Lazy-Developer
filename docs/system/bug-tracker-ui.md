@@ -293,9 +293,18 @@ Publication must fail if the rendered HTML loses a promised tester capability. T
 - Reset Tester Data;
 - embedded saved-workspace snapshot support;
 - evidence file input and rendered evidence collection;
-- exact canonical finding/Developer Note ID parity with JSON.
+- exact canonical finding/Developer Note ID parity with JSON;
+- primary Save as HTML action, retest result counters, and finding search/filter controls.
 
 A visible control without its canonical behavior is a publication defect, not an acceptable visual placeholder.
+
+### JSON field integrity and staged publication
+
+Retain \`m-bedrock-bug-tracker/v1\`: its canonical fields and semantics are unchanged. The existing tracker validator, not a parallel schema owner, rejects structurally invalid JSON at the publication boundary: empty game/level containers, missing exact artifact identity and source version, incorrect source URL and nested object types, duplicate IDs, invalid issue classification/verification, malformed reproduction arrays, and incomplete developer file/reason references. A missing Expected/Observed observation may remain an **empty string** for older source-backed findings that are explicitly not retest-ready; the publisher must not fill it with invented data. Runtime validation must not depend on TypeScript types alone. The current approved project/report binding remains the authority.
+
+The exporter computes a validated canonical document and HTML with exact embedded-JSON and issue-ID parity **before** any destination write. It now stages both complete \`bug-tracker.json\` and \`bug-tracker.html\` inside the destination filesystem, then replaces the published filenames and removes staging files. This protects current publication from a failed staging write, but **does not make a two-file replacement atomic**: interruption between the two renames can leave a mixed pair. The existing read-only \`--check\` remains mandatory to detect stale, missing or mixed bytes for whichever project is inspected. Do not invent a second publisher, manifest, report database or auto-overwrite.
+
+The functional publication contract must also detect a renderer that loses the primary Save as HTML button, tester progress counts, or search and filter controls introduced by the latest presentation work. Source/real-report regression specifications cover direct Approved Bug Report V2 → projection → HTML + JSON → exact read-only verification, using representative approved project fixtures. These are **authored tests**, not an execution claim until they actually run on an exact source snapshot. The current generated project outputs remain historical derived snapshots until a verified canonical regeneration, not manually edited HTML.
 
 ### Publication integrity and stale-output detection
 

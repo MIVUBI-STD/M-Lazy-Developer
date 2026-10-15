@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -67,6 +67,88 @@ describe("Bug Tracker export boundary", () => {
       expect(html).toContain('id="workspace-snapshot"');
       expect(html).toContain('class="files"');
       expect(html).toContain('class="pics"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("publishes complete files from staging and removes staging artifacts", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bug-tracker-staged-"));
+    try {
+      await writeFile(join(dir, "bug-tracker.json"), "outdated json", "utf8");
+      await writeFile(join(dir, "bug-tracker.html"), "outdated html", "utf8");
+      await exportBugTracker(fixture, dir, renderBugTrackerHtml);
+      await expect(
+        verifyPublishedBugTracker(fixture, dir, renderBugTrackerHtml),
+      ).resolves.toBeUndefined();
+      const entries = await readdir(dir);
+      expect(entries.sort()).toEqual(["bug-tracker.html", "bug-tracker.json"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects invalid nested JSON shapes before changing published files", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bug-tracker-malformed-"));
+    try {
+      await writeFile(join(dir, "bug-tracker.json"), "original json", "utf8");
+      await writeFile(join(dir, "bug-tracker.html"), "original html", "utf8");
+      const level = fixture.games[0]!.levels[0]!;
+      const badSource: BugTrackerDocument = {
+        ...fixture,
+        games: [{ ...fixture.games[0]!, levels: [{
+          ...level, source: { ...level.source, artifactFingerprint: "" },
+        }] }],
+      };
+      await expect(exportBugTracker(badSource, dir, renderBugTrackerHtml))
+        .rejects.toThrow(/source.artifactFingerprint is required/);
+      const badSteps: BugTrackerDocument = {
+        ...fixture,
+        games: [{ ...fixture.games[0]!, levels: [{
+          ...level, issues: [{
+            ...level.issues[0]!, reproduction: "not a list" as unknown as string[],
+          }],
+        }] }],
+      };
+      await expect(exportBugTracker(badSteps, dir, renderBugTrackerHtml))
+        .rejects.toThrow(/reproduction must be a list/);
+      const badNote: BugTrackerDocument = {
+        ...fixture,
+        games: [{ ...fixture.games[0]!, levels: [{
+          ...level, devNotes: [{
+            ...level.devNotes[0]!, evidence: [] as unknown as Record<string, unknown>,
+          }],
+        }] }],
+      };
+      await expect(exportBugTracker(badNote, dir, renderBugTrackerHtml))
+        .rejects.toThrow(/evidence must be an object/);
+      const empty: BugTrackerDocument = {
+        ...fixture, games: [],
+      };
+      await expect(exportBugTracker(empty, dir, renderBugTrackerHtml))
+        .rejects.toThrow(/At least one game/);
+      expect(await readFile(join(dir, "bug-tracker.json"), "utf8")).toBe("original json");
+      expect(await readFile(join(dir, "bug-tracker.html"), "utf8")).toBe("original html");
+      expect((await readdir(dir)).sort()).toEqual(["bug-tracker.html", "bug-tracker.json"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects loss of new tester result and finding-filter controls", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "bug-tracker-filter-contract-"));
+    try {
+      await expect(exportBugTracker(
+        fixture, dir,
+        document => renderBugTrackerHtml(document)
+          .replace('id="findingSearch"', 'id="missingFindingSearch"'),
+      )).rejects.toThrow(/functional contract/);
+      await expect(exportBugTracker(
+        fixture, dir,
+        document => renderBugTrackerHtml(document)
+          .replace('id="retestPassed"', 'id="missingRetestPassed"'),
+      )).rejects.toThrow(/functional contract/);
+      await expect(readdir(dir)).resolves.toEqual([]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

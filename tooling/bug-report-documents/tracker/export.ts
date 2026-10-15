@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BugTrackerDocument } from "./model.js";
 import { trackerIssueIds, validateBugTrackerDocument } from "./validate.js";
@@ -11,8 +11,16 @@ export interface TrackerRenderer {
 function assertHtmlFunctionalContract(html: string): void {
   const required = [
     'id="saveButton"',
-    'id="saveHtml"',
+    'id="saveHtml" type="button" class="save-primary"',
     'id="saveJson"',
+    'id="findingSearch"',
+    'id="severityFilter"',
+    'id="resultFilter"',
+    'id="clearFilters"',
+    'id="retestPassed"',
+    'id="retestFailed"',
+    'id="retestUntested"',
+    'id="retestUnavailable"',
     'id="importJson"',
     'id="resetData"',
     'id="workspace-snapshot"',
@@ -21,6 +29,7 @@ function assertHtmlFunctionalContract(html: string): void {
     'data-result="SUCCESS"',
     'data-result="FAILED"',
     'Save as HTML',
+    'After-Fix Retest Results',
     'Save JSON',
     'Load JSON',
     'Reset Tester Data',
@@ -97,8 +106,20 @@ export async function exportBugTracker(
   renderHtml: TrackerRenderer,
 ): Promise<void> {
   const { json, html } = prepareBugTrackerPublication(document, renderHtml);
-  await writeFile(join(outDir, "bug-tracker.json"), json, "utf8");
-  await writeFile(join(outDir, "bug-tracker.html"), html, "utf8");
+  // Stage BOTH complete render artifacts before touching current published files.
+  // Each rename replaces one file, not the pair as a single transaction. A
+  // failure between renames is still caught by verifyPublishedBugTracker().
+  const staged = await mkdtemp(join(outDir, ".bug-tracker-stage-"));
+  try {
+    await Promise.all([
+      writeFile(join(staged, "bug-tracker.json"), json, "utf8"),
+      writeFile(join(staged, "bug-tracker.html"), html, "utf8"),
+    ]);
+    await rename(join(staged, "bug-tracker.json"), join(outDir, "bug-tracker.json"));
+    await rename(join(staged, "bug-tracker.html"), join(outDir, "bug-tracker.html"));
+  } finally {
+    await rm(staged, { recursive: true, force: true });
+  }
 }
 
 /**

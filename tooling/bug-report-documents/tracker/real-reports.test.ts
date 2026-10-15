@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   parseBugReportV2Json,
@@ -8,6 +9,7 @@ import {
 } from "../../../engine/packages/bug-report/src/index.js";
 import { projectClientDocumentToTracker, type DeveloperNoteRegistry, type ProjectRegistry } from "./project.js";
 import { renderBugTrackerHtml } from "./render-html.js";
+import { exportBugTracker, verifyPublishedBugTracker } from "./export.js";
 import { trackerIssueIds, validateBugTrackerDocument } from "./validate.js";
 
 const cases = [
@@ -73,6 +75,31 @@ describe("Golden Tracker real approved-report parity", () => {
       expect(html).toContain("Save as HTML");
       expect(html).toContain('id="workspace-snapshot"');
       expect(html).toContain('class="files"');
+
+      // Real approved project input → canonical tracker → published HTML/JSON.
+      // Runtime acceptance only if this actual Vitest case executes.
+      const publicationDir = await mkdtemp(join(tmpdir(), "real-tracker-"));
+      try {
+        await exportBugTracker(tracker, publicationDir, renderBugTrackerHtml);
+        await expect(
+          verifyPublishedBugTracker(tracker, publicationDir, renderBugTrackerHtml),
+        ).resolves.toBeUndefined();
+        const [publishedJson, publishedHtml] = await Promise.all([
+          readFile(join(publicationDir, "bug-tracker.json"), "utf8"),
+          readFile(join(publicationDir, "bug-tracker.html"), "utf8"),
+        ]);
+        expect(JSON.parse(publishedJson)).toEqual(tracker);
+        const embedded = publishedHtml.match(
+          /<script id="report-data" type="application\/json">([\s\S]*?)<\/script>/,
+        );
+        expect(embedded).not.toBeNull();
+        expect(JSON.parse(embedded![1]!)).toEqual(tracker);
+        expect(publishedHtml).toContain('id="saveHtml" type="button" class="save-primary"');
+        expect(publishedHtml).toContain('id="findingSearch"');
+        expect(publishedHtml).toContain('id="retestPassed"');
+      } finally {
+        await rm(publicationDir, { recursive: true, force: true });
+      }
 
       const developerNoteCount = tracker.games.flatMap((game) =>
         game.levels.flatMap((level) => level.devNotes),
