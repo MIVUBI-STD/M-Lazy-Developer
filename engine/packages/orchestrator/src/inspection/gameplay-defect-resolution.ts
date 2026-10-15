@@ -429,13 +429,14 @@ function validateResolution(
         if (
           receipt === undefined ||
           unique(receipt.scopeIds).length === 0 ||
-          unique(receipt.evidenceIds).length === 0
+          unique(receipt.evidenceIds).length === 0 ||
+          receipt.exhaustiveWithinScope !== true
         ) {
           issues.push(
             link.id +
               ": counter-proof dimension '" +
               dimension +
-              "' requires explicit scope/evidence receipt.",
+              "' requires explicit scope/evidence and exhaustive dimension receipt.",
           );
         }
       }

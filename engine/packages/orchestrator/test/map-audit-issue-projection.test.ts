@@ -323,6 +323,27 @@ describe("EVALUATE to PROVE to issue projection", () => {
     });
   });
 
+  it("does not admit a globally exhaustive search with a non-exhaustive dimension", () => {
+    const incomplete = {
+      ...submitted,
+      counterProofSearch: {
+        ...submitted.counterProofSearch,
+        dimensionReceipts: submitted.counterProofSearch.dimensionReceipts.map((receipt) =>
+          receipt.dimension === "guard"
+            ? { ...receipt, exhaustiveWithinScope: false }
+            : receipt),
+      },
+    };
+    const proof = assessGameplayDefectResolutionGate(baseGraph, [incomplete]);
+    expect(proof.status).toBe("BLOCKED");
+    expect(proof.confirmedDefectReadyIds).toEqual([]);
+    expect(proof.issues.some((issue) =>
+      issue.includes("counter-proof dimension 'guard'") &&
+      issue.includes("exhaustive")
+    )).toBe(true);
+    expect(projectReadyAuditIssues(baseGraph, proof)).toEqual([]);
+  });
+
   it("rejects a false positive when a graph-owned exact-target guard blocks the contradiction", () => {
     const excluded: GameplayScenarioGraph = {
       ...baseGraph,
