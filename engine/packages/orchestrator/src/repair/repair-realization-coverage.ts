@@ -113,6 +113,7 @@ export function buildRepairRealizationCoverageReport(
     (source): RepairRealizationCoverageItem => {
       const realizerItem = realizerCoverage.items.find(
         (item) =>
+          item.sourceKind === source.sourceKind &&
           item.sourceId === source.sourceId &&
           item.sourceVersion === source.sourceVersion,
       );

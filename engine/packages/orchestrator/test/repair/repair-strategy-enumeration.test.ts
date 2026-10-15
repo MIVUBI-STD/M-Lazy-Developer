@@ -693,6 +693,42 @@ describe("repair strategy enumeration and realization", () => {
     expect(report.noImplementationCoverage).toBe(true);
   });
 
+  it("does not borrow realizer coverage from another source kind with the same ID", () => {
+    const enumeration = enumerateRepairStrategySources(
+      envelope(),
+      diagnostics,
+      providerRegistry,
+    );
+    const provider = enumeration.applicableSources.find((item) =>
+      item.sourceId === "session-guard-a");
+    expect(provider).toBeDefined();
+    const wrongKindCoverage = {
+      items: [{
+        sourceKind: "built-in-planner",
+        sourceId: provider!.sourceId,
+        sourceVersion: provider!.sourceVersion,
+        selectionMode: provider!.selectionMode,
+        deterministic: provider!.deterministic,
+        status: "realizer-available" as const,
+        reasons: ["Realizer belongs to a different source kind."],
+      }],
+      coveredSources: 1,
+      uncoveredSources: 0,
+      realizerNotRequiredSources: 0,
+      complete: true,
+    };
+    const report = buildRepairRealizationCoverageReport(
+      enumeration,
+      wrongKindCoverage,
+      [],
+    );
+    expect(report.items.find((item) =>
+      item.sourceId === "session-guard-a")).toMatchObject({
+      disposition: "missing-realizer",
+    });
+    expect(report.realizedCount).toBe(0);
+  });
+
   it("enumerates non-provider proposal sources without converting them into patch transactions", () => {
     const proposalOnlyRegistry:
       RepairStrategySourceRegistry = {
