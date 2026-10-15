@@ -148,6 +148,15 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("✕ FAILED");
   });
 
+  it("isolates tester workspace per exact map artifact and version", () => {
+    const html = renderBugTrackerHtml(fixture);
+    expect(html).toContain("SCOPE=scopeOf(REPORT)");
+    expect(html).toContain('KEY="m-bedrock-bug-tracker-workspace-v1:"+SCOPE');
+    expect(html).toContain("scopeOf(x.canonical)!==SCOPE");
+    expect(html).toContain("level.source.artifactFingerprint");
+    expect(html).toContain("level.source.version");
+  });
+
   it("rejects duplicate issue IDs before rendering", () => {
     const duplicate: BugTrackerDocument = {
       ...fixture,
