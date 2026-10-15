@@ -297,11 +297,13 @@ export function projectReadyAuditIssues(
             ...link.evidenceIds,
             ...(resolution.evidenceIds ?? []),
           ])].sort(),
-          ...((resolution.knowledgeRequirementIds?.length ?? 0) === 0
+          ...(link.knowledgeRequirementIds.length === 0
             ? {}
             : {
+                // The causal link owns the knowledge obligation; the
+                // supplied resolution cannot omit or invent report IDs.
                 knowledgeRequirementIds:
-                  [...(resolution.knowledgeRequirementIds ?? [])],
+                  [...new Set(link.knowledgeRequirementIds)].sort(),
               }),
         }];
       }),

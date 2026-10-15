@@ -497,6 +497,64 @@ describe("EVALUATE to PROVE to issue projection", () => {
 });
 
 describe("map audit issue projection", () => {
+  it("keeps causal-link knowledge authority in PROVEN and NEED_VALIDATION report metadata", () => {
+    const requirementId = "knowledge:capacity:state-flow";
+    const withKnowledge: GameplayScenarioGraph = {
+      ...graph,
+      causalLinks: graph.causalLinks.map((link) =>
+        link.id === "link:capacity"
+          ? { ...link, knowledgeRequirementIds: [requirementId] }
+          : link),
+      knowledgeRequirements: [{
+        id: requirementId,
+        scenarioId: "scenario:capacity",
+        domain: "state-flow",
+        reason: "Capacity state changes must be accounted for.",
+        capabilityIds: [],
+        dependsOnRequirementIds: [],
+        subjectIds: ["policy:arena"],
+        componentIds: ["runtime:arena"],
+      }],
+      knowledgeReceipts: [{
+        requirementId,
+        scenarioId: "scenario:capacity",
+        domain: "state-flow",
+        status: "SATISFIED",
+        evidenceIds: ["knowledge:capacity"],
+        knowledgeIds: [],
+        capabilityIdsUsed: [],
+        subjectIds: ["policy:arena"],
+        componentIds: ["runtime:arena"],
+        reason: "Selected state-flow evidence satisfies the requirement.",
+      }],
+    };
+    // A supplied resolution is not allowed to replace graph-owned knowledge.
+    const supplied: GameplayDefectResolutionGate = {
+      ...gate,
+      resolutions: gate.resolutions.map((resolution) =>
+        resolution.causalLinkId === "link:capacity"
+          ? { ...resolution, knowledgeRequirementIds: ["knowledge:foreign"] }
+          : resolution),
+    };
+    const ready = projectReadyAuditIssues(withKnowledge, supplied)
+      .find((item) => item.causalLinkId === "link:capacity");
+    expect(ready?.status).toBe("PROVEN");
+    expect(ready?.knowledgeRequirementIds).toEqual([requirementId]);
+
+    const missingKnowledge: GameplayScenarioGraph = {
+      ...withKnowledge,
+      knowledgeReceipts: withKnowledge.knowledgeReceipts.map((item) => ({
+        ...item, status: "MISSING_REQUIRED_KNOWLEDGE" as const,
+      })),
+    };
+    const unresolved = projectAllNeedValidationAuditIssues(missingKnowledge, supplied)
+      .find((item) => item.causalLinkId === "link:capacity");
+    expect(unresolved?.status).toBe("NEED_VALIDATION");
+    expect(unresolved?.knowledgeRequirementIds).toEqual([requirementId]);
+    expect(unresolved?.validationGroupKey).toBe(
+      "scenario:capacity:" + requirementId);
+  });
+
   it("keeps confirmation NEED_VALIDATION until family proof receipt is complete", () => {
     const { familyProof: _omittedFamilyProof, ...unprovenResolution } =
       gate.resolutions[1]!;
