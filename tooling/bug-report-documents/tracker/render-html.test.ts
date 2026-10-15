@@ -90,8 +90,7 @@ describe("Golden Bug Tracker renderer", () => {
 
   it("emits JavaScript that browsers can parse for tester controls and Load JSON", () => {
     const html = renderBugTrackerHtml(fixture);
-    const scripts = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)];
-    const interactiveScript = scripts.at(-1)?.[1];
+    const interactiveScript = html.split("<script>").at(-1)?.split("</script>")[0];
     expect(interactiveScript).toBeDefined();
     expect(() => new Script(interactiveScript!)).not.toThrow();
     expect(interactiveScript).toContain('const r=new FileReader()');
@@ -99,10 +98,10 @@ describe("Golden Bug Tracker renderer", () => {
 
   it("normalizes legacy tester attachment state and escapes portable HTML snapshots", () => {
     const html = renderBugTrackerHtml(fixture);
-    const script = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)].at(-1)?.[1];
+    const script = html.split("<script>").at(-1)?.split("</script>")[0];
     expect(script).toBeDefined();
 
-    const stateExpression = script?.match(/,state=(id=>.*?),toast=m=>/)?.[1];
+    const stateExpression = script?.split(",state=")[1]?.split(",toast=m=>")[0];
     expect(stateExpression).toBeDefined();
     const existing = { "BUG-GOLDEN-001": { notes: "legacy", result: null } };
     const getState = runInNewContext(
@@ -111,9 +110,7 @@ describe("Golden Bug Tracker renderer", () => {
     ) as (id: string) => { attachments: unknown[] };
     expect(getState("BUG-GOLDEN-001").attachments).toEqual([]);
 
-    const snapshotExpression = script?.match(
-      /snap\\.textContent=(JSON\\.stringify\\(WS\\)\\.replaceAll\\("<\\/","[^"]+"\\));dl/,
-    )?.[1];
+    const snapshotExpression = script?.split("snap.textContent=")[1]?.split(";dl(")[0];
     expect(snapshotExpression).toBeDefined();
     const notes = "</script><script>unsafe()</script>";
     const portable = runInNewContext(
