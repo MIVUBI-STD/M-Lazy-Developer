@@ -1675,8 +1675,17 @@ export function deriveGameplayArchitectureNavigation(
         const entryRegionId = unknown.sourceEntryRegionId!;
         const materialEvidenceIds = sorted(unknown.evidenceIds ?? []);
         const materialSet = new Set(materialEvidenceIds);
+        // One evidence ID can be referenced by several investigation
+        // entries. The effect belongs to THIS unknown flow only when the
+        // canonical effect owner supplies an ingress from that exact
+        // source entry, or the effect is directly in its entry region.
+        // A foreign entry cannot borrow a matching effect ID to
+        // manufacture mechanic context or apparent flow completeness.
         const matchedSlices = effectSlices.filter(slice =>
-          materialSet.has(slice.effectId));
+          materialSet.has(slice.effectId) &&
+          (slice.executionRegionId === entryRegionId ||
+            slice.candidateIngress.some(path =>
+              path.entryRegionId === entryRegionId)));
         const slicedIds = new Set(matchedSlices.map(slice => slice.effectId));
         return {
           unknownId: unknown.id,

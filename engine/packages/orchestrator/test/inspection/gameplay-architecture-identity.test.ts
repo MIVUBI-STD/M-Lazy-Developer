@@ -1170,6 +1170,69 @@ describe("arena identity evidence propagation", () => {
     expect(nav.knowledgeCoverage.wholeGameUnderstandingStatus).toBe("NOT_MEASURABLE");
   });
 
+  it("keeps unclassified source effects attached to their exact entry, not a foreign flow", () => {
+    const src = {
+      artifactId: "world:entry-scope",
+      relativePath: "behavior_packs/demo/scripts/flow.js",
+    };
+    const ir = {
+      schemaVersion: 1,
+      execution: {
+        regions: [
+          { id: "entry:alpha", kind: "event-source", ownerId: "world",
+            label: "start", source: src },
+          { id: "entry:beta", kind: "event-source", ownerId: "world",
+            label: "unused", source: src },
+          { id: "function:apply", kind: "script-function", ownerId: "game",
+            label: "apply", source: src },
+        ],
+        edges: [{
+          id: "edge:alpha-apply", from: "entry:alpha", to: "function:apply",
+          kind: "synchronous-call", resolution: "resolved",
+          targetLabel: "apply", source: src,
+        }],
+      },
+      state: {
+        surfaces: [], authorityBindings: [],
+        operations: [{
+          id: "state:write", executionRegionId: "function:apply",
+          surfaceId: "score:round", operation: "write", source: src,
+        }],
+      },
+      temporal: { relations: [] },
+    } as unknown as import("../../../semantic-ir/src/index.js").SemanticIr;
+    const navigation = deriveGameplayArchitectureNavigation(emptyGraph, {
+      relevantSourceCount: 1,
+      indexedSourceCount: 1,
+      arenaDetected: false,
+      semanticIr: ir,
+      intentUnknowns: [{
+        id: "unknown:alpha", question: "What does alpha change?",
+        blockedSubjectIds: [],
+        evidenceIds: ["state:write"],
+        sourceEntryRegionId: "entry:alpha",
+      }, {
+        id: "unknown:beta", question: "Does beta also change state?",
+        blockedSubjectIds: [],
+        evidenceIds: ["state:write"],
+        sourceEntryRegionId: "entry:beta",
+      }],
+    });
+    const alpha = navigation.gameplayStructure.uninterpretedSourceFlows.find(
+      flow => flow.unknownId === "unknown:alpha");
+    const beta = navigation.gameplayStructure.uninterpretedSourceFlows.find(
+      flow => flow.unknownId === "unknown:beta");
+    expect(alpha?.effectPaths.map(path => path.effectId))
+      .toEqual(["state:write"]);
+    expect(alpha?.effectPaths[0]?.matchingIngress).toEqual([
+      expect.objectContaining({ executionEdgeIds: ["edge:alpha-apply"] }),
+    ]);
+    expect(alpha?.materialIdsWithoutEffectSlice).toEqual([]);
+    expect(beta?.effectPaths).toEqual([]);
+    expect(beta?.materialIdsWithoutEffectSlice).toEqual(["state:write"]);
+    expect(navigation.knowledgeCoverage.wholeGameUnderstandingPercent).toBeNull();
+  });
+
   it("does not inherit imported-call guards from similar names or nonmatching source spans", () => {
     const prefix = "behavior_packs/demo/scripts/";
     const source = (path: string) => ({
