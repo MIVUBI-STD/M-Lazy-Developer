@@ -457,9 +457,10 @@ describe("arena concurrency capacity extraction", () => {
   it("joins a uniform keyed configuration table to the same arena ID and roster", () => {
     const base = [
       "const CONFIGS = { north: { max_member: 5 }, south: { max_member: 5 } };",
-      "function getConfig(id) { return CONFIGS[id]; }",
+      "function getConfig(id) { return Object.hasOwn(CONFIGS, id) ? CONFIGS[id] : void 0; }",
       "function join(arena, player) {",
       "  const cfg = getConfig(arena.id);",
+      "  if (!cfg) return;",
       "  if (arena.members.length >= cfg.max_member) return;",
       "  arena.members.push(player);",
       "}",
@@ -481,6 +482,7 @@ describe("arena concurrency capacity extraction", () => {
     expect(spans).toContain(1);
     expect(spans).toContain(2);
     expect(spans).toContain(4);
+    expect(spans).toContain(5);
 
     const negative: readonly [string, readonly string[]][] = [
       ["mixed-capacities", [
@@ -522,6 +524,19 @@ describe("arena concurrency capacity extraction", () => {
         ...base.slice(0, 2),
         "const leaked = getConfig('north');",
         ...base.slice(2),
+      ]],
+      ["unguarded-inherited-key", [
+        base[0]!,
+        "function getConfig(id) { return CONFIGS[id]; }",
+        ...base.slice(2),
+      ]],
+      ["no-missing-config-guard", [
+        ...base.slice(0, 4),
+        ...base.slice(5),
+      ]],
+      ["mocked-has-own", [
+        ...base,
+        "Object.hasOwn = () => true;",
       ]],
     ];
     for (const [id, code] of negative) {

@@ -583,7 +583,22 @@ function getterBoundModuleCapacity(
       !ts.isBlock(guard.parent)) return undefined;
   const statements = guard.parent.statements;
   const guardIndex = statements.indexOf(guard);
-  const aliasStatement = statements[guardIndex - 1];
+  // A keyed lookup must reject a missing own key before the numeric
+  // comparison. Otherwise inherited Object.prototype properties may
+  // bypass a seemingly uniform capacity table.
+  const preceding = statements[guardIndex - 1];
+  const isMissingKeyGuard = preceding !== undefined &&
+    ts.isIfStatement(preceding) &&
+    preceding.elseStatement === undefined &&
+    ts.isPrefixUnaryExpression(preceding.expression) &&
+    preceding.expression.operator === ts.SyntaxKind.ExclamationToken &&
+    ts.isIdentifier(preceding.expression.operand) &&
+    preceding.expression.operand.text === aliasName &&
+    (ts.isReturnStatement(preceding.thenStatement) ||
+      (ts.isBlock(preceding.thenStatement) &&
+       preceding.thenStatement.statements.length === 1 &&
+       ts.isReturnStatement(preceding.thenStatement.statements[0]!)));
+  const aliasStatement = statements[guardIndex - (isMissingKeyGuard ? 2 : 1)];
   if (!aliasStatement || !ts.isVariableStatement(aliasStatement) ||
       (aliasStatement.declarationList.flags & ts.NodeFlags.Const) === 0 ||
       aliasStatement.declarationList.declarations.length !== 1) return undefined;
@@ -621,30 +636,54 @@ function getterBoundModuleCapacity(
   let keyDeclaration: ts.Identifier | undefined;
   let keyReference: ts.Identifier | undefined;
   let keySelectorName: ts.Identifier | undefined;
+  let ownTableReference: ts.Identifier | undefined;
+  let ownFormalReference: ts.Identifier | undefined;
+  let ownObjectReference: ts.Identifier | undefined;
   if (keyed) {
     const result = returned.expression;
     const parameter = getter.parameters[0]!;
     const actual = call.arguments[0];
     const membership = membershipCount(comparison.left, file);
-    if (!ts.isElementAccessExpression(result) ||
-        !ts.isIdentifier(result.expression) ||
-        !result.argumentExpression ||
-        !ts.isIdentifier(result.argumentExpression) ||
+    // An own-key check makes the indexed path total over only the
+    // explicitly authored table entries. Requiring void 0 as fallback
+    // avoids a shadowable variable named "undefined".
+    if (!isMissingKeyGuard ||
+        !ts.isConditionalExpression(result) ||
+        !ts.isCallExpression(result.condition) ||
+        !ts.isPropertyAccessExpression(result.condition.expression) ||
+        !ts.isIdentifier(result.condition.expression.expression) ||
+        result.condition.expression.expression.text !== "Object" ||
+        result.condition.expression.name.text !== "hasOwn" ||
+        result.condition.arguments.length !== 2 ||
+        !ts.isIdentifier(result.condition.arguments[0]) ||
+        !ts.isIdentifier(result.condition.arguments[1]) ||
+        !ts.isElementAccessExpression(result.whenTrue) ||
+        !ts.isIdentifier(result.whenTrue.expression) ||
+        !result.whenTrue.argumentExpression ||
+        !ts.isIdentifier(result.whenTrue.argumentExpression) ||
+        !ts.isVoidExpression(result.whenFalse) ||
+        !ts.isNumericLiteral(result.whenFalse.expression) ||
+        result.whenFalse.expression.text !== "0" ||
         !ts.isIdentifier(parameter.name) ||
         parameter.initializer || parameter.dotDotDotToken ||
-        result.argumentExpression.text !== parameter.name.text ||
+        result.condition.arguments[0].text !== result.whenTrue.expression.text ||
+        result.condition.arguments[1].text !== parameter.name.text ||
+        result.whenTrue.argumentExpression.text !== parameter.name.text ||
         !actual || !ts.isPropertyAccessExpression(actual) ||
         !/^(?:id|arenaId|configId|configKey)$/.test(actual.name.text) ||
         !membership ||
         actual.expression.getText(file) !== membership.arenaExpression) return undefined;
-    configReference = result.expression;
+    configReference = result.whenTrue.expression;
     keyDeclaration = parameter.name;
-    keyReference = result.argumentExpression;
-    // Property names are also Identifier AST nodes. The admitted
-    // arena.id selector is not a third lexical use of the formal "id".
+    keyReference = result.whenTrue.argumentExpression;
+    ownTableReference = result.condition.arguments[0];
+    ownFormalReference = result.condition.arguments[1];
+    ownObjectReference = result.condition.expression.expression;
+    // Property names are AST identifiers too, not free references
+    // to the getter's lexical formal argument.
     keySelectorName = actual.name;
   } else {
-    if (call.arguments.length !== 0 ||
+    if (isMissingKeyGuard || call.arguments.length !== 0 ||
         !ts.isIdentifier(returned.expression)) return undefined;
     configReference = returned.expression;
   }
@@ -731,13 +770,25 @@ function getterBoundModuleCapacity(
     visit(file);
     return valid;
   };
-  if (!onlyReferences(configName, [config.name, configReference]) ||
+  if (!onlyReferences(configName, [
+        config.name, configReference,
+        ...(ownTableReference ? [ownTableReference] : []),
+      ]) ||
       !onlyReferences(getterName, [getter.name, call.expression]) ||
-      !onlyReferences(aliasName, [alias.name, expression.expression])) return undefined;
+      !onlyReferences(aliasName, [
+        alias.name, expression.expression,
+        ...(isMissingKeyGuard ? [
+          (preceding as ts.IfStatement).expression,
+        ].flatMap((node) =>
+          ts.isPrefixUnaryExpression(node) &&
+          ts.isIdentifier(node.operand) ? [node.operand] : []) : []),
+      ])) return undefined;
   if (keyed &&
-      (!keyDeclaration || !keyReference ||
+      (!keyDeclaration || !keyReference || !ownFormalReference ||
+       !ownObjectReference ||
+       !onlyReferences("Object", [ownObjectReference]) ||
        !onlyReferences(keyDeclaration.text, [
-         keyDeclaration, keyReference,
+         keyDeclaration, keyReference, ownFormalReference,
          ...(keySelectorName ? [keySelectorName] : []),
        ])))
     return undefined;
@@ -752,7 +803,11 @@ function getterBoundModuleCapacity(
         lineSource(file, property, source)),
       lineSource(file, getter, source),
       lineSource(file, aliasStatement, source),
-      ...(keyed ? [lineSource(file, call.arguments[0]!, source)] : []),
+      ...(keyed ? [
+        lineSource(file, returned.expression!, source),
+        lineSource(file, (preceding as ts.IfStatement), source),
+        lineSource(file, call.arguments[0]!, source),
+      ] : []),
     ],
   };
 }
