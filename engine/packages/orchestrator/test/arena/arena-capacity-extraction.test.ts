@@ -404,6 +404,56 @@ describe("arena concurrency capacity extraction", () => {
     expect(result.evidence.perArenaPlayerCapacitySources).toHaveLength(2);
   });
 
+  it("keeps capacity UNKNOWN when mapped configuration or allocation evaluates unknown effects", () => {
+    const base = [
+      "const configs = [0, 1].map(id => ({maxPlayers: 5, id}));",
+      "var Party = class {",
+      "  constructor(definition) { this.definition = definition; }",
+      "  members = [];",
+      "  join(player) {",
+      "    return this.members.length >= this.definition.maxPlayers",
+      "      ? false : (this.members.push(player), true);",
+      "  }",
+      "};",
+      "const parties = configs.map(cfg => new Party(cfg));",
+    ];
+    const cases: [string, string, string][] = [
+      ["generator-evaluation", "const configs = [0, 1].map(id => ({maxPlayers: 5, id}));",
+        "const configs = [0, 1].map(id => ({maxPlayers: 5, id, extra: mutateConfiguration()}));"],
+      ["generator-this-arg", "const configs = [0, 1].map(id => ({maxPlayers: 5, id}));",
+        "const configs = [0, 1].map(id => ({maxPlayers: 5, id}), mutateConfiguration());"],
+      ["allocation-this-arg", "const parties = configs.map(cfg => new Party(cfg));",
+        "const parties = configs.map(cfg => new Party(cfg), mutateConfiguration());"],
+      ["constructor-extra-arg", "const parties = configs.map(cfg => new Party(cfg));",
+        "const parties = configs.map(cfg => new Party(cfg, mutateConfiguration()));"],
+      ["constructor-direct-extra-arg", "const parties = configs.map(cfg => new Party(cfg));",
+        "const parties = [new Party(configs[0], mutateConfiguration())];"],
+    ];
+    const parse = (id: string, src: string[]) => parseScriptFile(
+      id, src.join("\n"), {
+        artifactId: "side-effect-fixture",
+        relativePath: "scripts/" + id + ".js",
+      },
+    );
+    const baseline = extractArenaConcurrencyCapacity({
+      tickingAreas: [], scripts: [parse("pure-generator", base)],
+      declaredArenaCount: 2,
+    }).evidence;
+    expect(baseline.perArenaPlayerCapacity).toBe(5);
+    for (const [id, from, to] of cases) {
+      const fixture = [...base];
+      const index = fixture.indexOf(from);
+      expect(index, id).toBeGreaterThanOrEqual(0);
+      fixture[index] = to;
+      const evidence = extractArenaConcurrencyCapacity({
+        tickingAreas: [], scripts: [parse(id, fixture)],
+        declaredArenaCount: 2,
+      }).evidence;
+      expect(evidence.perArenaPlayerCapacity, id).toBeUndefined();
+      expect(evidence.declaredMaxConcurrentPlayers, id).toBeUndefined();
+    }
+  });
+
   it("projects module-local const array generators only with exact immutable identity", () => {
     const base = [
       "const arenaIds = [0, 200];",

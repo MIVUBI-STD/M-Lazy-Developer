@@ -922,6 +922,34 @@ function mappedConstructorCapacity(
       inputSource: lineSource(file, owner.initializer, source),
     };
   };
+  // Source-only numeric capacity must not borrow a value from an
+  // initializer whose evaluation can perform an unknown mutation. Such
+  // code may rewrite previously generated config objects during .map().
+  const unknownEvaluationEffects = (expression: ts.Node): boolean => {
+    let unsafe = false;
+    const visit = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) ||
+          ts.isNewExpression(node) ||
+          ts.isTaggedTemplateExpression(node) ||
+          ts.isAwaitExpression(node) ||
+          ts.isYieldExpression(node) ||
+          ts.isDeleteExpression(node) ||
+          ts.isPropertyAccessExpression(node) ||
+          ts.isElementAccessExpression(node) ||
+          (ts.isBinaryExpression(node) &&
+           node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+           node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) ||
+          ((ts.isPrefixUnaryExpression(node) ||
+            ts.isPostfixUnaryExpression(node)) &&
+           (node.operator === ts.SyntaxKind.PlusPlusToken ||
+            node.operator === ts.SyntaxKind.MinusMinusToken))) {
+        unsafe = true;
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(expression);
+    return unsafe;
+  };
   // A definite object literal with one unshadowed capacity key must be
   // produced for every member of the proven input array.
   const generators = new Map<string, {
@@ -942,7 +970,10 @@ function mappedConstructorCapacity(
       if (!ts.isIdentifier(d.name) || !d.initializer ||
           !ts.isCallExpression(d.initializer) ||
           !ts.isPropertyAccessExpression(d.initializer.expression) ||
-          d.initializer.expression.name.text !== "map") continue;
+          d.initializer.expression.name.text !== "map" ||
+          // The optional thisArg is evaluated before map() executes and
+          // can change the source configuration. Do not silently ignore it.
+          d.initializer.arguments.length !== 1) continue;
       const input = mapInputArray(d.initializer.expression.expression);
       if (!input) continue;
       const cb = d.initializer.arguments[0];
@@ -971,7 +1002,9 @@ function mappedConstructorCapacity(
             (ts.isPropertyAssignment(p) ||
               ts.isShorthandPropertyAssignment(p)) &&
             (ts.isIdentifier(p.name) ||
-              ts.isStringLiteralLike(p.name)))) continue;
+              ts.isStringLiteralLike(p.name)) &&
+            (!ts.isPropertyAssignment(p) ||
+              !unknownEvaluationEffects(p.initializer)))) continue;
       // A shorthand of the same capacity key is also a duplicate and
       // prevents inferring that the numeric property is authoritative.
       const props = returned.properties.filter((p) =>
@@ -1042,7 +1075,12 @@ function mappedConstructorCapacity(
     if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) &&
         node.expression.text === className) {
       const argument = node.arguments?.[binding.parameterIndex];
-      if (!argument) { valid = false; return; }
+      // Additional constructor arguments are evaluated before the
+      // constructor receives its configuration and may mutate shared
+      // source state. No numeric proof without a closed argument list.
+      if (!argument || node.arguments?.length !== 1) {
+        valid = false; return;
+      }
       let sourceName: string | undefined;
       if (ts.isArrowFunction(node.parent) &&
           // Async allocation returns Promise<instance>, not an
@@ -1052,6 +1090,8 @@ function mappedConstructorCapacity(
           ts.isCallExpression(node.parent.parent) &&
           ts.isPropertyAccessExpression(node.parent.parent.expression) &&
           node.parent.parent.expression.name.text === "map" &&
+          node.parent.parent.arguments.length === 1 &&
+          node.parent.parent.arguments[0] === node.parent &&
           ts.isIdentifier(node.parent.parent.expression.expression) &&
           node.parent.parameters.length === 1 &&
           ts.isIdentifier(node.parent.parameters[0]!.name) &&
