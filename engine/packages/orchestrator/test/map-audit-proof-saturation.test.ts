@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { assessReadyResolutionSaturation } from "../src/map-audit-proof-saturation.js";
 
-function graph(impactPathComponentIds: readonly string[]) {
+function graph(impactPathComponentIds: readonly string[], label = "wave-progression") {
   return {
     scenarios: [{
       id: "s1",
-      label: "wave-progression",
+      label,
       gameplayStage: "PROGRESSION",
       purpose: "Complete the wave",
       componentIds: ["runtime:chunks", "objective:wave"],
@@ -31,12 +31,12 @@ function graph(impactPathComponentIds: readonly string[]) {
       dimensionEvidence: {},
     }],
     knowledgeReceipts: [
-      { requirementId: "knowledge:s1:chunk-simulation", evidenceIds: ["knowledge:chunk"] },
-      { requirementId: "knowledge:s1:platform-constraints", evidenceIds: ["knowledge:platform"] },
+      { requirementId: "knowledge:s1:chunk-simulation", scenarioId: "s1", domain: "chunk-simulation", status: "SATISFIED", evidenceIds: ["knowledge:chunk"] },
+      { requirementId: "knowledge:s1:platform-constraints", scenarioId: "s1", domain: "platform-constraints", status: "SATISFIED", evidenceIds: ["knowledge:platform"] },
     ],
     knowledgeRequirements: [
-      { id: "knowledge:s1:chunk-simulation", domain: "chunk-simulation" },
-      { id: "knowledge:s1:platform-constraints", domain: "platform-constraints" },
+      { id: "knowledge:s1:chunk-simulation", scenarioId: "s1", domain: "chunk-simulation" },
+      { id: "knowledge:s1:platform-constraints", scenarioId: "s1", domain: "platform-constraints" },
     ],
   } as any;
 }
@@ -63,26 +63,58 @@ const resolution = {
 };
 
 describe("map audit proof saturation", () => {
-  it("does not infer absence-style proof from a generic contradiction", () => {
+  it("keeps wave progression reconciliation unknown without dimension proof", () => {
     const result = assessReadyResolutionSaturation(
       graph([]),
       resolution as any,
     );
+    expect(result.failureDomain).toBe("progression-wave-objective");
     expect(result.saturated).toBe(false);
     expect(result.missingFamilyCriteriaIds).toContain(
-      "platform-constraint-bound",
+      "reconciliation-exhausted",
     );
   });
 
-  it("can reuse canonical evidence for grounded cross-domain proof criteria", () => {
+  it("accepts only satisfied matching knowledge receipts for chunk/platform criteria", () => {
     const result = assessReadyResolutionSaturation(
-      graph(["objective:wave"]),
+      graph(["objective:wave"], "chunk-residency-stall"),
       resolution as any,
     );
-    const platform = result.familyCriteria.find(
-      (item) => item.id === "platform-constraint-bound",
-    );
-    expect(platform?.satisfied).toBe(true);
-    expect(platform?.evidenceIds.length).toBeGreaterThan(0);
+    expect(result.failureDomain).toBe("chunk-simulation");
+    for (const [criterionId, evidenceId] of [
+      ["residency-requirement-grounded", "knowledge:chunk"],
+      ["platform-constraint-bound", "knowledge:platform"],
+    ]) {
+      const criterion = result.familyCriteria.find((item) => item.id === criterionId);
+      expect(criterion?.satisfied).toBe(true);
+      expect(criterion?.evidenceIds).toContain(evidenceId);
+    }
+  });
+
+  it("does not promote generic source evidence or unsatisfied platform knowledge", () => {
+    const scenario = graph(["objective:wave"], "chunk-residency-stall");
+    scenario.knowledgeReceipts[1].status = "MISSING_REQUIRED_KNOWLEDGE";
+    const result = assessReadyResolutionSaturation(scenario, resolution as any);
+    const platform = result.familyCriteria.find((item) => item.id === "platform-constraint-bound");
+    expect(result.failureDomain).toBe("chunk-simulation");
+    expect(platform?.satisfied).toBe(false);
+    expect(platform?.evidenceIds).toEqual([]);
+    expect(result.saturated).toBe(false);
+  });
+
+  it("rejects a knowledge receipt borrowed from another scenario", () => {
+    const scenario = graph(["objective:wave"], "chunk-residency-stall");
+    scenario.knowledgeReceipts[1].scenarioId = "foreign-scenario";
+    const result = assessReadyResolutionSaturation(scenario, resolution as any);
+    expect(result.missingFamilyCriteriaIds).toContain("platform-constraint-bound");
+    expect(result.familyCriteria.find((item) =>
+      item.id === "residency-requirement-grounded")?.satisfied).toBe(true);
+  });
+
+  it("rejects a satisfied knowledge receipt without matching requirement identity", () => {
+    const scenario = graph(["objective:wave"], "chunk-residency-stall");
+    scenario.knowledgeRequirements[1].id = "foreign-requirement";
+    const result = assessReadyResolutionSaturation(scenario, resolution as any);
+    expect(result.missingFamilyCriteriaIds).toContain("platform-constraint-bound");
   });
 });

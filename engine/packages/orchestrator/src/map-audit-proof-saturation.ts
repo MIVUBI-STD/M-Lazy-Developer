@@ -154,10 +154,9 @@ function derivedFamilyCriterionEvidence(input: {
   criterionId: string;
   link: GameplayScenarioGraph["causalLinks"][number] | undefined;
   resolution: GameplayDefectResolution;
-  evidenceIds: readonly string[];
-  counterProofCleared: boolean;
+  knowledgeEvidenceByDomain: ReadonlyMap<string, readonly string[]>;
 }): readonly string[] {
-  const { criterionId, link, resolution, evidenceIds, counterProofCleared } = input;
+  const { criterionId, link, resolution, knowledgeEvidenceByDomain } = input;
   if (link === undefined || link.status !== "CONTRADICTED") return [];
 
   const contradictionEvidence = [
@@ -170,15 +169,6 @@ function derivedFamilyCriterionEvidence(input: {
     link.impactPathComponentIds.length > 0 &&
     link.impactPathEvidenceIds.length > 0
       ? [...link.impactPathEvidenceIds]
-      : [];
-  const counterProofEvidence =
-    counterProofCleared
-      ? [...(resolution.counterProofSearch?.evidenceIds ?? [])]
-      : [];
-  const knowledgeEvidence =
-    (resolution.knowledgeRequirementIds ?? [])
-      .length > 0
-      ? evidenceIds
       : [];
   const familyCounterproofDimensions =
     FAMILY_COUNTERPROOF_DIMENSIONS[criterionId] ?? [];
@@ -253,11 +243,11 @@ function derivedFamilyCriterionEvidence(input: {
   ) {
     return impactEvidence;
   }
-  if (
-    criterionId.includes("platform-constraint") ||
-    criterionId.includes("residency-requirement")
-  ) {
-    return knowledgeEvidence;
+  if (criterionId.includes("platform-constraint")) {
+    return knowledgeEvidenceByDomain.get("platform-constraints") ?? [];
+  }
+  if (criterionId.includes("residency-requirement")) {
+    return knowledgeEvidenceByDomain.get("chunk-simulation") ?? [];
   }
   if (
     criterionId.includes("reachable") ||
@@ -303,6 +293,28 @@ export function assessReadyResolutionSaturation(
     ]),
   ].sort();
   const knownEvidenceIds = new Set(evidenceIds);
+  // Knowledge declarations cannot ground platform or simulation criteria by
+  // themselves. Only a matching, satisfied, same-scenario RIG receipt can.
+  const knowledgeEvidenceByDomain = new Map<string, string[]>();
+  for (const requirementId of resolution.knowledgeRequirementIds ?? []) {
+    const requirement = graph.knowledgeRequirements.find((item) =>
+      item.id === requirementId && item.scenarioId === link?.scenarioId
+    );
+    if (requirement === undefined) continue;
+    const receipt = graph.knowledgeReceipts.find((item) =>
+      item.requirementId === requirement.id &&
+      item.scenarioId === requirement.scenarioId &&
+      item.domain === requirement.domain &&
+      item.status === "SATISFIED"
+    );
+    if (receipt === undefined) continue;
+    knowledgeEvidenceByDomain.set(requirement.domain, [
+      ...new Set([
+        ...(knowledgeEvidenceByDomain.get(requirement.domain) ?? []),
+        ...receipt.evidenceIds,
+      ]),
+    ].sort());
+  }
 
   const componentIds = [
     ...new Set([
@@ -439,8 +451,7 @@ export function assessReadyResolutionSaturation(
               criterionId: criterion.id,
               link,
               resolution,
-              evidenceIds,
-              counterProofCleared,
+              knowledgeEvidenceByDomain,
             }).filter((id) => knownEvidenceIds.has(id));
       const criterionEvidence = [
         ...new Set([
