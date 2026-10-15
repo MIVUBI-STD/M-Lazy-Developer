@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Script } from "node:vm";
 import type { BugTrackerDocument } from "./model.js";
 import { renderBugTrackerHtml } from "./render-html.js";
 import { validateBugTrackerDocument } from "./validate.js";
@@ -78,13 +79,22 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("Save as HTML");
     expect(html).toContain("Save JSON");
     expect(html).not.toContain("Export");
-    expect(html).toContain("Evidence · Optional");
+    expect(html).toContain("Evidence <span>· Optional</span>");
     expect(html).toContain("Optional notes");
     expect(html.indexOf("TEST RESULT")).toBeLessThan(html.indexOf("Technical Details ↓"));
     expect(html).not.toContain("Mark fixed");
     expect(html).toContain('data-issue-id="BUG-GOLDEN-001"');
     expect(html).not.toContain("<details class=\"map\"");
     expect(html.indexOf("BUGS")).toBeLessThan(html.indexOf("DEVELOPER NOTES"));
+  });
+
+  it("emits JavaScript that browsers can parse for tester controls and Load JSON", () => {
+    const html = renderBugTrackerHtml(fixture);
+    const scripts = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)];
+    const interactiveScript = scripts.at(-1)?.[1];
+    expect(interactiveScript).toBeDefined();
+    expect(() => new Script(interactiveScript!)).not.toThrow();
+    expect(interactiveScript).toContain('const r=new FileReader()');
   });
 
   it("renders a combined briefing with column-major map navigation", () => {
