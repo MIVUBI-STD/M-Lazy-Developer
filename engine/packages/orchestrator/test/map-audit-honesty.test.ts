@@ -236,6 +236,40 @@ describe("map audit honesty gate", () => {
     );
   });
 
+  it("rejects unexpected PROVEN findings even when all real residue is visible", () => {
+    const visibleObligationIds = [
+      "capability-delivery:unassessed",
+      "link:wave",
+    ];
+    const assess = (visibleIssues: readonly AuditIssueProjection[]) =>
+      assessAuditHonesty({
+        graph,
+        gate,
+        gameplayClosure: closure,
+        capabilityDelivery: [],
+        negativeSpace: [],
+        temporalRisks: [],
+        discoveryChallenges: [],
+        sharedResourceSignals: [],
+        compoundBoundaries: [],
+        accumulationGrowth: [],
+        visibleIssues,
+        visibleObligationIds,
+      });
+
+    expect(assess([]).status).toBe("PASS");
+    for (const causalLinkId of ["foreign-link", "link:wave"]) {
+      const result = assess([{
+        ...visibleRuntimeFinding(),
+        status: "PROVEN",
+        causalLinkId,
+      }]);
+      expect(result.status, causalLinkId).toBe("VIOLATION");
+      expect(result.expectedProvenIds).toEqual([]);
+      expect(result.reasons.join(" "), causalLinkId).toContain(causalLinkId);
+    }
+  });
+
   it("blocks review when a material unresolved residue is hidden", () => {
     const result = assessAuditHonesty({
       graph,

@@ -326,6 +326,12 @@ export function assessAuditHonesty(input: {
     expectedProvenIds.filter(
       (id) => !visibleProvenSet.has(id),
     );
+  // Honesty must conserve proof in both directions. An unexpected PROVEN
+  // projection is not legitimized by covering other audit obligations.
+  const expectedProvenSet = new Set(expectedProvenIds);
+  const unsupportedVisibleProvenIds = visibleProvenIds.filter(
+    (id) => !expectedProvenSet.has(id),
+  );
 
   const reasons: string[] = [];
   if (missingVisibleResidueIds.length > 0) {
@@ -342,6 +348,13 @@ export function assessAuditHonesty(input: {
         ".",
     );
   }
+  if (unsupportedVisibleProvenIds.length > 0) {
+    reasons.push(
+      "Visible PROVEN causal links lack confirmed, saturated proof: " +
+        unsupportedVisibleProvenIds.join(", ") +
+        ".",
+    );
+  }
   if (reasons.length === 0) {
     reasons.push(
       "Every tracked material unresolved residue is visible as a causal NEED_VALIDATION finding or an Audit Obligation, and every confirmed-defect-ready causal link is visible as PROVEN.",
@@ -353,7 +366,8 @@ export function assessAuditHonesty(input: {
     status:
       reasons.length === 1 &&
       missingVisibleResidueIds.length === 0 &&
-      missingProvenProjectionIds.length === 0
+      missingProvenProjectionIds.length === 0 &&
+      unsupportedVisibleProvenIds.length === 0
         ? "PASS"
         : "VIOLATION",
     expectedVisibleResidueIds,
