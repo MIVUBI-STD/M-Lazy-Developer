@@ -142,20 +142,21 @@ Expanded gameplay finding:
 Why This Is a Bug   only when canonical rationale exists
 Impact              only when canonical impact exists
 Test In-Game       only when canonical reproduction exists
-Expected           only when canonical expected behavior exists
+Expected/Observed  adjacent when canonical evidence exists
 Test Result
 Tester Notes       optional workspace state
 Evidence           optional workspace state
 Technical Details  only when technical content exists
 ```
 
+Observed / Evidence is placed next to Expected above Test Result and labeled as recorded evidence, **not** the tester's after-fix outcome. The canonical observation appears once, not duplicated inside Technical Details.
+
 Technical Details order:
 
-1. Observed / Evidence — the recorded state or source observation, without implying a live Minecraft test.
-2. Technical Analysis — the documented interpretation or proposed cause, not an automatically proven root cause.
-3. Relevant Code — original file paths with the source-authored reason for inspecting each location, readable on separate lines.
-4. Recommended Fix — a proposed repair direction, not an executed repair or confirmed outcome.
-5. Must Preserve — recorded invariants that must survive repair.
+1. Technical Analysis — the documented interpretation or proposed cause, not an automatically proven root cause.
+2. Relevant Code — original file paths with the source-authored reason for inspecting each location, readable on separate lines.
+3. Recommended Fix — a proposed repair direction, not an executed repair or confirmed outcome.
+4. Must Preserve — recorded invariants that must survive repair.
 
 For Needs Validation, mark the technical assessment and repair direction provisional. A Verified Issue does not imply runtime proof or a completed retest. Do not generate missing technical facts, line numbers or root causes.
 
@@ -181,6 +182,15 @@ The recipient-facing HTML must distinguish **issue evidence**, **guided retest i
 - Distinguish malformed/different-artifact Load JSON from browser storage failure. A failed load must not discard current working data.
 - Saved portable HTML/JSON can contain tester notes and screenshots. Advise recipients to review these before sharing. Portable copies do not mutate canonical issue data.
 - These measures apply within the existing renderer; do not create a separate status database, report generator, or browser data authority.
+
+
+## Tester progress, search and filtering
+
+Within Map Report and Combined Report, show a compact **After-Fix Retest Results** summary derived only from the **current tester workspace**. `Passed`, `Failed`, and `Untested` partition findings whose evidence and Test In-Game guidance are currently retest-ready. `Not Retestable` counts remaining BUG/DESIGN_MISMATCH findings, including those with retained historical results that are no longer eligible. Developer Notes have no retest result and are excluded. Never derive Passed/Failed from canonical `VERIFIED`, `fixed`, or severity. Recompute on initial HTML snapshot/browser draft recovery, result click, Load JSON, and Reset, without changing canonical JSON.
+
+Provide one compact search/filter area: title/ID/problem search, severity, and retest result (All, Passed, Failed, Untested, Not Retestable). These are **view-only** and never remove, overwrite, or filter exported facts. Developer Notes participate in unfiltered/title-ID search but do not acquire severity or result; exclude them when issue-only filters are selected. Hide empty groups, levels, maps and irrelevant navigation links while filtering. Combined Reports open matched maps for visibility; Clear filters restores all findings. Show the count of visible entries and a clear no-results message. Saving portable HTML always includes the **complete** canonical report and tester workspace, regardless of filters active at save time.
+
+Present Expected and Observed/Evidence side by side on desktop and stacked on narrow screens, with recorded Observed explicitly distinguished from a live retest. Keep the technical details accessible without duplicating the original observed field. Do not introduce new status owners, server storage, charts, or inferred evidence.
 
 ## Interaction states
 

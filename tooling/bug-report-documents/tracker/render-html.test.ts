@@ -78,7 +78,13 @@ describe("Golden Bug Tracker renderer", () => {
     expect(html).toContain("Technical Details ↓");
     expect(html).toContain("Technical Analysis");
     expect(html).not.toContain("Why It Happens / Technical Analysis");
-    expect(html).toContain("Observed / Evidence");
+    expect(html).toContain("OBSERVED / EVIDENCE");
+    expect(html).toContain('class="behavior-comparison" aria-label="Expected and recorded observation"');
+    expect(html).toContain("Recorded evidence; not a live tester result.");
+    expect(html).toContain("After-Fix Retest Results");
+    expect(html).toContain('id="findingSearch"');
+    expect(html).toContain('id="severityFilter"');
+    expect(html).toContain('id="resultFilter"');
     expect(html).toContain("Finding evidence still needs validation");
     expect(html).toContain("<dt>Source</dt>");
     expect(html).toContain("<dd>fixture</dd>");
@@ -447,11 +453,58 @@ describe("Golden Bug Tracker renderer", () => {
 
   it("isolates tester workspace per exact map artifact and version", () => {
     const html = renderBugTrackerHtml(fixture);
-    expect(html).toContain("SCOPE=scopeOf(REPORT)");
-    expect(html).toContain('KEY="m-bedrock-bug-tracker-workspace-v1:"+SCOPE');
-    expect(html).toContain("scopeOf(x.canonical)!==SCOPE");
+    expect(html).toContain("const SCOPE = scopeOf(REPORT);");
+    expect(html).toContain('const KEY = "m-bedrock-bug-tracker-workspace-v1:" + SCOPE');
+    expect(html).toContain('location.pathname + ":" + COPY_ID');
+    expect(html).toContain("JSON.stringify(payload.canonical) !== JSON.stringify(REPORT)");
     expect(html).toContain("level.source.artifactFingerprint");
     expect(html).toContain("level.source.version");
+  });
+
+  it("keeps tester outcomes distinct from verification and derives progress from workspace", () => {
+    const level = fixture.games[0]!.levels[0]!;
+    const report: BugTrackerDocument = {
+      ...fixture,
+      games: [{ ...fixture.games[0]!, levels: [{
+        ...level,
+        issues: [{
+          ...level.issues[0]!, id: "BUG-READY-001",
+          verification: "VERIFIED" as const,
+        }, level.issues[0]!],
+      }] }],
+    };
+    const html = renderBugTrackerHtml(report);
+    expect(html).toContain('id="retestPassed">0</b>');
+    expect(html).toContain('id="retestFailed">0</b>');
+    expect(html).toContain('id="retestUntested">0</b>');
+    expect(html).toContain('data-issue-id="BUG-READY-001"');
+    expect(html).toContain('data-test-ready="true"');
+    expect(html).toContain("Tester results only · Not a canonical Fixed status");
+    const script = html.split("<script>").at(-1)?.split("</script>")[0];
+    expect(script).toContain('const ready = testerCards.filter(card => card.dataset.testReady === "true")');
+    expect(script).toContain('state(card.dataset.issueId).result === "SUCCESS"');
+    expect(script).toContain('state(card.dataset.issueId).result === "FAILED"');
+    expect(script).toContain("testerCards.length - ready.length");
+    expect(script).toContain("refreshPresentation();");
+    expect(script).toContain('if (active && !game.hidden) game.querySelector(".map").open = true');
+    expect(script).toContain('result === "all" || (!developerNote && result === outcome)');
+    expect(script).toContain('group.hidden = ![...group.querySelectorAll(".issue")]');
+    expect(script).not.toContain("REPORT.games[0].levels[0].issues[0].verification =");
+  });
+
+  it("puts source-observed evidence beside expected without duplicating it", () => {
+    const html = renderBugTrackerHtml(fixture);
+    const start = html.indexOf('data-issue-id="BUG-GOLDEN-001"');
+    const card = html.slice(start, html.indexOf("</article>", start));
+    expect(card.indexOf("TEST IN-GAME")).toBeLessThan(card.indexOf("EXPECTED"));
+    expect(card.indexOf("EXPECTED")).toBeLessThan(card.indexOf("OBSERVED / EVIDENCE"));
+    expect(card.indexOf("OBSERVED / EVIDENCE")).toBeLessThan(card.indexOf("TEST RESULT"));
+    expect(card.indexOf("TEST RESULT")).toBeLessThan(card.indexOf("Technical Details ↓"));
+    expect(card.match(/The wrong result remains visible\./g)).toHaveLength(1);
+    expect(card).toContain("Recommended Fix");
+    expect(html).toContain('id="clearFilters"');
+    expect(html).toContain('id="noFilterMatches"');
+    expect(html).toContain("No findings match the current search or filters.");
   });
 
   it("rejects duplicate issue IDs before rendering", () => {
