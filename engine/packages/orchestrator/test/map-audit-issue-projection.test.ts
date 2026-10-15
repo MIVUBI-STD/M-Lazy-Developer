@@ -613,12 +613,11 @@ describe("map audit issue projection", () => {
   });
 
   it("keeps confirmation NEED_VALIDATION until family proof receipt is complete", () => {
+    const { familyProof: _omittedFamilyProof, ...unprovenResolution } =
+      gate.resolutions[1]!;
     const withoutFamilyProof: GameplayDefectResolutionGate = {
       ...gate,
-      resolutions: [{
-        ...gate.resolutions[1]!,
-        familyProof: undefined,
-      }],
+      resolutions: [unprovenResolution],
       confirmedDefectReadyIds: [
         "link:progression",
       ],
