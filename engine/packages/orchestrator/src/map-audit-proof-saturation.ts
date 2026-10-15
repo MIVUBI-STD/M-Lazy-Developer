@@ -276,6 +276,10 @@ export function assessReadyResolutionSaturation(
           (item) => item.id === link.scenarioId,
         );
 
+  // A resolution may explain an existing link, but cannot introduce new
+  // knowledge authority that the selected-artifact causal link never carried.
+  const scopedRequirementIds = (resolution.knowledgeRequirementIds ?? [])
+    .filter((id) => link?.knowledgeRequirementIds.includes(id));
   const evidenceIds = [
     ...new Set([
       ...(link?.evidenceIds ?? []),
@@ -283,7 +287,7 @@ export function assessReadyResolutionSaturation(
       ...(resolution.counterProofSearch?.evidenceIds ?? []),
       ...(link?.impactPathEvidenceIds ?? []),
       ...(
-        (resolution.knowledgeRequirementIds ?? [])
+        scopedRequirementIds
           .flatMap((id) =>
             graph.knowledgeReceipts.find(
               (item) => item.requirementId === id,
@@ -296,7 +300,7 @@ export function assessReadyResolutionSaturation(
   // Knowledge declarations cannot ground platform or simulation criteria by
   // themselves. Only a matching, satisfied, same-scenario RIG receipt can.
   const knowledgeEvidenceByDomain = new Map<string, string[]>();
-  for (const requirementId of resolution.knowledgeRequirementIds ?? []) {
+  for (const requirementId of scopedRequirementIds) {
     const requirement = graph.knowledgeRequirements.find((item) =>
       item.id === requirementId && item.scenarioId === link?.scenarioId
     );
@@ -324,7 +328,7 @@ export function assessReadyResolutionSaturation(
   ].sort();
 
   const knowledgeDomains =
-    (resolution.knowledgeRequirementIds ?? [])
+    scopedRequirementIds
       .map((id) =>
         graph.knowledgeRequirements.find(
           (item) => item.id === id,
@@ -436,11 +440,22 @@ export function assessReadyResolutionSaturation(
           classification.failureDomain
           ? familyReceiptById.get(criterion.id)
           : undefined;
+      // An explicit family receipt can cite existing proof, but cannot
+      // bypass a missing/wrong-scope RIG receipt for platform/simulation.
+      const requiredKnowledgeDomain = criterion.id.includes("platform-constraint")
+        ? "platform-constraints"
+        : criterion.id.includes("residency-requirement")
+          ? "chunk-simulation"
+          : undefined;
+      const allowedKnowledgeIds = requiredKnowledgeDomain === undefined
+        ? undefined
+        : new Set(knowledgeEvidenceByDomain.get(requiredKnowledgeDomain) ?? []);
       const explicitEvidence =
         receipt?.satisfied === true &&
         receipt.evidenceIds.length > 0 &&
         receipt.evidenceIds.every((id) =>
-          knownEvidenceIds.has(id)
+          knownEvidenceIds.has(id) &&
+          (allowedKnowledgeIds === undefined || allowedKnowledgeIds.has(id))
         )
           ? [...receipt.evidenceIds]
           : [];

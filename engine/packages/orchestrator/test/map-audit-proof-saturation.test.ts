@@ -111,6 +111,46 @@ describe("map audit proof saturation", () => {
       item.id === "residency-requirement-grounded")?.satisfied).toBe(true);
   });
 
+  it("rejects explicit family platform evidence that bypasses missing knowledge", () => {
+    const scenario = graph(["objective:wave"], "chunk-residency-stall");
+    scenario.knowledgeReceipts[1].status = "MISSING_REQUIRED_KNOWLEDGE";
+    for (const evidenceId of ["source:contradiction", "knowledge:platform"]) {
+      const decorated = {
+        ...resolution,
+        familyProof: {
+          schemaVersion: 1 as const,
+          policy: "family-proof-receipt" as const,
+          failureDomain: "chunk-simulation",
+          criteria: [{ id: "platform-constraint-bound", satisfied: true, evidenceIds: [evidenceId] }],
+        },
+      };
+      const result = assessReadyResolutionSaturation(scenario, decorated as any);
+      expect(result.missingFamilyCriteriaIds).toContain("platform-constraint-bound");
+    }
+  });
+
+  it("accepts exact satisfied knowledge evidence in explicit family proof", () => {
+    const scenario = graph(["objective:wave"], "chunk-residency-stall");
+    const decorated = {
+      ...resolution,
+      familyProof: {
+        schemaVersion: 1 as const,
+        policy: "family-proof-receipt" as const,
+        failureDomain: "chunk-simulation",
+        criteria: [{ id: "platform-constraint-bound", satisfied: true, evidenceIds: ["knowledge:platform"] }],
+      },
+    };
+    const result = assessReadyResolutionSaturation(scenario, decorated as any);
+    expect(result.familyCriteria.find((item) => item.id === "platform-constraint-bound")?.satisfied).toBe(true);
+  });
+
+  it("rejects knowledge declared by a resolution but absent from the causal link", () => {
+    const scenario = graph(["objective:wave"], "chunk-residency-stall");
+    scenario.causalLinks[0].knowledgeRequirementIds = ["knowledge:s1:chunk-simulation"];
+    const result = assessReadyResolutionSaturation(scenario, resolution as any);
+    expect(result.missingFamilyCriteriaIds).toContain("platform-constraint-bound");
+  });
+
   it("rejects a satisfied knowledge receipt without matching requirement identity", () => {
     const scenario = graph(["objective:wave"], "chunk-residency-stall");
     scenario.knowledgeRequirements[1].id = "foreign-requirement";
