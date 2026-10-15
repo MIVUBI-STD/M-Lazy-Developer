@@ -111,6 +111,9 @@ describe("map audit proof navigation", () => {
       entities: {
         definitions: 5,
       },
+      platformKnowledge: {
+        profileResolved: false,
+      },
       chunks: {
         tickingAreaAcquires: 0,
         capacityUncheckedLeases: 0,
