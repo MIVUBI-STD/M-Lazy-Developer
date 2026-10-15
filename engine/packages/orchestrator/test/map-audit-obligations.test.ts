@@ -357,6 +357,7 @@ describe("reusable blind-spot obligations", () => {
       ),
     ).toBe(true);
   });
+
   it("keeps missing scenario knowledge as an audit obligation, not a bug", () => {
     const unresolvedGraph = {
       ...graph,
