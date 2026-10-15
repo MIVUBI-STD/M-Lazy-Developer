@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildBugReportClientLayoutPlan,
   projectBugReportClientDocument,
   type BugReportV2,
 } from "../src/index.js";
@@ -43,41 +42,27 @@ function report(count: number): BugReportV2 {
   };
 }
 
-describe("client document table-first layout", () => {
-  it("does not duplicate a short report with an issue index", () => {
-    const document =
-      projectBugReportClientDocument(report(3));
-    const layout =
-      buildBugReportClientLayoutPlan(document);
-
-    expect(layout.showIssueIndex).toBe(false);
-    expect(layout.showSeverityLegend).toBe(true);
-    expect(layout.compactTables).toBe(false);
+describe("client document canonical issue projection", () => {
+  it("projects a short report directly, without a duplicate issue index", () => {
+    const document = projectBugReportClientDocument(report(3));
+    expect(document.issues).toHaveLength(3);
+    expect(document.summary.visibleIssues).toBe(3);
+    expect(document.issues.map(issue => issue.number)).toEqual([1, 2, 3]);
+    expect("issueIndex" in document).toBe(false);
   });
 
-  it("uses compact issue tables from four issues onward", () => {
-    const document =
-      projectBugReportClientDocument(report(4));
-
-    expect(
-      buildBugReportClientLayoutPlan(document)
-        .compactTables,
-    ).toBe(true);
+  it("preserves one numbered issue per source defect from four onward", () => {
+    const document = projectBugReportClientDocument(report(4));
+    expect(document.issues).toHaveLength(4);
+    expect(document.issues.map(issue => issue.number)).toEqual([1, 2, 3, 4]);
+    expect(new Set(document.issues.map(issue => issue.id)).size).toBe(4);
   });
 
-  it("adds a separate index only for large reports", () => {
-    const six =
-      projectBugReportClientDocument(report(6));
-    const seven =
-      projectBugReportClientDocument(report(7));
-
-    expect(
-      buildBugReportClientLayoutPlan(six)
-        .showIssueIndex,
-    ).toBe(false);
-    expect(
-      buildBugReportClientLayoutPlan(seven)
-        .showIssueIndex,
-    ).toBe(true);
+  it("keeps large reports in one canonical ordered issue collection", () => {
+    const document = projectBugReportClientDocument(report(7));
+    expect(document.summary.visibleIssues).toBe(7);
+    expect(document.issues).toHaveLength(7);
+    expect(document.issues.map(issue => issue.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect("issueIndex" in document).toBe(false);
   });
 });
