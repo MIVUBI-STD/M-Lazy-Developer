@@ -901,7 +901,8 @@ function mappedConstructorCapacity(
     );
     if (owners.length !== 1) return undefined;
     const owner = owners[0]!;
-    if (!ts.isArrayLiteralExpression(owner.initializer) ||
+    if (!owner.initializer ||
+        !ts.isArrayLiteralExpression(owner.initializer) ||
         !owner.initializer.elements.every((element) =>
           ts.isNumericLiteral(element) || ts.isStringLiteralLike(element)
         )) return undefined;
