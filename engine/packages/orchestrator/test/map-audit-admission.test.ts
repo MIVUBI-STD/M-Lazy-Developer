@@ -330,6 +330,46 @@ describe("selected-map audit admission", () => {
     ]);
   });
 
+  it("rejects inconsistent foundational authority during independent evidence projection", () => {
+    const complete = procedure([]);
+    const targetBlocked: MandatoryAuditProcedureReceipt = {
+      ...complete,
+      // This can arise from an inconsistent derived blocking index.
+      // A1's own publication flag must still prohibit projection.
+      checkpoints: complete.checkpoints.map(item => item.id === "A1"
+        ? { ...item, blocksPublication: true }
+        : item),
+      blockingCheckpointIds: [],
+    };
+    expect(canProjectIndependentAuditEvidence(targetBlocked)).toBe(false);
+
+    const wrongTargetStage: MandatoryAuditProcedureReceipt = {
+      ...complete,
+      checkpoints: complete.checkpoints.map(item => item.id === "A1"
+        ? { ...item, block: "PROVE" as const }
+        : item),
+    };
+    expect(canProjectIndependentAuditEvidence(wrongTargetStage)).toBe(false);
+
+    const wrongDiscoveryStage: MandatoryAuditProcedureReceipt = {
+      ...complete,
+      checkpoints: complete.checkpoints.map(item => item.id === "A2"
+        ? { ...item, block: "UNDERSTAND" as const }
+        : item),
+    };
+    expect(canProjectIndependentAuditEvidence(wrongDiscoveryStage)).toBe(false);
+
+    const partialDiscovery: MandatoryAuditProcedureReceipt = {
+      ...complete,
+      checkpoints: complete.checkpoints.map(item => item.id === "A2"
+        ? { ...item, status: "PARTIAL" as const, blocksPublication: true }
+        : item),
+      blockingCheckpointIds: ["A2"],
+      status: "PARTIAL",
+    };
+    expect(canProjectIndependentAuditEvidence(partialDiscovery)).toBe(true);
+  });
+
   it("never projects evidence without verified TARGET or accounted Discovery", () => {
     expect(canProjectIndependentAuditEvidence(undefined)).toBe(false);
     expect(canProjectIndependentAuditEvidence(procedure(["A1"]))).toBe(false);

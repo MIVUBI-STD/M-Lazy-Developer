@@ -68,8 +68,11 @@ export function canProjectIndependentAuditEvidence(
   const target = procedure.checkpoints.filter((item) => item.id === "A1");
   const discovery = procedure.checkpoints.filter((item) => item.id === "A2");
   return target.length === 1 &&
+    target[0]?.block === "TARGET" &&
     target[0]?.status === "CLOSED" &&
+    target[0]?.blocksPublication === false &&
     discovery.length === 1 &&
+    discovery[0]?.block === "DISCOVERY" &&
     (discovery[0]?.status === "CLOSED" ||
       discovery[0]?.status === "PARTIAL");
 }
