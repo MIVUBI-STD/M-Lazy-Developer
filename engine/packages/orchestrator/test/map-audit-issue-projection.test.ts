@@ -344,6 +344,96 @@ describe("EVALUATE to PROVE to issue projection", () => {
     expect(projectReadyAuditIssues(baseGraph, proof)).toEqual([]);
   });
 
+  it("blocks conflicting or out-of-scope counter-proof receipts before PROVEN projection", () => {
+    const baseline = assessGameplayDefectResolutionGate(baseGraph, [submitted]);
+    expect(baseline.confirmedDefectReadyIds).toEqual(["link:capacity"]);
+
+    const forgedCases = [
+      {
+        label: "contradictory duplicate dimension",
+        search: {
+          ...submitted.counterProofSearch,
+          dimensionReceipts: [
+            ...submitted.counterProofSearch.dimensionReceipts,
+            {
+              dimension: "guard" as const,
+              scopeIds: ["runtime:arena"],
+              evidenceIds: ["world:arena-count"],
+              exhaustiveWithinScope: false,
+            },
+          ],
+        },
+      },
+      {
+        label: "unrelated dimension scope",
+        search: {
+          ...submitted.counterProofSearch,
+          dimensionReceipts: submitted.counterProofSearch.dimensionReceipts.map((item) =>
+            ({ ...item, scopeIds: ["foreign:arena"] })),
+        },
+      },
+      {
+        label: "invented dimension evidence",
+        search: {
+          ...submitted.counterProofSearch,
+          dimensionReceipts: submitted.counterProofSearch.dimensionReceipts.map((item) =>
+            ({ ...item, evidenceIds: ["foreign:evidence"] })),
+        },
+      },
+      {
+        label: "unrelated global search scope",
+        search: {
+          ...submitted.counterProofSearch,
+          scopeIds: ["foreign:arena"],
+        },
+      },
+      {
+        label: "invented global search evidence",
+        search: {
+          ...submitted.counterProofSearch,
+          evidenceIds: ["foreign:evidence"],
+        },
+      },
+    ];
+    for (const { label, search } of forgedCases) {
+      const proof = assessGameplayDefectResolutionGate(baseGraph, [{
+        ...submitted,
+        counterProofSearch: search,
+      }]);
+      expect(proof.confirmedDefectReadyIds, label).toEqual([]);
+      expect(projectReadyAuditIssues(baseGraph, proof), label).toEqual([]);
+    }
+  });
+
+  it("preserves scoped dimension-specific source evidence", () => {
+    const graphWithDimensionEvidence: GameplayScenarioGraph = {
+      ...baseGraph,
+      causalLinks: [{
+        ...baseGraph.causalLinks[0]!,
+        dimensionEvidence: {
+          owner: ["source:owned-dimension"],
+        },
+      }],
+    };
+    const search = {
+      ...submitted.counterProofSearch,
+      evidenceIds: [
+        ...submitted.counterProofSearch.evidenceIds,
+        "source:owned-dimension",
+      ],
+      dimensionReceipts: submitted.counterProofSearch.dimensionReceipts.map((item) =>
+        item.dimension === "owner"
+          ? { ...item, evidenceIds: ["source:owned-dimension"] }
+          : item),
+    };
+    const proof = assessGameplayDefectResolutionGate(graphWithDimensionEvidence, [{
+      ...submitted,
+      counterProofSearch: search,
+    }]);
+    expect(proof.confirmedDefectReadyIds).toEqual(["link:capacity"]);
+    expect(projectReadyAuditIssues(graphWithDimensionEvidence, proof)).toHaveLength(1);
+  });
+
   it("rejects a false positive when a graph-owned exact-target guard blocks the contradiction", () => {
     const excluded: GameplayScenarioGraph = {
       ...baseGraph,

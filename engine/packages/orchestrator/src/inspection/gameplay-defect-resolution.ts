@@ -422,21 +422,59 @@ function validateResolution(
       }
       const dimensionReceipts =
         search.dimensionReceipts ?? [];
+      // A NO_BLOCKING_PROOF search must cover the exact causal-link scope.
+      // Supplied receipts cannot introduce unobserved targets or evidence.
+      const linkScopeIds = new Set([
+        ...link.subjectIds,
+        ...link.componentIds,
+      ]);
+      const searchScopeIds = unique(search.scopeIds);
+      const scopedEvidenceIds = new Set(graph.causalLinks
+        .filter((candidate) =>
+          candidate.scenarioId === link.scenarioId &&
+          (candidate.id === link.id ||
+            overlapping(candidate.subjectIds, link.subjectIds) ||
+            overlapping(candidate.componentIds, link.componentIds))
+        )
+        .flatMap((candidate) => [
+          ...candidate.evidenceIds,
+          ...Object.values(candidate.dimensionEvidence ?? {}).flat(),
+        ]));
+      if (searchScopeIds.some((id) => !linkScopeIds.has(id))) {
+        issues.push(link.id +
+          ": counter-proof scope is outside the causal-link source target.");
+      }
+      if (unique(search.evidenceIds).some((id) =>
+          !scopedEvidenceIds.has(id))) {
+        issues.push(link.id +
+          ": counter-proof evidence is absent from the selected-scenario causal source.");
+      }
+      if (dimensionReceipts.length !== searchedDimensions.length ||
+          search.searchedDimensions.length !== searchedDimensions.length) {
+        issues.push(link.id +
+          ": counter-proof dimensions require exactly one receipt each.");
+      }
       for (const dimension of searchedDimensions) {
-        const receipt = dimensionReceipts.find(
+        const matches = dimensionReceipts.filter(
           (item) => item.dimension === dimension,
         );
+        const receipt = matches[0];
         if (
+          matches.length !== 1 ||
           receipt === undefined ||
           unique(receipt.scopeIds).length === 0 ||
           unique(receipt.evidenceIds).length === 0 ||
-          receipt.exhaustiveWithinScope !== true
+          receipt.exhaustiveWithinScope !== true ||
+          unique(receipt.scopeIds).some((id) =>
+            !searchScopeIds.includes(id)) ||
+          unique(receipt.evidenceIds).some((id) =>
+            !scopedEvidenceIds.has(id))
         ) {
           issues.push(
             link.id +
               ": counter-proof dimension '" +
               dimension +
-              "' requires explicit scope/evidence and exhaustive dimension receipt.",
+              "' requires unique, source-bound scope/evidence and exhaustive dimension receipt.",
           );
         }
       }
