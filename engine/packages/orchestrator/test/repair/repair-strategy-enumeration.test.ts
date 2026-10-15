@@ -693,6 +693,98 @@ describe("repair strategy enumeration and realization", () => {
     expect(report.noImplementationCoverage).toBe(true);
   });
 
+  it("cannot realize a provider from a same-ID built-in source", () => {
+    const enumeration = enumerateRepairStrategySources(
+      envelope(),
+      diagnostics,
+      providerRegistry,
+    );
+    const provider = enumeration.applicableSources.find((item) =>
+      item.sourceKind === "provider" &&
+      item.sourceId === "session-guard-a");
+    expect(provider).toBeDefined();
+    const foreignEnumeration = {
+      ...enumeration,
+      applicableSources: [{
+        ...provider!,
+        sourceKind: "built-in-planner" as const,
+      }],
+    };
+    const realization = realizeProviderRepairStrategy(
+      foreignEnumeration,
+      providerRegistry,
+      {
+        sourceId: "session-guard-a",
+        sourceVersion: "1",
+        transaction: transaction("wrong-kind-source"),
+        changedNodeIds: ["function:p:session"],
+        repairClass: "implementation-repair",
+        reversible: true,
+        idempotent: true,
+      },
+    );
+    expect(realization).toMatchObject({
+      status: "blocked",
+      sourceKind: "provider",
+      sourceId: "session-guard-a",
+      sourceVersion: "1",
+    });
+  });
+
+  it("does not let a foreign blocked result mask a realized provider", () => {
+    const enumeration = enumerateRepairStrategySources(
+      envelope(),
+      diagnostics,
+      providerRegistry,
+    );
+    const realization = realizeProviderRepairStrategy(
+      enumeration,
+      providerRegistry,
+      {
+        sourceId: "session-guard-a",
+        sourceVersion: "1",
+        transaction: transaction("current-provider"),
+        changedNodeIds: ["function:p:session"],
+        repairClass: "implementation-repair",
+        reversible: true,
+        idempotent: true,
+      },
+    );
+    expect(realization.status).toBe("realized");
+    const coverage = {
+      items: enumeration.applicableSources.map((item) => ({
+        sourceKind: item.sourceKind,
+        sourceId: item.sourceId,
+        sourceVersion: item.sourceVersion,
+        selectionMode: item.selectionMode,
+        deterministic: item.deterministic,
+        status: "realizer-available" as const,
+        reasons: ["Source-kind-aware fixture coverage."],
+      })),
+      coveredSources: enumeration.applicableSources.length,
+      uncoveredSources: 0,
+      realizerNotRequiredSources: 0,
+      complete: true,
+    };
+    const report = buildRepairRealizationCoverageReport(
+      enumeration,
+      coverage,
+      [realization, {
+        status: "blocked",
+        sourceKind: "built-in-planner",
+        sourceId: "session-guard-a",
+        sourceVersion: "1",
+        reasons: ["A different source was blocked."],
+      }],
+    );
+    expect(report.items.find((item) =>
+      item.sourceKind === "provider" &&
+      item.sourceId === "session-guard-a")).toMatchObject({
+      disposition: "realized",
+    });
+    expect(report.realizedCount).toBe(1);
+  });
+
   it("does not borrow realizer coverage from another source kind with the same ID", () => {
     const enumeration = enumerateRepairStrategySources(
       envelope(),

@@ -53,7 +53,9 @@ export type RepairTransformHintRealization =
     }
   | {
       status: "blocked";
+      sourceKind: "built-in-planner";
       sourceId: string;
+      sourceVersion?: string;
       reasons: readonly string[];
     };
 
@@ -145,6 +147,7 @@ function realizeGenerationGuardHint(
   if (!enumerated) {
     return {
       status: "blocked",
+      sourceKind: "built-in-planner",
       sourceId,
       reasons: [
         label +
@@ -156,7 +159,9 @@ function realizeGenerationGuardHint(
   if (!enumerated.automaticRealizationEligible) {
     return {
       status: "blocked",
+      sourceKind: "built-in-planner",
       sourceId,
+      sourceVersion: enumerated.sourceVersion,
       reasons: [
         label +
           " source is not eligible for automatic realization under the current opportunity.",
@@ -175,7 +180,9 @@ function realizeGenerationGuardHint(
   if (!sourceDefinition) {
     return {
       status: "blocked",
+      sourceKind: "built-in-planner",
       sourceId,
+      sourceVersion: enumerated.sourceVersion,
       reasons: [
         "Enumerated " +
           label.toLowerCase() +
@@ -192,7 +199,9 @@ function realizeGenerationGuardHint(
   if (!realizer) {
     return {
       status: "blocked",
+      sourceKind: "built-in-planner",
       sourceId,
+      sourceVersion: enumerated.sourceVersion,
       reasons: [
         label +
           " source has no registered deterministic realizer.",
@@ -281,7 +290,9 @@ function realizeGenerationGuardHint(
   if (errors.length > 0) {
     return {
       status: "blocked",
+      sourceKind: "built-in-planner",
       sourceId,
+      sourceVersion: enumerated.sourceVersion,
       reasons: [...new Set(errors)].sort(),
     };
   }
@@ -295,7 +306,9 @@ function realizeGenerationGuardHint(
   ) {
     return {
       status: "blocked",
+      sourceKind: "built-in-planner",
       sourceId,
+      sourceVersion: enumerated.sourceVersion,
       reasons: ["Exact source transform requires an authorized repair receipt for the selected source and invariants."],
     };
   }
@@ -332,7 +345,9 @@ function realizeGenerationGuardHint(
   ) {
     return {
       status: "blocked",
+      sourceKind: "built-in-planner",
       sourceId,
+      sourceVersion: enumerated.sourceVersion,
       reasons: [
         label +
           " transform source does not map to the current semantic graph.",

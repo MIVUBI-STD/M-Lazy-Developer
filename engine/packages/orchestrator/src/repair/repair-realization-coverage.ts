@@ -19,6 +19,7 @@ export type RepairRealizationCoverageDisposition =
   | "no-applicable-source";
 
 export interface RepairRealizationCoverageItem {
+  sourceKind: string;
   sourceId: string;
   sourceVersion: string;
   disposition: RepairRealizationCoverageDisposition;
@@ -72,6 +73,7 @@ export function buildRepairRealizationCoverageReport(
       incidentId: enumeration.envelope.incidentId,
       candidateId: enumeration.envelope.candidateId,
       items: [{
+        sourceKind: "<none>",
         sourceId: "<none>",
         sourceVersion: "<none>",
         disposition: "no-applicable-source",
@@ -98,9 +100,11 @@ export function buildRepairRealizationCoverageReport(
         return false;
       }
       if (item.status === "blocked") {
-        // Blocked results have no declared source version and cannot
-        // accidentally be promoted into successful realization.
-        return true;
+        // A blocked result can explain only the exact source that
+        // produced it; unrelated or unversioned blocks cannot mask
+        // a current realization with the same short ID.
+        return item.sourceKind === source.sourceKind &&
+          item.sourceVersion === source.sourceVersion;
       }
       return "providerId" in item.proposal
         ? source.sourceKind === "provider" &&
@@ -123,6 +127,8 @@ export function buildRepairRealizationCoverageReport(
         "realizer-not-required"
       ) {
         return {
+          sourceKind: source.sourceKind,
+
           sourceId: source.sourceId,
           sourceVersion: source.sourceVersion,
           disposition: "proposal-only",
@@ -135,6 +141,8 @@ export function buildRepairRealizationCoverageReport(
         realizerItem.status === "missing-realizer"
       ) {
         return {
+          sourceKind: source.sourceKind,
+
           sourceId: source.sourceId,
           sourceVersion: source.sourceVersion,
           disposition: "missing-realizer",
@@ -149,6 +157,8 @@ export function buildRepairRealizationCoverageReport(
         matchingRealization(source);
       if (!realization) {
         return {
+          sourceKind: source.sourceKind,
+
           sourceId: source.sourceId,
           sourceVersion: source.sourceVersion,
           disposition: "blocked",
@@ -160,6 +170,8 @@ export function buildRepairRealizationCoverageReport(
 
       if (realization.status === "blocked") {
         return {
+          sourceKind: source.sourceKind,
+
           sourceId: source.sourceId,
           sourceVersion: source.sourceVersion,
           disposition: "blocked",
@@ -170,6 +182,8 @@ export function buildRepairRealizationCoverageReport(
       const strategy =
         realizedStrategy(realization);
       return {
+        sourceKind: source.sourceKind,
+
         sourceId: source.sourceId,
         sourceVersion: source.sourceVersion,
         disposition: "realized",
@@ -179,6 +193,7 @@ export function buildRepairRealizationCoverageReport(
       };
     },
   ).sort((a, b) =>
+    a.sourceKind.localeCompare(b.sourceKind) ||
     a.sourceId.localeCompare(b.sourceId) ||
     a.sourceVersion.localeCompare(b.sourceVersion)
   );

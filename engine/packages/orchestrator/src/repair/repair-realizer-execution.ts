@@ -96,6 +96,7 @@ export function assessRepairRealizerCoverage(
       };
     })
     .sort((a, b) =>
+      a.sourceKind.localeCompare(b.sourceKind) ||
       a.sourceId.localeCompare(b.sourceId) ||
       a.sourceVersion.localeCompare(b.sourceVersion)
     );
@@ -273,13 +274,16 @@ export function realizeProviderRepairStrategyFromGraph(
 ): ProviderRepairRealization {
   const source = enumeration.applicableSources.find(
     (item) =>
+      item.sourceKind === "provider" &&
       item.sourceId === input.sourceId &&
       item.sourceVersion === input.sourceVersion,
   );
   if (!source) {
     return {
       status: "blocked",
+      sourceKind: "provider",
       sourceId: input.sourceId,
+      sourceVersion: input.sourceVersion,
       reasons: [
         "Repair strategy source was not enumerated as applicable to this opportunity.",
       ],
@@ -294,7 +298,9 @@ export function realizeProviderRepairStrategyFromGraph(
   if (!realizer) {
     return {
       status: "blocked",
+      sourceKind: "provider",
       sourceId: input.sourceId,
+      sourceVersion: input.sourceVersion,
       reasons: [
         "Applicable repair strategy source has no registered deterministic realizer.",
       ],
@@ -309,7 +315,9 @@ export function realizeProviderRepairStrategyFromGraph(
   if (derivation.unmatchedOperationPaths.length > 0) {
     return {
       status: "blocked",
+      sourceKind: "provider",
       sourceId: input.sourceId,
+      sourceVersion: input.sourceVersion,
       reasons: [
         "Patch operation source cannot be mapped to the current semantic graph: " +
           derivation.unmatchedOperationPaths.join(", ") +
@@ -321,7 +329,9 @@ export function realizeProviderRepairStrategyFromGraph(
   if (derivation.changedNodeIds.length === 0) {
     return {
       status: "blocked",
+      sourceKind: "provider",
       sourceId: input.sourceId,
+      sourceVersion: input.sourceVersion,
       reasons: [
         "Patch transaction maps to no changed semantic node.",
       ],

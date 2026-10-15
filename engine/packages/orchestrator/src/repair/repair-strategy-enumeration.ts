@@ -310,7 +310,9 @@ export type ProviderRepairRealization =
     }
   | {
       status: "blocked";
+      sourceKind: "provider";
       sourceId: string;
+      sourceVersion: string;
       reasons: readonly string[];
     };
 
@@ -321,13 +323,16 @@ export function realizeProviderRepairStrategy(
 ): ProviderRepairRealization {
   const source = enumeration.applicableSources.find(
     (item) =>
+      item.sourceKind === "provider" &&
       item.sourceId === input.sourceId &&
       item.sourceVersion === input.sourceVersion,
   );
   if (!source) {
     return {
       status: "blocked",
+      sourceKind: "provider",
       sourceId: input.sourceId,
+      sourceVersion: input.sourceVersion,
       reasons: [
         "Repair strategy source was not enumerated as applicable to this opportunity.",
       ],
@@ -341,7 +346,9 @@ export function realizeProviderRepairStrategy(
   if (!provider) {
     return {
       status: "blocked",
+      sourceKind: "provider",
       sourceId: input.sourceId,
+      sourceVersion: input.sourceVersion,
       reasons: [
         "Enumerated repair provider is no longer present in the active registry.",
       ],
@@ -408,7 +415,9 @@ export function realizeProviderRepairStrategy(
   if (reasons.length > 0) {
     return {
       status: "blocked",
+      sourceKind: "provider",
       sourceId: input.sourceId,
+      sourceVersion: input.sourceVersion,
       reasons: [...new Set(reasons)].sort(),
     };
   }
