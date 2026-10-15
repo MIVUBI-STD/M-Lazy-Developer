@@ -284,6 +284,70 @@ describe("report defect collector", () => {
     ).toContain("missing-reproduction");
   });
 
+  it("requires expected and observed defect evidence for AI Test In-Game", () => {
+    const common = {
+      route: "static" as const,
+      intent,
+      result: staticResult,
+      defect: defect("source-bound-trigger", { ai: true }),
+    };
+    const trigger = {
+      gameplayBasis: "authored-gameplay" as const,
+      startingCondition: "Finish the match and return to the lobby",
+      actions: ["Start the same arena again"],
+      observableFailure: "the next match does not start",
+      evidenceIds: ["intent:evidence"],
+    };
+    const expectationOnly = { ...common, bugTrigger: trigger };
+    expect(describeAuditReportCandidate(expectationOnly).nextEvidenceNeed)
+      .toBe("candidate-correction");
+    const rejected = collectConfirmedDefects([expectationOnly]);
+    expect(rejected.confirmed).toHaveLength(0);
+    expect(rejected.rejected[0]?.reasons.join(" "))
+      .toMatch(/observable failure lacks matching observed-defect evidence/);
+
+    const complete = {
+      ...common,
+      bugTrigger: { ...trigger, evidenceIds: ["intent:evidence", "static:cleanup"] },
+    };
+    expect(describeAuditReportCandidate(complete).nextEvidenceNeed).toBe("none");
+    expect(collectConfirmedDefects([complete]).confirmed).toHaveLength(1);
+
+    const technical = {
+      ...common,
+      bugTrigger: {
+        ...trigger,
+        actions: ["Inspect the session function"],
+        evidenceIds: ["intent:evidence", "static:cleanup"],
+      },
+    };
+    expect(describeAuditReportCandidate(technical).nextEvidenceNeed)
+      .toBe("candidate-correction");
+    expect(collectConfirmedDefects([technical]).confirmed).toHaveLength(0);
+  });
+
+  it("keeps tester reproduction open when the observed defect has no usable steps", () => {
+    const candidate = {
+      route: "tester" as const,
+      subjectIds: ["outcome:cleanup"],
+      confirmation: {
+        expectedBehaviorAuthority: "explicit-requirement" as const,
+        expectedStatement: "Match-owned state is reset.",
+        expectedEvidenceIds: ["requirement:cleanup"],
+        observationEvidenceIds: ["tester:cleanup"],
+        reproduced: true,
+        evidence: "Tester confirmed stale state after cleanup.",
+      },
+      defect: defect("tester-empty-instructions", {
+        reproduction: [],
+        primaryEvidenceIds: ["requirement:cleanup"],
+        impactEvidenceIds: ["tester:cleanup"],
+      }),
+    };
+    expect(describeAuditReportCandidate(candidate).nextEvidenceNeed)
+      .toBe("tester-reproduction");
+  });
+
   it("compiles an evidence-bound AI Bug Trigger into the final report", () => {
     const result =
       buildApprovedReport({

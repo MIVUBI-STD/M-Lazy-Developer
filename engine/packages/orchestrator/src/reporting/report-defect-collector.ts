@@ -1,6 +1,7 @@
 import {
   buildBugReportFromApprovedBugSet,
   compileBugTrigger,
+  reviewTesterReproductionSteps,
   projectProposedBugSet,
   deriveConfirmedDefectSemanticKey,
   deriveRepairUnitIdsFromSourceEvidence,
@@ -600,17 +601,17 @@ function routeNextEvidenceNeed(
     if (candidate.assessment.result.nextEvidenceNeed !== "none") {
       return candidate.assessment.result.nextEvidenceNeed;
     }
-    return candidate.bugTrigger === undefined
-      ? "tester-reproduction"
-      : "none";
+    if (candidate.bugTrigger === undefined) return "tester-reproduction";
+    return aiBugTrigger(candidate).issues.length > 0
+      ? "candidate-correction" : "none";
   }
   if (candidate.route === "static") {
     if (candidate.result.nextEvidenceNeed !== "none") {
       return candidate.result.nextEvidenceNeed;
     }
-    return candidate.bugTrigger === undefined
-      ? "tester-reproduction"
-      : "none";
+    if (candidate.bugTrigger === undefined) return "tester-reproduction";
+    return aiBugTrigger(candidate).issues.length > 0
+      ? "candidate-correction" : "none";
   }
   if (
     !candidate.confirmation.expectedStatement.trim() ||
@@ -624,7 +625,9 @@ function routeNextEvidenceNeed(
   ) {
     return "tester-reproduction";
   }
-  return "none";
+  return reviewTesterReproductionSteps(
+    candidate.defect.reproduction, "reproduction",
+  ).length > 0 ? "tester-reproduction" : "none";
 }
 
 export function describeAuditReportCandidate(
@@ -732,14 +735,15 @@ function aiBugTrigger(
     };
   }
 
+  const expectedEvidence = new Set(
+    candidateExpectedBasis(candidate).evidenceIds,
+  );
+  const observedEvidence = new Set(
+    candidateObservedBasis(candidate).evidenceIds,
+  );
   const gameplayBasisEvidence =
     compiled.gameplayBasis === "authored-gameplay"
-      ? new Set(
-          candidateExpectedBasis(candidate).evidenceIds,
-        )
-      : new Set(
-          candidateObservedBasis(candidate).evidenceIds,
-        );
+      ? expectedEvidence : observedEvidence;
 
   if (
     !compiled.evidenceIds.some(
@@ -749,6 +753,24 @@ function aiBugTrigger(
     return {
       issues: [
         "Bug Trigger gameplay basis is not supported by matching gameplay evidence from the same defect.",
+      ],
+    };
+  }
+
+  // A sourced expectation alone cannot validate the alleged wrong result.
+  // Require both the expected-authority and observed-defect IDs from this
+  // candidate. This is a necessary evidence gate, not proof of live gameplay.
+  if (!compiled.evidenceIds.some(id => expectedEvidence.has(id))) {
+    return {
+      issues: [
+        "Bug Trigger lacks matching expected-behavior evidence from this defect.",
+      ],
+    };
+  }
+  if (!compiled.evidenceIds.some(id => observedEvidence.has(id))) {
+    return {
+      issues: [
+        "Bug Trigger observable failure lacks matching observed-defect evidence from this defect.",
       ],
     };
   }
