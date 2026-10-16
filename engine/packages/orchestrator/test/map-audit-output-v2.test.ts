@@ -71,11 +71,13 @@ describe("Map Audit Output V2 projection", () => {
       subjectIds: ["objective:1"],
       componentIds: ["runtime:state"],
       evidenceIds: ["e:objective"],
+      knowledgeRequirementIds: ["knowledge:state-flow"],
     };
     const unresolved: any = {
       ...proven,
       status: "NEED_VALIDATION",
       causalLinkId: "link:unresolved",
+      knowledgeRequirementIds: ["knowledge:chunk-simulation"],
       validationReason: "Runtime behavior remains unresolved.",
       missingProof: "One exact runtime observation.",
       validationTest: "Run the objective once and observe completion.",
@@ -183,6 +185,22 @@ describe("Map Audit Output V2 projection", () => {
       },
     };
     const report = projectMapAuditOutputV2(projectionInput);
+    expect(report.bugs[0]?.knowledgeRequirementIds).toEqual(["knowledge:state-flow"]);
+    expect(report.bugs[1]?.knowledgeRequirementIds).toEqual(["knowledge:chunk-simulation"]);
+    const mismatchReport = projectMapAuditOutputV2({
+      ...projectionInput,
+      issueLanes: {
+        BUG: [],
+        DESIGN_MISMATCH: [{ ...proven, issueType: "DESIGN_MISMATCH" }],
+      },
+    });
+    expect(mismatchReport.designMismatches[0]?.knowledgeRequirementIds)
+      .toEqual(["knowledge:state-flow"]);
+    const legacyReport = projectMapAuditOutputV2({
+      ...projectionInput,
+      issueLanes: { BUG: [{ ...proven, knowledgeRequirementIds: undefined }], DESIGN_MISMATCH: [] },
+    });
+    expect(legacyReport.bugs[0]).not.toHaveProperty("knowledgeRequirementIds");
 
     expect(report.schemaVersion).toBe(2);
     expect(report.artifactFingerprint).toBe("a".repeat(64));

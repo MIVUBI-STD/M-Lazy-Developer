@@ -79,6 +79,8 @@ export interface MapAuditOutputV2Finding {
   readonly expected: string;
   readonly actual: string;
   readonly evidenceIds: readonly string[];
+  /** Source-owned knowledge obligations for this finding, when present. */
+  readonly knowledgeRequirementIds?: readonly string[];
   readonly proofCeiling:
     | "PROVEN"
     | "NEEDS_DECIDING_PROOF";
@@ -406,6 +408,9 @@ function projectFinding(
     expected: finding.expectedOutcome,
     actual: finding.actualOutcome,
     evidenceIds: [...finding.evidenceIds],
+    ...(finding.knowledgeRequirementIds?.length
+      ? { knowledgeRequirementIds: [...new Set(finding.knowledgeRequirementIds)].sort() }
+      : {}),
     proofCeiling:
       finding.status === "PROVEN"
         ? "PROVEN" as const

@@ -398,6 +398,14 @@
             },
             "uniqueItems": true
           },
+          "knowledgeRequirementIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
           "proofCeiling": {
             "enum": [
               "PROVEN",
@@ -1068,6 +1076,14 @@
             "type": "string"
           },
           "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "knowledgeRequirementIds": {
             "type": "array",
             "items": {
               "type": "string",
