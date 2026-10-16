@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { assessAuditHonesty } from "../src/map-audit-honesty.js";
 import {
   projectReadyAuditIssues,
 } from "../src/map-audit-issue-projection.js";
@@ -432,6 +433,83 @@ describe("EVALUATE to PROVE to issue projection", () => {
     }]);
     expect(proof.confirmedDefectReadyIds).toEqual(["link:capacity"]);
     expect(projectReadyAuditIssues(graphWithDimensionEvidence, proof)).toHaveLength(1);
+  });
+
+  it("conserves graph knowledge and proof through issue lanes and honesty", () => {
+    const provenGate = assessGameplayDefectResolutionGate(baseGraph, [submitted]);
+    expect(provenGate.confirmedDefectReadyIds).toEqual(["link:capacity"]);
+    const proven = projectReadyAuditIssues(baseGraph, provenGate);
+    expect(proven.map((item) => item.causalLinkId)).toEqual(["link:capacity"]);
+
+    const honestyInput = (sourceGraph: GameplayScenarioGraph,
+      sourceGate: GameplayDefectResolutionGate,
+      visibleIssues: ReturnType<typeof projectAllNeedValidationAuditIssues> | typeof proven) => ({
+      graph: sourceGraph,
+      gate: sourceGate,
+      gameplayClosure: {
+        status: "CLOSED" as const,
+        surfaces: [],
+        unaccountedSurfaceIds: [],
+        blockingSurfaceIds: [],
+        unknownSurfaceIds: [],
+        stateModelComplete: true,
+        boundariesExtracted: true,
+        reasons: [],
+      },
+      capabilityDelivery: [],
+      negativeSpace: [],
+      temporalRisks: [],
+      discoveryChallenges: [],
+      sharedResourceSignals: [],
+      compoundBoundaries: [],
+      accumulationGrowth: [],
+      visibleIssues,
+      visibleObligationIds: ["capability-delivery:unassessed"],
+    });
+    const accepted = assessAuditHonesty(
+      honestyInput(baseGraph, provenGate, proven));
+    expect(accepted.status).toBe("PASS");
+    expect(accepted.expectedProvenIds).toEqual(["link:capacity"]);
+    expect(accepted.visibleProvenIds).toEqual(["link:capacity"]);
+
+    const requirementId = "knowledge:capacity:state-flow";
+    const pendingGraph: GameplayScenarioGraph = {
+      ...baseGraph,
+      causalLinks: baseGraph.causalLinks.map((link) => ({
+        ...link,
+        knowledgeRequirementIds: [requirementId],
+      })),
+      knowledgeRequirements: [{
+        id: requirementId,
+        scenarioId: "scenario:capacity",
+        domain: "state-flow",
+        reason: "Arena admission state requires source knowledge.",
+        capabilityIds: [],
+        dependsOnRequirementIds: [],
+        subjectIds: ["policy:arena"],
+        componentIds: ["runtime:arena"],
+      }],
+      knowledgeReceipts: [{
+        requirementId,
+        scenarioId: "scenario:capacity",
+        domain: "state-flow",
+        status: "MISSING_REQUIRED_KNOWLEDGE",
+        evidenceIds: [],
+        knowledgeIds: [],
+        capabilityIdsUsed: [],
+        subjectIds: ["policy:arena"],
+        componentIds: ["runtime:arena"],
+        reason: "Required source knowledge is not yet available.",
+      }],
+    };
+    expect(projectReadyAuditIssues(pendingGraph, provenGate)).toEqual([]);
+    const pending = projectAllNeedValidationAuditIssues(pendingGraph, provenGate);
+    expect(pending.map((item) => item.status)).toEqual(["NEED_VALIDATION"]);
+    expect(pending[0]?.knowledgeRequirementIds).toEqual([requirementId]);
+    const unresolvedHonesty = assessAuditHonesty(
+      honestyInput(pendingGraph, provenGate, pending));
+    expect(unresolvedHonesty.expectedProvenIds).toEqual([]);
+    expect(unresolvedHonesty.visibleNeedValidationIds).toEqual(["link:capacity"]);
   });
 
   it("rejects a false positive when a graph-owned exact-target guard blocks the contradiction", () => {
