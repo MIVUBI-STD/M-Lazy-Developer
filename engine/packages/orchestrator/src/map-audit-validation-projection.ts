@@ -30,7 +30,15 @@ export function projectNeedValidationAuditIssues(
 
   return sortIssues(
     gate.resolutions.flatMap((resolution) => {
-      if (!confirmed.has(resolution.causalLinkId)) {
+      const causalLink = graph.causalLinks.find((item) =>
+        item.id === resolution.causalLinkId
+      );
+      // Even a stale confirmation index cannot promote a safe counter-proof,
+      // unresolved runtime observation or foreign scenario into a defect.
+      if (!confirmed.has(resolution.causalLinkId) ||
+          resolution.disposition !== "CONFIRMED_DEFECT_READY" ||
+          causalLink?.status !== "CONTRADICTED" ||
+          resolution.scenarioId !== causalLink.scenarioId) {
         return [];
       }
 

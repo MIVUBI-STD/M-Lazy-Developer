@@ -230,6 +230,7 @@ export function projectReadyAuditIssues(
         ready.has(resolution.causalLinkId) &&
         resolution.disposition === "CONFIRMED_DEFECT_READY" &&
         link?.status === "CONTRADICTED" &&
+        resolution.scenarioId === link.scenarioId &&
         assessReadyResolutionSaturation(
           graph,
           resolution,

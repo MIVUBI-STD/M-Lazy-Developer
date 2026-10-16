@@ -497,6 +497,53 @@ describe("EVALUATE to PROVE to issue projection", () => {
 });
 
 describe("map audit issue projection", () => {
+  it("does not promote stale, foreign or non-defect resolutions in report lanes", () => {
+    const capacity = gate.resolutions[0]!;
+    const foreign: GameplayDefectResolutionGate = {
+      ...gate,
+      confirmedDefectReadyIds: ["link:capacity"],
+      resolutions: [{ ...capacity, scenarioId: "scenario:progression" }],
+    };
+    expect(projectReadyAuditIssues(graph, foreign)).toEqual([]);
+
+    const incomplete = {
+      ...capacity,
+      familyProof: undefined,
+      counterProofSearch: undefined,
+    };
+    const unfinished: GameplayDefectResolutionGate = {
+      ...gate,
+      confirmedDefectReadyIds: ["link:capacity"],
+      resolutions: [incomplete],
+    };
+    expect(projectAllNeedValidationAuditIssues(graph, unfinished)
+      .map((item) => item.causalLinkId)).toEqual(["link:capacity"]);
+
+    const runtimeGraph: GameplayScenarioGraph = {
+      ...graph,
+      causalLinks: graph.causalLinks.map((link) =>
+        link.id === "link:capacity"
+          ? { ...link, status: "RUNTIME_BLOCKED" as const }
+          : link),
+    };
+    expect(projectReadyAuditIssues(runtimeGraph, unfinished)).toEqual([]);
+    expect(projectAllNeedValidationAuditIssues(runtimeGraph, unfinished)).toEqual([]);
+
+    const blocked: GameplayDefectResolutionGate = {
+      ...unfinished,
+      resolutions: [{
+        ...incomplete,
+        disposition: "BLOCKING_COUNTERPROOF" as const,
+      }],
+    };
+    expect(projectAllNeedValidationAuditIssues(graph, blocked)).toEqual([]);
+    expect(projectAllNeedValidationAuditIssues(graph, {
+      ...unfinished,
+      resolutions: [{ ...incomplete, scenarioId: "scenario:progression" }],
+    })).toEqual([]);
+  });
+
+
   it("keeps causal-link knowledge authority in PROVEN and NEED_VALIDATION report metadata", () => {
     const requirementId = "knowledge:capacity:state-flow";
     const withKnowledge: GameplayScenarioGraph = {
