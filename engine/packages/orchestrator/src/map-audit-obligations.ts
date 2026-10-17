@@ -1265,7 +1265,30 @@ export function deriveAuditObligations(input: {
 
   const byId = new Map<string, AuditObligation>();
   for (const item of items) {
-    byId.set(item.id, item);
+    const existing = byId.get(item.id);
+    if (existing === undefined) {
+      byId.set(item.id, item);
+      continue;
+    }
+    // Graph source and defect resolution can describe the SAME causal link
+    // with different outstanding work (e.g. UNDERSTAND detection gap vs
+    // PROVE capability proof). Do not let the later projection silently
+    // erase the earlier blocker or either source's evidence.
+    const stageOf = (obligation: AuditObligation): number =>
+      SELECTED_MAP_AUDIT_STAGE_ORDER.indexOf(obligation.stage);
+    const primary = stageOf(existing) < stageOf(item) ? existing : item;
+    const secondary = primary === existing ? item : existing;
+    const combined = (left: string, right: string): string =>
+      left === right ? left : left + " " + right;
+    byId.set(item.id, {
+      ...primary,
+      reason: combined(primary.reason, secondary.reason),
+      missingProof: combined(primary.missingProof, secondary.missingProof),
+      validationTest: combined(primary.validationTest, secondary.validationTest),
+      subjectIds: unique([...primary.subjectIds, ...secondary.subjectIds]),
+      componentIds: unique([...primary.componentIds, ...secondary.componentIds]),
+      evidenceIds: unique([...primary.evidenceIds, ...secondary.evidenceIds]),
+    });
   }
 
   // Audit Obligations drive the bounded model-task handoff. Their order

@@ -250,7 +250,7 @@ describe("reusable blind-spot obligations", () => {
   const derive = (extra: any) =>
     deriveAuditObligations({
       graph: extra.graph ?? graph,
-      defectResolution: gate,
+      defectResolution: extra.gate ?? gate,
       gameplayWorld: {
         ...baseWorld,
         ...(extra.gameplayWorld ?? {}),
@@ -265,6 +265,31 @@ describe("reusable blind-spot obligations", () => {
       accumulationGrowth: [],
       ...(extra.capabilityExposure === undefined ? {} : { capabilityExposure: extra.capabilityExposure }),
     });
+
+  it("preserves the earliest causal blocker when graph and resolution share an ID", () => {
+    const linkGraph = baseGraph("DETECTION_GAP");
+    const obligations = derive({
+      graph: linkGraph,
+      gate: {
+        ...gate,
+        resolutions: [{
+          causalLinkId: "link:wave",
+          disposition: "DETECTION_GAP",
+          detectionGapReason: "Parser cannot yet resolve the scoped transition.",
+          missingCapability: "exact-source-transition",
+          evidenceIds: ["e:extra-resolution"],
+        }],
+      },
+    });
+    const matching = obligations.filter((item) => item.id === "link:wave");
+    expect(matching).toHaveLength(1);
+    expect(matching[0]?.stage).toBe("UNDERSTAND");
+    expect(matching[0]?.source).toBe("detection-gap");
+    expect(matching[0]?.evidenceIds).toEqual(["e:entity", "e:extra-resolution"]);
+    expect(matching[0]?.missingProof).toContain("Analysis capability: exact-source-transition");
+    expect(matching[0]?.missingProof).toContain("Selected-artifact semantic evidence");
+    expect(matching[0]?.reason).toContain("Parser cannot yet resolve");
+  });
 
   it("surfaces incomplete replica proof instead of inheriting baseline safety", () => {
     const obligations = derive({
