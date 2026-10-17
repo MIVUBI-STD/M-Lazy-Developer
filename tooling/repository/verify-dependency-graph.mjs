@@ -86,7 +86,10 @@ for (const rootName of SOURCE_ROOTS) {
     for (const {specifier, runtime} of importSpecifiers(file, text)) {
 
       if (!specifier.startsWith(".")) {
-        if (!specifier.startsWith("node:")) {
+        // Only imports that survive to JavaScript require a production
+        // runtime dependency. Type-position imports are validated as source
+        // references, but may legitimately use dev-only type packages.
+        if (runtime && !specifier.startsWith("node:")) {
           const name = packageName(specifier);
           if (!productionExternalImports.has(name)) {
             productionExternalImports.set(name, new Set());
