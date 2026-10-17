@@ -40,6 +40,12 @@ export interface GameplayIntentStageInput {
     parsed: ParsedScriptFile;
   }[];
   supplementalSignals?: readonly GameplayIntentSignal[];
+  /**
+   * Authoritative physical file inventory from the SAME selected artifact,
+   * supplied by inspectDirectory. Supplemental signals are candidates and
+   * must never register their own locators as selected source truth.
+   */
+  selectedSourceInventoryPaths?: readonly string[];
   /** Source-resolved imported calls from the same selected artifact as Semantic IR. */
   crossFileCallEdges?: readonly CrossFileCallEdge[];
   /** Built from these same parsed sources; absent in lightweight consumers. */
@@ -111,10 +117,15 @@ export function buildGameplayIntentModel(
       input.artifactId === undefined ||
       item.parsed.source.artifactId === input.artifactId,
     ).map(item => item.parsed.source.relativePath),
-    ...supplementalSignals.map(
-      (signal) => signal.locator,
-    ),
+    ...(input.selectedSourceInventoryPaths ?? []),
   ]);
+  const selectedSourceLocator = (locator: string): boolean =>
+    selectedArtifactSourcePaths.has(locator) ||
+    // Localized strings retain their original file#Lline locator.
+    (/#L[1-9][0-9]*$/.test(locator) &&
+      selectedArtifactSourcePaths.has(
+        locator.replace(/#L[1-9][0-9]*$/, ""),
+      ));
 
   const evidence = new Map<string, GameplayIntentEvidence>();
   const nodes = new Map<string, GameplayIntentNode>();
@@ -259,7 +270,7 @@ export function buildGameplayIntentModel(
   for (const signal of extracted.signals) {
     const id = evidenceId(signal);
     const signalScope =
-      selectedArtifactSourcePaths.has(signal.locator)
+      selectedSourceLocator(signal.locator)
         ? "selected-artifact" as const
         : undefined;
     evidence.set(id, {
@@ -352,7 +363,7 @@ export function buildGameplayIntentModel(
 
     const id = evidenceId(relation);
     const relationScope =
-      selectedArtifactSourcePaths.has(relation.locator)
+      selectedSourceLocator(relation.locator)
         ? "selected-artifact" as const
         : undefined;
     evidence.set(id, {

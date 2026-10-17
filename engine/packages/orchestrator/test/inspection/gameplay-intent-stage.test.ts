@@ -320,6 +320,7 @@ describe("gameplay intent stage", () => {
       id: "multi-source",
       artifactId: "art_test",
       parsedScripts: [],
+      selectedSourceInventoryPaths: ["structures/arena_six.mcstructure"],
       supplementalSignals: [{
         id: "signal:spatial-region:arena-six:structure",
         subjectKey: "spatial-region:arena-six",
@@ -350,6 +351,41 @@ describe("gameplay intent stage", () => {
           item.origin === "structure",
       )?.scope,
     ).toBe("selected-artifact");
+  });
+
+  it("requires independent selected-inventory ownership for supplemental signals, including localized locators", () => {
+    const source = (locator: string, evidenceOrigin: "structure" | "translation") => ({
+      id: "signal:" + locator,
+      subjectKey: "mechanic:" + locator,
+      nodeKind: "mechanic" as const,
+      label: "Potential mechanic",
+      status: "inferred" as const,
+      evidenceOrigin,
+      locator,
+      summary: "Supplemental candidate is not self-authoritative.",
+    });
+    const model = buildGameplayIntentModel({
+      id: "intent:supplemental-inventory-boundary",
+      artifactId: "art_selected",
+      parsedScripts: [],
+      selectedSourceInventoryPaths: [
+        "structures/selected.mcstructure",
+        "resource_packs/a/texts/en_US.lang",
+      ],
+      supplementalSignals: [
+        source("structures/selected.mcstructure", "structure"),
+        source("structures/foreign.mcstructure", "structure"),
+        source("resource_packs/a/texts/en_US.lang#L12", "translation"),
+        source("resource_packs/b/texts/en_US.lang#L12", "translation"),
+      ],
+    });
+    const byLocator = new Map(model.evidence.map(item => [item.locator, item.scope]));
+    expect(byLocator.get("structures/selected.mcstructure")).toBe("selected-artifact");
+    expect(byLocator.get("resource_packs/a/texts/en_US.lang#L12"))
+      .toBe("selected-artifact");
+    expect(byLocator.get("structures/foreign.mcstructure")).toBeUndefined();
+    expect(byLocator.get("resource_packs/b/texts/en_US.lang#L12"))
+      .toBeUndefined();
   });
 
   it("builds a validated parser-independent model from analyzer signals", () => {
