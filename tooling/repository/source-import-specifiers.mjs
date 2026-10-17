@@ -16,7 +16,10 @@ export function importSpecifiers(filePath, content) {
             ts.isNamedImports(node.importClause.namedBindings) &&
             node.importClause.namedBindings.elements.length > 0 &&
             node.importClause.namedBindings.elements.every(item => item.isTypeOnly)))
-        : node.isTypeOnly;
+        : (node.isTypeOnly ||
+           (node.exportClause && ts.isNamedExports(node.exportClause) &&
+            node.exportClause.elements.length > 0 &&
+            node.exportClause.elements.every(item => item.isTypeOnly)));
       found.push({ specifier: node.moduleSpecifier.text, runtime: !typeOnly });
     }
     if (ts.isImportEqualsDeclaration(node) &&
