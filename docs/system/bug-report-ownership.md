@@ -29,6 +29,12 @@ Developer Notes are a third publication lane with separate authority: project/le
 
 Physical placement does not create ownership. A copy, preview, export, spreadsheet, PDF, or external QA note is not authoritative merely because it contains bug information.
 
+### Isolated Report System Next boundary
+
+`apps/report-system-next/` is a separately design-locked **renderer source**, not a new current-map gameplay authority, an approved-BUG state owner, or the current Bug Report V2 publisher. It requires independently supplied, evidence-bound `m-lazy-report-next/v1` input and has no authorized production replacement/migration for `workspace/projects/*/output/` or the existing Bug Tracker. Its offline tester workspace is distinct user-edited presentation state; Passed/Failed, notes, and screenshot attachments do not directly mutate `SelectedMapAuditRun`, `report/bug-report.json`, or repair completion.
+
+A future production connection must first trace exact Map Audit/approved-report producer → new-schema mapping → evidence and approval preservation → renderer consumer, then explicitly decide migration/version semantics. Until such integration is authorized and proved, preserve both established output authorities and do not describe the isolated renderer as the default report flow.
+
 ## Authorities
 
 | Concern | Canonical owner |
