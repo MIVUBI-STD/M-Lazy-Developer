@@ -45,3 +45,48 @@ describe("map audit reasoning admission",()=>{
   );
  });
 });
+describe("reasoning classification follows the audit issue lane", () => {
+  const evidence = {
+    hypothesisId: "h",
+    disposition: "supported" as const,
+    supportingEvidenceIds: ["e:1"],
+    eliminatingEvidenceIds: [],
+    missingRequiredPredicates: [],
+    reasons: [],
+    domains: ["static"],
+    corroborationCount: 1,
+    confidence: "proven" as const,
+  };
+  const candidate = (reportClassification: "PROVEN BUG" | "DESIGN MISMATCH") => ({
+    causalLinkId: "link:1",
+    projection: {
+      reportClassification,
+      diagnosticDisposition: reportClassification === "DESIGN MISMATCH"
+        ? "design-review" as const
+        : "confirmed-defect" as const,
+      proofConfidence: "proven" as const,
+      reasons: [],
+    },
+    assessment: evidence,
+  });
+  it("admits proven DESIGN_MISMATCH reasoning only in its own classification", () => {
+    const mismatch = { ...finding, status: "PROVEN", issueType: "DESIGN_MISMATCH" };
+    const accepted = admitMapAuditFindingReasoning(
+      [mismatch], [candidate("DESIGN MISMATCH")],
+    );
+    expect(accepted.rejected).toEqual([]);
+    expect(accepted.admitted["link:1"]?.reportClassification)
+      .toBe("DESIGN MISMATCH");
+    const wrong = admitMapAuditFindingReasoning([mismatch], [candidate("PROVEN BUG")]);
+    expect(wrong.admitted).toEqual({});
+    expect(wrong.rejected[0]?.reasons)
+      .toContain("A PROVEN DESIGN_MISMATCH audit finding requires DESIGN MISMATCH reasoning classification.");
+  });
+  it("does not attach design-mismatch reasoning to an admitted PROVEN BUG", () => {
+    const bug = { ...finding, status: "PROVEN", issueType: "BUG" };
+    const rejected = admitMapAuditFindingReasoning([bug], [candidate("DESIGN MISMATCH")]);
+    expect(rejected.admitted).toEqual({});
+    expect(rejected.rejected[0]?.reasons)
+      .toContain("A PROVEN BUG audit finding requires PROVEN BUG reasoning classification.");
+  });
+});

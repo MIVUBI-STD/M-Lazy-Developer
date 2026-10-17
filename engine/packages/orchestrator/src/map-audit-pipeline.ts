@@ -898,6 +898,7 @@ function assembleSelectedMapAuditRun(
         diagnosticDisposition:
           diagnosticDispositionForDefectResolution(
             resolution.disposition,
+            finding.issueType,
           ),
         ...(runtimeProbeTranscript
           ? { runtimeProbeTranscript }

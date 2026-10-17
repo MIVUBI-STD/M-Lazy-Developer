@@ -4,13 +4,19 @@ import type {
 import type {
   GameplayDefectResolutionDisposition,
 } from "../inspection/gameplay-defect-resolution.js";
+import type { AuditIssueProjection } from "../map-audit-issue-projection.js";
 
 export function diagnosticDispositionForDefectResolution(
   disposition: GameplayDefectResolutionDisposition,
+  issueType: AuditIssueProjection["issueType"] = "BUG",
 ): IntentDiagnosticDisposition {
   switch (disposition) {
     case "CONFIRMED_DEFECT_READY":
-      return "confirmed-defect";
+      // Audit proof status and issue type are separate authorities.
+      // DESIGN_MISMATCH must not be presented as a confirmed implementation bug.
+      return issueType === "DESIGN_MISMATCH"
+        ? "design-review"
+        : "confirmed-defect";
     case "BLOCKING_COUNTERPROOF":
       return "designed-behavior";
     case "RUNTIME_PROOF_REQUIRED":

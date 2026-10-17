@@ -76,6 +76,9 @@ export function admitMapAuditFindingReasoning(
         reasons.push("A PROVEN audit finding cannot attach UNKNOWN report reasoning.");
       }
       if (finding.status === "PROVEN") {
+        const expectedClassification = finding.issueType === "DESIGN_MISMATCH"
+          ? "DESIGN MISMATCH"
+          : "PROVEN BUG";
         if (candidate.assessment.disposition !== "supported") {
           reasons.push(
             "A PROVEN audit finding requires a supported canonical hypothesis assessment.",
@@ -90,10 +93,12 @@ export function admitMapAuditFindingReasoning(
           );
         }
         if (
-          candidate.projection.reportClassification !== "PROVEN BUG"
+          candidate.projection.reportClassification !== expectedClassification
         ) {
           reasons.push(
-            "A PROVEN audit finding requires PROVEN BUG reasoning classification.",
+            "A PROVEN " + finding.issueType +
+            " audit finding requires " + expectedClassification +
+            " reasoning classification.",
           );
         }
       }
