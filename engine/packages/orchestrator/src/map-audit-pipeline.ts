@@ -1427,15 +1427,15 @@ function designMismatchCandidateIssues(
   audit: SelectedMapAuditRun,
   candidates: readonly AuditReportCandidate[],
 ): readonly string[] {
+  // All DESIGN_MISMATCH audit findings stay in their own output lane,
+  // including NEED_VALIDATION. A tester-origin candidate is independent
+  // only when it does not claim a causal link owned by that lane.
   const designMismatchLinks = new Set(
-    audit.issueLanes.DESIGN_MISMATCH
-      .filter((item) => item.status === "PROVEN")
-      .map((item) => item.causalLinkId),
+    audit.issueLanes.DESIGN_MISMATCH.map((item) => item.causalLinkId),
   );
   const issues: string[] = [];
 
   for (const candidate of candidates) {
-    if (candidate.route === "tester") continue;
     const linkIds = [
       ...new Set([
         ...(candidate.scenarioCausalLinkIds ?? []),
