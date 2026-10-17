@@ -89,6 +89,34 @@ function normalize(
   };
 }
 
+/**
+ * A required scenario Knowledge receipt is usable only when there is exactly
+ * one matching owner/domain receipt with nonempty selected proof evidence.
+ * Keep this rule aligned with the existing PROVE saturation gate; do not
+ * let missing or duplicate receipts disappear from Audit Obligations.
+ */
+export function unresolvedKnowledgeRequirements(
+  graph: GameplayScenarioGraph,
+): readonly {
+  readonly requirement: GameplayScenarioGraph["knowledgeRequirements"][number];
+  readonly receipt?: GameplayScenarioGraph["knowledgeReceipts"][number];
+}[] {
+  return graph.knowledgeRequirements.flatMap((requirement) => {
+    const receipts = graph.knowledgeReceipts.filter((receipt) =>
+      receipt.requirementId === requirement.id &&
+      receipt.scenarioId === requirement.scenarioId &&
+      receipt.domain === requirement.domain
+    );
+    if (receipts.length === 1 &&
+        receipts[0]?.status === "SATISFIED" &&
+        receipts[0].evidenceIds.length > 0) return [];
+    return [{
+      requirement,
+      ...(receipts.length === 1 ? { receipt: receipts[0] } : {}),
+    }];
+  });
+}
+
 function graphObligations(
   graph: GameplayScenarioGraph,
 ): AuditObligation[] {
@@ -143,44 +171,38 @@ function graphObligations(
     }));
   }
 
-  for (const receipt of graph.knowledgeReceipts) {
-    if (receipt.status === "SATISFIED") continue;
-    const requirement = graph.knowledgeRequirements.find(
-      (item) => item.id === receipt.requirementId,
-    );
+  for (const { requirement, receipt } of unresolvedKnowledgeRequirements(graph)) {
     const scenario = graph.scenarios.find(
-      (item) => item.id === receipt.scenarioId,
+      (item) => item.id === requirement.scenarioId,
     );
-    if (!requirement || !scenario) continue;
-
     items.push(normalize({
-      id: "knowledge-gap:" + receipt.requirementId,
+      id: "knowledge-gap:" + requirement.id,
       source: "knowledge-gap",
       stage: "PROVE",
       title:
         "Resolve required " + requirement.domain + " knowledge",
-      reason: receipt.reason,
+      reason: receipt?.reason ??
+        "Required knowledge has no unique, evidenced SATISFIED receipt for its owning scenario and domain.",
       missingProof:
-        "Scenario-scoped " +
-        requirement.domain +
-        " evidence sufficient to decide the required gameplay dependency.",
+        "One matching SATISFIED receipt with scenario-scoped " +
+        requirement.domain + " evidence sufficient to decide the dependency.",
       validationTest:
         "Resolve the " +
         requirement.domain +
         " dependency for scenario '" +
-        scenario.label +
+        (scenario?.label ?? requirement.scenarioId) +
         "' before classifying any gameplay issue.",
       validationGroupKey:
-        scenario.id + ":" + requirement.domain,
+        requirement.scenarioId + ":" + requirement.domain,
       subjectIds: [
         ...requirement.subjectIds,
-        ...receipt.subjectIds,
+        ...(receipt?.subjectIds ?? []),
       ],
       componentIds: [
         ...requirement.componentIds,
-        ...receipt.componentIds,
+        ...(receipt?.componentIds ?? []),
       ],
-      evidenceIds: receipt.evidenceIds,
+      evidenceIds: receipt?.evidenceIds ?? [],
     }));
   }
 

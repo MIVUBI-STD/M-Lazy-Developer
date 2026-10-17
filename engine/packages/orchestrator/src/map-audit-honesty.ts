@@ -15,7 +15,10 @@ import type {
 import type {
   AuditIssueProjection,
 } from "./map-audit-issue-projection.js";
-import { capabilityDeliveryObligations } from "./map-audit-obligations.js";
+import {
+  capabilityDeliveryObligations,
+  unresolvedKnowledgeRequirements,
+} from "./map-audit-obligations.js";
 import type { MandatoryAuditProcedureReceipt } from "./inspection/mandatory-audit-support.js";
 import type {
   GameplayDiscoveryChallengeSignal,
@@ -79,12 +82,15 @@ function unresolvedGraphResidueIds(
     ids.add(id);
   }
 
+  // Missing, duplicate or empty-evidence receipts are still unresolved
+  // even if no non-SATISFIED receipt object exists to iterate.
+  for (const { requirement } of unresolvedKnowledgeRequirements(graph)) {
+    ids.add("knowledge-gap:" + requirement.id);
+  }
+  // Retain visibility of malformed/orphaned non-satisfied receipts.
   for (const receipt of graph.knowledgeReceipts) {
     if (receipt.status !== "SATISFIED") {
-      ids.add(
-        "knowledge-gap:" +
-          receipt.requirementId,
-      );
+      ids.add("knowledge-gap:" + receipt.requirementId);
     }
   }
 

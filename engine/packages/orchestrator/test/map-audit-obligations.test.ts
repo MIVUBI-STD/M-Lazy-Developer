@@ -358,6 +358,58 @@ describe("reusable blind-spot obligations", () => {
     ).toBe(true);
   });
 
+  it("does not hide missing, duplicate or unevidenced Knowledge receipts", () => {
+    const required = {
+      id: "knowledge:wave:state",
+      scenarioId: "scenario:wave", domain: "state-flow",
+      reason: "Wave state ownership must be proven",
+      capabilityIds: ["state-flow"], dependsOnRequirementIds: [],
+      subjectIds: ["objective:wave"], componentIds: ["runtime:entities"],
+    };
+    const receipt = {
+      requirementId: required.id,
+      scenarioId: required.scenarioId,
+      domain: required.domain,
+      status: "SATISFIED",
+      evidenceIds: ["e:knowledge"],
+      knowledgeIds: ["fact:state-flow"],
+      capabilityIdsUsed: ["state-flow"],
+      subjectIds: required.subjectIds,
+      componentIds: required.componentIds,
+      reason: "Source grounded.",
+    };
+    for (const receipts of [
+      [],
+      [{ ...receipt, evidenceIds: [] }],
+      [receipt, { ...receipt }],
+    ]) {
+      const changedGraph = {
+        ...baseGraph("PROVEN"),
+        knowledgeRequirements: [required],
+        knowledgeReceipts: receipts,
+      };
+      const obligations = deriveAuditObligations({
+        graph: changedGraph,
+        defectResolution: {
+          status: "READY_FOR_PROPOSED_BUG_SET",
+          resolutions: [], confirmedDefectReadyIds: [],
+          runtimeProofRequiredIds: [], detectionGapIds: [],
+          gameplayTranslationRequiredIds: [], counterProofSearchRequiredIds: [],
+        } as any,
+        gameplayWorld: {
+          arenas: { detected: false, isolation: { observations: [] }, replicaProof: [] },
+          platformKnowledge: { claims: [] }, surfaceDiscovery: { surfaceIds: [] },
+        } as any,
+        gameplayClosure: closed,
+        capabilityDelivery: [], negativeSpace: [], temporalRisks: [],
+        discoveryChallenges: [], sharedResourceSignals: [], compoundBoundaries: [],
+        accumulationGrowth: [],
+      });
+      expect(obligations.filter(o => o.id === "knowledge-gap:" + required.id))
+        .toHaveLength(1);
+    }
+  });
+
   it("keeps missing scenario knowledge as an audit obligation, not a bug", () => {
     const unresolvedGraph = {
       ...graph,

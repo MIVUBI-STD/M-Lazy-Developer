@@ -270,6 +270,45 @@ describe("map audit honesty gate", () => {
     }
   });
 
+  it("requires unresolved Knowledge receipt gaps to remain visible", () => {
+    const requirement = {
+      id: "knowledge:wave:state",
+      scenarioId: "scenario:wave",
+      domain: "state-flow" as const,
+      reason: "State evidence required.",
+      capabilityIds: ["state-flow"],
+      dependsOnRequirementIds: [],
+      subjectIds: ["objective:wave"],
+      componentIds: ["runtime:entities"],
+    };
+    const requiredGraph = {
+      ...graph,
+      knowledgeRequirements: [requirement],
+      knowledgeReceipts: [],
+    };
+    const baseInput = {
+      graph: requiredGraph, gate, gameplayClosure: closure,
+      capabilityDelivery: [], negativeSpace: [], temporalRisks: [],
+      discoveryChallenges: [], sharedResourceSignals: [],
+      compoundBoundaries: [], accumulationGrowth: [],
+      visibleIssues: [],
+    };
+    const visible = ["link:wave", "capability-delivery:unassessed"];
+    const hidden = assessAuditHonesty({
+      ...baseInput, visibleObligationIds: visible,
+    });
+    expect(hidden.status).toBe("VIOLATION");
+    expect(hidden.missingVisibleResidueIds).toContain(
+      "knowledge-gap:knowledge:wave:state",
+    );
+    const accounted = assessAuditHonesty({
+      ...baseInput,
+      visibleObligationIds: [...visible, "knowledge-gap:knowledge:wave:state"],
+    });
+    expect(accounted.missingVisibleResidueIds).toEqual([]);
+    expect(accounted.status).toBe("PASS");
+  });
+
   it("blocks review when a material unresolved residue is hidden", () => {
     const result = assessAuditHonesty({
       graph,
