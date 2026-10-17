@@ -60,25 +60,18 @@ export function deriveSelectedMapAuditRevision(input: {
         })),
       })),
     },
+    // Model responses are authorized against this revision. Bind the entire
+    // canonical causal/proof core, not a lossy pick of its fields: scenario
+    // ownership, link-to-scenario scope, impact-path evidence, required
+    // knowledge and receipt provenance can all change without an ID change.
+    // Exclude only derived navigation/rendering fields; they cannot create
+    // source authority or independently authorize a proof resolution.
     scenario: {
-      scenarios: input.graph.scenarios.map((item) => ({
-        id: item.id,
-        componentIds: item.componentIds,
-        requiredKnowledgeIds: item.requiredKnowledgeIds,
-      })),
-      causalLinks: input.graph.causalLinks.map((item) => ({
-        id: item.id,
-        status: item.status,
-        evidenceIds: item.evidenceIds,
-        subjectIds: item.subjectIds,
-        componentIds: item.componentIds,
-      })),
-      knowledgeReceipts: input.graph.knowledgeReceipts.map((item) => ({
-        requirementId: item.requirementId,
-        status: item.status,
-        evidenceIds: item.evidenceIds,
-        capabilityIdsUsed: item.capabilityIdsUsed,
-      })),
+      scenarios: input.graph.scenarios,
+      components: input.graph.components,
+      causalLinks: input.graph.causalLinks,
+      knowledgeRequirements: input.graph.knowledgeRequirements,
+      knowledgeReceipts: input.graph.knowledgeReceipts,
     },
     defectResolution: input.defectResolution.resolutions,
   };
