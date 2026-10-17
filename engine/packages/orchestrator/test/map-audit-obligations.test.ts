@@ -423,6 +423,43 @@ describe("reusable blind-spot obligations", () => {
     expect(projectNeedValidationAuditIssues(graph, gate)).toEqual([]);
   });
 
+  it("orders model-facing obligations by canonical audit stage, not alphabetic stage names", () => {
+    const obligations = derive({
+      negativeSpace: [{
+        id: "negative-space:round-without-exit",
+        kind: "entry-without-exit",
+        subjectId: "state:round",
+        evidenceIds: ["state:enter"],
+        reason: "Missing confirmed exit path.",
+      }],
+      gameplayClosure: {
+        ...closed,
+        status: "PARTIAL",
+        stateModelComplete: false,
+      },
+      gameplayWorld: {
+        ...baseWorld,
+        arenas: {
+          ...baseWorld.arenas,
+          replicaProof: [{
+            arenaId: "arena:second",
+            status: "no-proof",
+            mismatchCount: 0,
+            evidenceIds: ["world:arena-second"],
+          }],
+        },
+      },
+    });
+    const stageOrder = obligations.map(item => item.stage);
+    const distinctStages = [...new Set(stageOrder)];
+    expect(distinctStages).toEqual([
+      "UNDERSTAND", "FORMALIZE", "EVALUATE",
+    ]);
+    expect(stageOrder).not.toEqual(
+      [...stageOrder].sort((a, b) => a.localeCompare(b)),
+    );
+  });
+
   it("retains unaccounted surfaces and incomplete closure as obligations", () => {
     const obligations = derive({
       gameplayClosure: {

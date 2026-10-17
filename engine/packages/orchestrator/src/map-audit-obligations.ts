@@ -9,6 +9,7 @@ import type {
 import type {
   GameplayScenarioGraph,
 } from "./inspection/gameplay-scenario-model.js";
+import { SELECTED_MAP_AUDIT_STAGE_ORDER } from "./map-audit-admission.js";
 import {
   capabilityDeliveryMatchesScope,
   type GameplayDefectResolutionGate,
@@ -1245,8 +1246,12 @@ export function deriveAuditObligations(input: {
     byId.set(item.id, item);
   }
 
+  // Audit Obligations drive the bounded model-task handoff. Their order
+  // follows the SAME canonical admission stages; lexical order incorrectly
+  // puts EVALUATE before FORMALIZE and UNDERSTAND.
   return [...byId.values()].sort((a, b) =>
-    a.stage.localeCompare(b.stage) ||
+    SELECTED_MAP_AUDIT_STAGE_ORDER.indexOf(a.stage) -
+      SELECTED_MAP_AUDIT_STAGE_ORDER.indexOf(b.stage) ||
     a.source.localeCompare(b.source) ||
     a.id.localeCompare(b.id)
   );
