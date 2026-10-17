@@ -53,7 +53,7 @@ describe("reasoning classification follows the audit issue lane", () => {
     eliminatingEvidenceIds: [],
     missingRequiredPredicates: [],
     reasons: [],
-    domains: ["static"],
+    domains: ["static"] as const,
     corroborationCount: 1,
     confidence: "proven" as const,
   };
