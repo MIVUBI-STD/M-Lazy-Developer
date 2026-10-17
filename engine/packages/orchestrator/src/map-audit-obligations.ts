@@ -112,7 +112,7 @@ export function unresolvedKnowledgeRequirements(
         receipts[0].evidenceIds.length > 0) return [];
     return [{
       requirement,
-      ...(receipts.length === 1 ? { receipt: receipts[0] } : {}),
+      ...(receipts.length === 1 ? { receipt: receipts[0]! } : {}),
     }];
   });
 }
