@@ -189,7 +189,7 @@ function isCurrentArtifactSourceEvidence(
   evidence: GameplayIntentModel["evidence"][number] | undefined,
 ): boolean {
   return evidence !== undefined &&
-    (evidence.scope === undefined || evidence.scope === "selected-artifact") &&
+    evidence.scope === "selected-artifact" &&
     SOURCE_EVIDENCE_ORIGINS.has(evidence.origin);
 }
 
@@ -424,7 +424,10 @@ function evidenceContext(
 
   for (const id of unique(evidenceIds)) {
     const evidence = byId.get(id);
-    if (evidence !== undefined) {
+    // Scope is source authority, not an optional convenience. An unscoped,
+    // runtime or external reference must not become a selected-map witness
+    // merely because its ID is present in the Gameplay Intent model.
+    if (isCurrentArtifactSourceEvidence(evidence)) {
       context.push({
         id,
         kind: "selected-artifact-evidence",
