@@ -1,6 +1,6 @@
 # Engine
 
-Canonical deterministic Minecraft Bedrock / Education analysis and repair engine.
+Source contracts for the intended deterministic Minecraft Bedrock / Education analysis and repair engine. The current checker operates through ChatGPT with GitHub-owned source; this directory is not proof of a built or running application.
 
 ## Physical directory responsibilities
 
@@ -22,19 +22,20 @@ These are actual directories under `engine/`. Each owns one distinct kind of sou
 
 `engine/ownership.json` is the machine-readable source for the seven **logical groups** (`core`, `analysis`, `policy-data`, `quality`, `runtime-proof`, `engineering-governance`, `design-system`). They are labels for the physical directories above, not folders to create. `engine/packages/ownership.json` separately groups packages by responsibility; do not physically duplicate packages under those group names.
 
-For the user-facing audit flow `TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT`, resolve the stage through [Implementation Map](../docs/system/implementation-map.md) and the existing selected-map workflow. Stages are navigation routes; analyzers and packages retain their single canonical implementation owners.
+For the user-facing audit flow `TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT`, resolve the stage through [Implementation Map](../docs/system/implementation-map.md) and the existing selected-map workflow. Stages are navigation routes; analyzers and packages retain their single canonical implementation owners.
 
 ## Engine routing
 
 ```text
-external bytes / native storage
-→ adapters
-→ analyzers
-→ packages: understanding/diagnosis
-→ packages: repair
-→ packages: validation/reliability
-→ orchestrator
+selected artifact bytes
+→ artifact/archive + adapters (identity and format translation)
+→ read-only analyzers (source and native evidence)
+→ project model + semantic IR/graph + gameplay understanding
+→ diagnostics, counterproof and bounded proof requirements
+→ one orchestrated selected-map audit → report projection
 ```
+
+`engine/packages/orchestrator/` coordinates these owners throughout the audit; it is not a last processing step after repair. `FORMALIZE` owns the evidence-bounded model and state/ownership contracts; cross-system and stress conditions belong within `EVALUATE`, not in a separate `STRESS` stage. An approved BUG or design change follows the separate repair-admission → repair/preservation → validation/package path. Audit alone never mutates the selected map.
 
 Authority/data owners inform the pipeline without becoming runtime proof:
 
@@ -59,7 +60,7 @@ fixtures + reliability + runtime
 - `engine/adapters` translates representations.
 - `engine/analyzers` derives evidence without mutation.
 - `engine/packages/orchestrator` is the normal cross-owner composition boundary.
-- Actual map Game Design lives under the project workspace; `engine/design` owns only the design system. `engine/knowledge` owns platform facts; `engine/contracts` owns engineering constraints; `rules` and `schemas` remain executable policy/structure owners.
+- Current map Game Design is derived from the exact selected artifact; project workspace records may persist that derived view but never replace the artifact as gameplay authority. `engine/design` owns only the reusable design system. `engine/knowledge` owns platform facts; `engine/contracts` owns engineering constraints; `rules` and `schemas` remain executable policy/structure owners.
 - `engine/fixtures` and `reliability` protect quality but do not define gameplay semantics.
 - `engine/runtime` provides bounded runtime proof.
 - Research under `experiments/` is non-authoritative and must not become a production dependency.

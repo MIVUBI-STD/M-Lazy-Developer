@@ -26,7 +26,7 @@ These family barrels are the canonical navigation hierarchy for orchestrator.
 
 ## File responsibility and navigation
 
-The user-facing selected-map flow is `TARGET → DISCOVERY → UNDERSTAND → MODEL → STRESS → PROVE → REPORT`. These are **workflow stages**, not additional source directories or alternate semantic owners. Navigate stages through the existing canonical `docs/system/implementation-map.md` and the audit workflow; implementation remains owned by the responsible family/package/analyzer.
+The user-facing selected-map flow is `TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT`. These are **workflow stages**, not additional source directories or alternate semantic owners. Navigate stages through the existing canonical `docs/system/implementation-map.md` and the audit workflow; implementation remains owned by the responsible family/package/analyzer. `MODEL` is a derived representation used across UNDERSTAND/FORMALIZE, and stress/cross-system checks are EVALUATE obligations, not alternate audit stages.
 
 - The root production `map-audit-*.ts` files own specific audit coordination, admission, or projections, not generic Minecraft analysis.
 - Family `src/<family>/<responsibility>.ts` files own their declared orchestration concern. A family index is a navigation/export surface, not a second implementation.
@@ -61,8 +61,8 @@ audit <selected-map>
 → TARGET
 → DISCOVERY
 → UNDERSTAND
-→ MODEL
-→ STRESS
+→ FORMALIZE
+→ EVALUATE
 → PROVE
 → REPORT
 ```

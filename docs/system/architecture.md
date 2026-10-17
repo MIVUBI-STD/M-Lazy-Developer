@@ -17,36 +17,37 @@ Lazy-Developer uses semantic ownership and one-way dependency direction.
 
 The source modules below document one canonical **intended** reasoning architecture. Their actual behavior at any commit can be called executed only if that exact source code was genuinely invoked and observed; ChatGPT's independent archive/script/NBT analysis is useful and valid but **must not be described as `runSelectedMapAudit()` or a completed app run**. Record the exact source, reasoning, confidence and missing proof for each fact, while leaving Minecraft gameplay and execution-dependent claims UNKNOWN unless independently observed. This note corrects product-language drift; it neither rewrites past commits nor removes valid reusable source models.
 
-## Semantic reasoning path
+## Semantic reasoning and production ownership
+
+There are **two separate routes**, not one mandatory audit-then-repair chain. Both are source-defined architecture; neither is evidence that an application or Minecraft world was executed.
+
+**Selected-map audit (read-only):**
 
 ```text
-artifact + archive
-        ↓
-project-model
-        ↓
-current map Game Design
-        ↓
-scoped Gameplay Contract / design readiness
-        ↓
-analyzers
-        ↓
-semantic graph + Semantic IR
-        ↓
-Gameplay Intent Model
-        ↓
-Behavioral World Model
-        ↓
-Diagnostic Reasoning
-        ↓
-Reliability Search / Runtime Lab
-        ↓
-causal reasoning
-        ↓
-repair + preservation verification
-        ↓
-orchestrator
+runSelectedMapAudit({ artifactPath })    ← one programmatic coordinator, if executed
+  TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT
+                 ↕ calls/derives from existing semantic owners
+selected .mcworld (sole current gameplay authority)
+  → artifact / archive / native adapters
+  → read-only analyzers + normalized project model
+  → semantic graph / Semantic IR / Gameplay Intent / Behavioral World Model
+  → diagnostics / counter-evidence / proof requirements
+  → evidence-bounded Map Audit Output V2 projection
 ```
 
+The stages belong to the selected-map workflow. Their order/admission is owned by the orchestrator, while artifact, analysis, semantic modeling, diagnostics and validation meaning remain with their canonical packages. A model is a derived representation, **not** a standalone `MODEL` stage. Stress, concurrency, boundary and cross-system challenges are part of `EVALUATE`, **not** a standalone `STRESS` stage. The operator-facing report does not implicitly approve a bug or authorize mutation.
+
+**Separately authorized repair (only after approval):**
+
+```text
+approved BUG / explicitly approved design change
+  → repair admission + Must Change / Must Preserve
+  → existing repair + preservation owners
+  → targeted validation / permitted packaging
+  → approved downstream report or artifact handoff
+```
+
+Repair is neither a compulsory audit stage nor an analyzer side effect. Source inspection, GitHub commits, isolated code tests, an actual programmatic selected-map audit, and live Minecraft observations remain distinct proof ceilings.
 ## Development sequencing — reusable Game Design boundary and downstream work
 
 Game Design feature expansion is **PAUSED as a development priority**, not disabled, deleted or certified complete. Retain existing `gameplay-intent`, `semantic-ir`, `game-design-spec`, authored-source analyzers and the scoped `GameplayContract` API. Additional mechanics/evidence can later be represented through their existing semantic owner with downstream consumer review; no frozen claim of universal meaning, runtime reachability or contract immutability is implied.

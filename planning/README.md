@@ -4,7 +4,7 @@ Repository planning lives here. This directory answers **what should be worked o
 
 ## Scope
 
-- `development.md` — M-Bedrock-Dev product, engine, architecture, tooling, detection, and technical-debt work.
+- `development.md` — M-Lazy-Developer product, engine, architecture, tooling, detection, and technical-debt work.
 - `operations.md` — cross-project operational intent and policy. Add a machine-readable queue only when a real active campaign requires one.
 - `projects.md` — compact project-specific continuation pointers. Detailed project files and execution state remain under `workspace/projects/<project-id>/`.
 
