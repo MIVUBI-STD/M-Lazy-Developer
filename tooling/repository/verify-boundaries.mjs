@@ -1,10 +1,10 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, normalize, relative, resolve, sep } from "node:path";
+import { importSpecifiers } from "./source-import-specifiers.mjs";
 
 const ROOT = process.cwd();
 const SOURCE_ROOTS = ["apps", "engine/packages", "engine/analyzers", "engine/adapters"];
 const EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs"]);
-const IMPORT_RE = /(?:import|export)\s+(?:type\s+)?(?:[^"'()]*?\s+from\s+)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)/g;
 
 function walk(dir) {
   const output = [];
@@ -126,9 +126,9 @@ for (const rootName of SOURCE_ROOTS) {
 
   for (const file of walk(root)) {
     const text = readFileSync(file, "utf8");
-    for (const match of text.matchAll(IMPORT_RE)) {
-      const specifier = match[1] ?? match[2];
-      if (!specifier) continue;
+    // Use the same real import/export/dynamic-import AST evidence as the
+    // dependency graph. Strings and comments are never module edges.
+    for (const { specifier } of importSpecifiers(file, text)) {
       const externalReason = externalSpecifierViolation(file, specifier);
       if (externalReason) {
         failures.push({
