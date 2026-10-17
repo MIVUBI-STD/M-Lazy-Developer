@@ -22,6 +22,12 @@ export function importSpecifiers(filePath, content) {
             node.exportClause.elements.every(item => item.isTypeOnly)));
       found.push({ specifier: node.moduleSpecifier.text, runtime: !typeOnly });
     }
+    // Type-position import("./types.js") references a source module but
+    // never creates a runtime dependency edge.
+    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) &&
+        ts.isStringLiteralLike(node.argument.literal)) {
+      found.push({specifier: node.argument.literal.text, runtime: false});
+    }
     if (ts.isImportEqualsDeclaration(node) &&
         ts.isExternalModuleReference(node.moduleReference) &&
         node.moduleReference.expression && ts.isStringLiteralLike(node.moduleReference.expression)) {
