@@ -6,7 +6,7 @@ It is expected to have higher fan-out than ordinary engine modules because it co
 
 ## Internal navigation
 
-The public surface is `src/index.ts`, but it now routes through family entrypoints instead of exporting hundreds of flat implementation modules directly.
+The public export surface is `src/index.ts`: it includes family barrels **and explicitly retained root production audit owners**. Most older flat root paths are compatibility aliases, but root location alone does not prove a file is an alias.
 
 ```text
 src/
@@ -28,15 +28,15 @@ These family barrels are the canonical navigation hierarchy for orchestrator.
 
 The user-facing selected-map flow is `TARGET → DISCOVERY → UNDERSTAND → FORMALIZE → EVALUATE → PROVE → REPORT`. These are **workflow stages**, not additional source directories or alternate semantic owners. Navigate stages through the existing canonical `docs/system/implementation-map.md` and the audit workflow; implementation remains owned by the responsible family/package/analyzer. `MODEL` is a derived representation used across UNDERSTAND/FORMALIZE, and stress/cross-system checks are EVALUATE obligations, not alternate audit stages.
 
-- The root production `map-audit-*.ts` files own specific audit coordination, admission, or projections, not generic Minecraft analysis.
+- Root production audit implementations such as `map-audit-pipeline.ts`, `map-audit-admission.ts`, `map-audit-issue-projection.ts` and `map-audit-output-v2.ts` own actual audit coordination, admission or projections. They are not compatibility stubs.
 - Family `src/<family>/<responsibility>.ts` files own their declared orchestration concern. A family index is a navigation/export surface, not a second implementation.
-- Flat root re-exports are legacy compatibility paths, never the preferred implementation or a new source of truth.
+- Confirmed flat root files containing only re-exports (for example `context-compiler.ts` and `arena-lifecycle-analysis.ts`) are legacy compatibility paths, never the preferred implementation or a new source of truth.
 - When a name does not match its implementation, prove the actual owner and affected imports before renaming or moving it.
 - One authoritative result contract per production flow; derived report formats must not create parallel state or approval authority.
 
 ## Compatibility alias rule
 
-Legacy flat `src/*.ts` re-export stubs are compatibility-only. They are not canonical owners.
+**Only confirmed re-export-only files** among root `src/*.ts` paths are compatibility stubs. Production root audit owners contain real imports, logic and exports and must not be relabeled as compatibility by their path.
 
 Rules:
 
@@ -49,7 +49,7 @@ This keeps current work practical without a risky mass-delete while CI/local ver
 
 ## Physical layout
 
-Canonical implementations live under the family directories above. Legacy flat source paths are compatibility re-export stubs only and must not receive new implementation logic.
+Canonical implementations live primarily under the family directories above, **plus the established root `map-audit-*` production owners** documented in [Implementation Map](../../../docs/system/implementation-map.md). A verified re-export-only root stub must not receive new implementation logic. Classify by actual source contents and consumers before proposing any move, merge or deletion.
 
 ## Production selected-map audit boundary
 
