@@ -20,9 +20,10 @@ import type {
 import type {
   GameplayDefectResolutionGate,
 } from "./inspection/gameplay-defect-resolution.js";
-import type {
-  SelectedMapAuditAdmission,
-  SelectedMapAuditStage,
+import {
+  SELECTED_MAP_AUDIT_STAGE_ORDER,
+  type SelectedMapAuditAdmission,
+  type SelectedMapAuditStage,
 } from "./map-audit-admission.js";
 import type {
   AuditObligation,
@@ -932,7 +933,14 @@ export function deriveAuditModelTaskPackets(input: {
             ...auditObligationPackets,
           ];
 
-  return packets.map((packet) => {
+  // Navigation, PROVE and obligation packets may all be valid independent
+  // work, but handoff must always introduce the earliest unresolved stage
+  // first. Retain intra-stage producer order and every existing task ID.
+  const orderedPackets = [...packets].sort((a, b) =>
+    SELECTED_MAP_AUDIT_STAGE_ORDER.indexOf(a.stage) -
+      SELECTED_MAP_AUDIT_STAGE_ORDER.indexOf(b.stage)
+  );
+  return orderedPackets.map((packet) => {
     const knowledgeLookup = deriveAuditModelKnowledgeLookup(
       input.intent,
       packet.decisionNeeded,

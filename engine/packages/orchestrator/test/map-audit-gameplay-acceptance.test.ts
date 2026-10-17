@@ -256,6 +256,13 @@ describe("Game Reconstruction selected-map production acceptance (synthetic)", (
       expect(handoff.gameUnderstanding.gameplayFlowBasis)
         .toBe("AUDIT_CHECKLIST_NOT_OBSERVED_GAMEPLAY");
       expect(handoff.taskCount).toBe(result.modelTaskPackets.length);
+      // Independent proof-navigation tasks must not leapfrog an earlier
+      // canonical audit checkpoint in the model-facing task queue.
+      const packetStageRanks = result.modelTaskPackets.map(task =>
+        result.stageOrder.indexOf(task.stage));
+      expect(packetStageRanks).toEqual(
+        [...packetStageRanks].sort((left, right) => left - right),
+      );
       expect(handoff.tasks.every(({ task }) =>
         task.auditRevision === result.auditRevision)).toBe(true);
       const emptyAnswers = {
